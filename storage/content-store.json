@@ -1,0 +1,4418 @@
+{
+  "version": 4,
+  "places": [
+    {
+      "id": "restaurant-madame-lan",
+      "categoryId": "restaurants",
+      "title": "Madame Lân",
+      "description": "Известный ресторан в центре Дананга с классическими вьетнамскими блюдами и видом на реку Han.",
+      "address": "04 Bạch Đằng, Thạch Thang, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "+84 905 697 555",
+      "website": "https://www.madamelan.com/en",
+      "hours": "Ежедневно 06:30–21:30",
+      "avgCheck": null,
+      "kind": "Ресторан",
+      "cuisine": "Вьетнамская",
+      "services": [
+        "Вид на реку",
+        "Большой зал"
+      ],
+      "tags": [
+        "центр",
+        "han river",
+        "вьетнамская кухня"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Madame Lân",
+      "imageSrc": "https://cdn.prod.website-files.com/654dfdc9a008278170eea03f/661e086f76d6e4e39a01854c_507a6748.webp",
+      "imageGallery": [
+        "https://cdn.prod.website-files.com/654dfdc9a008278170eea03f/661e086f76d6e4e39a01854c_507a6748.webp"
+      ],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "restaurants-madame-ln",
+      "categorySlug": "restaurants",
+      "featured": true,
+      "shortDescription": "Вьетнамский ресторан на Bach Dang у реки Han.",
+      "priceLabel": "",
+      "listingType": "Ресторан",
+      "childFriendly": false,
+      "petFriendly": false,
+      "mapQuery": "04 Bạch Đằng, Thạch Thang, Hải Châu, Đà Nẵng, Vietnam",
+      "extra": [
+        "Вид на реку",
+        "Большой зал"
+      ],
+      "imageUrls": [
+        "https://cdn.prod.website-files.com/654dfdc9a008278170eea03f/661e086f76d6e4e39a01854c_507a6748.webp"
+      ],
+      "coverImageUrl": "https://cdn.prod.website-files.com/654dfdc9a008278170eea03f/661e086f76d6e4e39a01854c_507a6748.webp",
+      "websiteUrl": "https://www.madamelan.com/en",
+      "phoneNumber": "+84 905 697 555",
+      "district": "Hải Châu",
+      "location": "04 Bạch Đằng, Thạch Thang, Hải Châu, Đà Nẵng",
+      "type": "Ресторан",
+      "status": "published",
+      "sortOrder": 10,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    },
+    {
+      "id": "wellness-herbal-spa",
+      "categoryId": "wellness",
+      "title": "Herbal Spa",
+      "description": "Реальный spa-центр недалеко от пляжной части Дананга, известный массажными программами и приватными комнатами.",
+      "address": "201 D. Đình Nghệ, An Hải Bắc, Sơn Trà, Đà Nẵng 550000, Vietnam",
+      "phone": "+84 236 7305 779",
+      "website": "https://herbalspa.vn/en",
+      "hours": "Ежедневно 09:00–22:30",
+      "avgCheck": 650000,
+      "kind": "СПА",
+      "cuisine": "",
+      "services": [
+        "Массаж",
+        "Ароматерапия",
+        "Private room"
+      ],
+      "tags": [
+        "spa",
+        "massage",
+        "son tra"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Herbal Spa",
+      "imageSrc": "https://herbalspa.vn/data/slide_desktop/Herbal_Spa_2026.webp",
+      "imageGallery": [
+        "https://herbalspa.vn/data/slide_desktop/Herbal_Spa_2026.webp"
+      ],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "wellness-herbal-spa",
+      "categorySlug": "wellness",
+      "featured": true,
+      "shortDescription": "Популярный spa-салон в Sơn Trà с длинным режимом работы.",
+      "priceLabel": "от 650,000 VND",
+      "listingType": "СПА",
+      "childFriendly": false,
+      "petFriendly": false,
+      "mapQuery": "201 D. Đình Nghệ, An Hải Bắc, Sơn Trà, Đà Nẵng 550000, Vietnam",
+      "extra": [
+        "Массаж",
+        "Ароматерапия",
+        "Private room"
+      ],
+      "imageUrls": [
+        "https://herbalspa.vn/data/slide_desktop/Herbal_Spa_2026.webp"
+      ],
+      "coverImageUrl": "https://herbalspa.vn/data/slide_desktop/Herbal_Spa_2026.webp",
+      "websiteUrl": "https://herbalspa.vn/en",
+      "phoneNumber": "+84 236 7305 779",
+      "district": "Sơn Trà",
+      "location": "201 D. Đình Nghệ, An Hải Bắc, Sơn Trà, Đà Nẵng",
+      "type": "СПА",
+      "status": "published",
+      "sortOrder": 20,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    },
+    {
+      "id": "active-mikazuki-water-park",
+      "categoryId": "active-rest",
+      "title": "Mikazuki Water Park 365",
+      "description": "Крытый и открытый водный парк в северной части Дананга с горками, lazy river и семейными зонами отдыха.",
+      "address": "Xuan Thieu Tourism Area, Nguyễn Tất Thành, Hòa Hiệp Nam, Liên Chiểu, Đà Nẵng, Vietnam",
+      "phone": "+84 236 3774 555",
+      "website": "https://www.mikazukiwaterpark.com/",
+      "hours": "Ежедневно 09:00–19:00",
+      "avgCheck": null,
+      "kind": "Аквапарк",
+      "cuisine": "",
+      "services": [
+        "Горки",
+        "Lazy river",
+        "Family zone"
+      ],
+      "tags": [
+        "water",
+        "family",
+        "lien chieu"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": true,
+      "top": true,
+      "imageLabel": "Mikazuki Water Park 365",
+      "imageSrc": "https://static.wixstatic.com/media/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg/v1/fill/w_250%2Ch_167%2Cal_c%2Cq_90%2Cenc_auto/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg",
+      "imageGallery": [
+        "https://static.wixstatic.com/media/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg/v1/fill/w_250%2Ch_167%2Cal_c%2Cq_90%2Cenc_auto/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg"
+      ],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "active-rest-mikazuki-water-park-365",
+      "categorySlug": "active-rest",
+      "featured": true,
+      "shortDescription": "Крупный семейный water park в северной части Дананга.",
+      "priceLabel": "",
+      "listingType": "Активный отдых",
+      "childFriendly": true,
+      "petFriendly": false,
+      "mapQuery": "Xuan Thieu Tourism Area, Nguyễn Tất Thành, Hòa Hiệp Nam, Liên Chiểu, Đà Nẵng, Vietnam",
+      "extra": [
+        "Горки",
+        "Lazy river",
+        "Family zone"
+      ],
+      "imageUrls": [
+        "https://static.wixstatic.com/media/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg/v1/fill/w_250%2Ch_167%2Cal_c%2Cq_90%2Cenc_auto/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg"
+      ],
+      "coverImageUrl": "https://static.wixstatic.com/media/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg/v1/fill/w_250%2Ch_167%2Cal_c%2Cq_90%2Cenc_auto/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg",
+      "websiteUrl": "https://www.mikazukiwaterpark.com/",
+      "phoneNumber": "+84 236 3774 555",
+      "district": "Liên Chiểu",
+      "location": "Xuan Thieu Tourism Area, Nguyễn Tất Thành, Liên Chiểu, Đà Nẵng",
+      "type": "Аквапарк",
+      "status": "published",
+      "sortOrder": 30,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    },
+    {
+      "id": "route-hai-van-pass",
+      "categoryId": "photo-spots",
+      "title": "Hải Vân Pass Viewpoints",
+      "description": "Один из самых известных маршрутов рядом с Данангом: серпантин, видовые точки и остановки с панорамой моря и гор.",
+      "address": "Hải Vân Pass, Hòa Hiệp Bắc, Liên Chiểu, Đà Nẵng, Vietnam",
+      "phone": "",
+      "website": "https://danangfantasticity.com/en/sight-seeing-en/hai-van-pass",
+      "hours": "",
+      "avgCheck": null,
+      "kind": "Видовая дорога",
+      "cuisine": "",
+      "services": [
+        "Видовые точки",
+        "Поездка на байке",
+        "Фотостопы"
+      ],
+      "tags": [
+        "view",
+        "road trip",
+        "mountains"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Hải Vân Pass",
+      "imageSrc": "https://danangfantasticity.com/wp-content/uploads/2024/05/kinh-nghiem-di-hai-van-quan-da-nang-tu-a-den-z-3.jpg",
+      "imageGallery": [
+        "https://danangfantasticity.com/wp-content/uploads/2024/05/kinh-nghiem-di-hai-van-quan-da-nang-tu-a-den-z-3.jpg"
+      ],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "photo-spots-hi-vn-pass-viewpoints",
+      "categorySlug": "photo-spots",
+      "featured": true,
+      "shortDescription": "Живописные виды и фотостопы на перевале Hải Vân.",
+      "priceLabel": "",
+      "listingType": "Виды города",
+      "childFriendly": false,
+      "petFriendly": false,
+      "mapQuery": "Hải Vân Pass, Hòa Hiệp Bắc, Liên Chiểu, Đà Nẵng, Vietnam",
+      "extra": [
+        "Видовые точки",
+        "Поездка на байке",
+        "Фотостопы"
+      ],
+      "imageUrls": [
+        "https://danangfantasticity.com/wp-content/uploads/2024/05/kinh-nghiem-di-hai-van-quan-da-nang-tu-a-den-z-3.jpg"
+      ],
+      "coverImageUrl": "https://danangfantasticity.com/wp-content/uploads/2024/05/kinh-nghiem-di-hai-van-quan-da-nang-tu-a-den-z-3.jpg",
+      "websiteUrl": "https://danangfantasticity.com/en/sight-seeing-en/hai-van-pass",
+      "phoneNumber": "",
+      "district": "Liên Chiểu",
+      "location": "Hải Vân Pass, Liên Chiểu, Đà Nẵng",
+      "type": "Видовая точка",
+      "status": "published",
+      "sortOrder": 40,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    },
+    {
+      "id": "hotel-mikazuki-resort",
+      "categoryId": "hotels",
+      "title": "Da Nang Mikazuki Japanese Resorts & Spa",
+      "description": "Крупный курортный комплекс на северном побережье Дананга с японским spa-форматом, бассейнами и прямым выходом к морю.",
+      "address": "Xuan Thieu Tourism Area, Nguyễn Tất Thành, Hòa Hiệp Nam, Liên Chiểu, Đà Nẵng, Vietnam",
+      "phone": "+84 236 3774 555",
+      "website": "https://mikazuki.com.vn/en/",
+      "hours": "",
+      "avgCheck": null,
+      "kind": "Курорт",
+      "cuisine": "",
+      "services": [
+        "Бассейн",
+        "Onsen",
+        "Пляж"
+      ],
+      "tags": [
+        "resort",
+        "beach",
+        "japanese style"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": true,
+      "top": true,
+      "imageLabel": "Da Nang Mikazuki Japanese Resorts & Spa",
+      "imageSrc": "https://static.wixstatic.com/media/f39377_136053b0734645718cf437f01a1abf56~mv2.jpg/v1/fill/w_250%2Ch_140%2Cal_c%2Cq_90%2Cenc_auto/f39377_136053b0734645718cf437f01a1abf56~mv2.jpg",
+      "imageGallery": [
+        "https://static.wixstatic.com/media/f39377_136053b0734645718cf437f01a1abf56~mv2.jpg/v1/fill/w_250%2Ch_140%2Cal_c%2Cq_90%2Cenc_auto/f39377_136053b0734645718cf437f01a1abf56~mv2.jpg"
+      ],
+      "hotelStars": 5,
+      "hotelPool": true,
+      "hotelSpa": true,
+      "slug": "hotels-da-nang-mikazuki-japanese-resorts-spa",
+      "categorySlug": "hotels",
+      "featured": true,
+      "shortDescription": "Пятизвёздочный resort в Liên Chiểu с японским spa-акцентом.",
+      "priceLabel": "",
+      "listingType": "Отель",
+      "childFriendly": true,
+      "petFriendly": false,
+      "mapQuery": "Xuan Thieu Tourism Area, Nguyễn Tất Thành, Hòa Hiệp Nam, Liên Chiểu, Đà Nẵng, Vietnam",
+      "extra": [
+        "Бассейн",
+        "Onsen",
+        "Пляж"
+      ],
+      "imageUrls": [
+        "https://static.wixstatic.com/media/f39377_136053b0734645718cf437f01a1abf56~mv2.jpg/v1/fill/w_250%2Ch_140%2Cal_c%2Cq_90%2Cenc_auto/f39377_136053b0734645718cf437f01a1abf56~mv2.jpg"
+      ],
+      "coverImageUrl": "https://static.wixstatic.com/media/f39377_136053b0734645718cf437f01a1abf56~mv2.jpg/v1/fill/w_250%2Ch_140%2Cal_c%2Cq_90%2Cenc_auto/f39377_136053b0734645718cf437f01a1abf56~mv2.jpg",
+      "websiteUrl": "https://mikazuki.com.vn/en/",
+      "phoneNumber": "+84 236 3774 555",
+      "district": "Liên Chiểu",
+      "location": "Xuan Thieu Tourism Area, Nguyễn Tất Thành, Liên Chiểu, Đà Nẵng",
+      "type": "Отель",
+      "status": "published",
+      "sortOrder": 50,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    },
+    {
+      "id": "event-dragon-bridge-show",
+      "categoryId": "events",
+      "title": "Dragon Bridge Fire & Water Show",
+      "description": "Знаменитое вечернее шоу на мосту Rồng: огонь и вода по выходным, одно из самых узнаваемых зрелищ Дананга.",
+      "address": "Cầu Rồng, Nguyễn Văn Linh, Phước Ninh, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "",
+      "website": "https://www.vietnamairlines.com/us/en/plan-book/travel/travel-guide/dragon-bridge-danang",
+      "hours": "Пятница–воскресенье, 21:00",
+      "avgCheck": null,
+      "kind": "Городское шоу",
+      "cuisine": "",
+      "services": [
+        "Огонь",
+        "Вода",
+        "Вечерняя прогулка"
+      ],
+      "tags": [
+        "weekend",
+        "night",
+        "han river"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": true,
+      "top": true,
+      "imageLabel": "Dragon Bridge",
+      "imageSrc": "https://traveldanang.org/wp-content/uploads/2024/08/cau-rong-da-nang.jpg",
+      "imageGallery": [
+        "https://traveldanang.org/wp-content/uploads/2024/08/cau-rong-da-nang.jpg"
+      ],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "events-dragon-bridge-fire-water-show",
+      "categorySlug": "events",
+      "featured": true,
+      "shortDescription": "Вечернее шоу на Dragon Bridge по выходным.",
+      "priceLabel": "Бесплатно",
+      "listingType": "Событие",
+      "childFriendly": true,
+      "petFriendly": false,
+      "mapQuery": "Cầu Rồng, Nguyễn Văn Linh, Phước Ninh, Hải Châu, Đà Nẵng, Vietnam",
+      "extra": [
+        "Огонь",
+        "Вода",
+        "Вечерняя прогулка"
+      ],
+      "imageUrls": [
+        "https://traveldanang.org/wp-content/uploads/2024/08/cau-rong-da-nang.jpg"
+      ],
+      "coverImageUrl": "https://traveldanang.org/wp-content/uploads/2024/08/cau-rong-da-nang.jpg",
+      "websiteUrl": "https://www.vietnamairlines.com/us/en/plan-book/travel/travel-guide/dragon-bridge-danang",
+      "phoneNumber": "",
+      "district": "Hải Châu",
+      "location": "Dragon Bridge, Nguyễn Văn Linh, Hải Châu, Đà Nẵng",
+      "type": "Событие",
+      "status": "published",
+      "sortOrder": 60,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    },
+    {
+      "id": "transport-da-nang-airport",
+      "categoryId": "misc",
+      "title": "Da Nang International Airport",
+      "description": "Главный аэропорт города для внутренних и международных рейсов, ближайшая транспортная точка для прилёта в Дананг.",
+      "address": "Duy Tân, Hòa Thuận Tây, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "+84 236 3539 555",
+      "website": "https://www.vietnamairports.vn/danangairport/en/",
+      "hours": "24/7",
+      "avgCheck": null,
+      "kind": "Аэропорт",
+      "cuisine": "",
+      "services": [
+        "Прилёт",
+        "Такси",
+        "Трансфер"
+      ],
+      "tags": [
+        "airport",
+        "24/7",
+        "arrival"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Da Nang International Airport",
+      "imageSrc": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Da_Nang_International_Airport%2C_Vietnam.jpg/500px-Da_Nang_International_Airport%2C_Vietnam.jpg",
+      "imageGallery": [
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Da_Nang_International_Airport%2C_Vietnam.jpg/500px-Da_Nang_International_Airport%2C_Vietnam.jpg"
+      ],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "misc-da-nang-international-airport",
+      "categorySlug": "misc",
+      "featured": true,
+      "shortDescription": "Международный аэропорт Дананга в районе Hải Châu.",
+      "priceLabel": "",
+      "listingType": "Разное",
+      "childFriendly": false,
+      "petFriendly": false,
+      "mapQuery": "Duy Tân, Hòa Thuận Tây, Hải Châu, Đà Nẵng, Vietnam",
+      "extra": [
+        "Прилёт",
+        "Такси",
+        "Трансфер"
+      ],
+      "imageUrls": [
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Da_Nang_International_Airport%2C_Vietnam.jpg/500px-Da_Nang_International_Airport%2C_Vietnam.jpg"
+      ],
+      "coverImageUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Da_Nang_International_Airport%2C_Vietnam.jpg/500px-Da_Nang_International_Airport%2C_Vietnam.jpg",
+      "websiteUrl": "https://www.vietnamairports.vn/danangairport/en/",
+      "phoneNumber": "+84 236 3539 555",
+      "district": "Hải Châu",
+      "location": "Duy Tân, Hòa Thuận Tây, Hải Châu, Đà Nẵng",
+      "type": "Аэропорт",
+      "status": "published",
+      "sortOrder": 70,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    },
+    {
+      "id": "atm-vietcombank-tran-phu",
+      "categoryId": "atm",
+      "title": "Vietcombank ATM Trần Phú",
+      "description": "Банкомат и точка ориентира в центральной части Дананга, рядом с улицей Trần Phú и прогулочной зоной.",
+      "address": "68 Trần Phú, Hải Châu 1, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "",
+      "website": "https://www.vietcombank.com.vn/",
+      "hours": "24/7",
+      "avgCheck": null,
+      "kind": "Банкомат",
+      "cuisine": "",
+      "services": [
+        "Наличные",
+        "VISA",
+        "Mastercard"
+      ],
+      "tags": [
+        "cash",
+        "center",
+        "24/7"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": false,
+      "imageLabel": "Vietcombank ATM",
+      "imageSrc": "",
+      "imageGallery": [],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "atm-vietcombank-atm-trn-ph",
+      "categorySlug": "atm",
+      "featured": false,
+      "shortDescription": "Центральный ATM на Trần Phú в районе Hải Châu.",
+      "priceLabel": "",
+      "listingType": "Банкомат",
+      "childFriendly": false,
+      "petFriendly": false,
+      "mapQuery": "68 Trần Phú, Hải Châu 1, Hải Châu, Đà Nẵng, Vietnam",
+      "extra": [
+        "Наличные",
+        "VISA",
+        "Mastercard"
+      ],
+      "imageUrls": [],
+      "coverImageUrl": "",
+      "websiteUrl": "https://www.vietcombank.com.vn/",
+      "phoneNumber": "",
+      "district": "Hải Châu",
+      "location": "68 Trần Phú, Hải Châu 1, Hải Châu, Đà Nẵng",
+      "type": "Банкомат",
+      "status": "published",
+      "sortOrder": 80,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    },
+    {
+      "id": "shop-han-market",
+      "categoryId": "shops",
+      "title": "Han Market",
+      "description": "Один из самых известных рынков Дананга, куда обычно идут за кофе, сладостями, сувенирами и повседневными покупками.",
+      "address": "119 Trần Phú, Hải Châu 1, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "",
+      "website": "https://traveldanang.org/place/han-market/",
+      "hours": "",
+      "avgCheck": null,
+      "kind": "Рынок",
+      "cuisine": "",
+      "services": [
+        "Сувениры",
+        "Кофе",
+        "Локальные продукты"
+      ],
+      "tags": [
+        "market",
+        "souvenirs",
+        "center"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Han Market",
+      "imageSrc": "https://traveldanang.org/wp-content/uploads/2024/08/cho-han-da-nang.jpg",
+      "imageGallery": [
+        "https://traveldanang.org/wp-content/uploads/2024/08/cho-han-da-nang.jpg"
+      ],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "shops-han-market",
+      "categorySlug": "shops",
+      "featured": true,
+      "shortDescription": "Популярный центральный рынок Дананга.",
+      "priceLabel": "",
+      "listingType": "Покупки",
+      "childFriendly": false,
+      "petFriendly": false,
+      "mapQuery": "119 Trần Phú, Hải Châu 1, Hải Châu, Đà Nẵng, Vietnam",
+      "extra": [
+        "Сувениры",
+        "Кофе",
+        "Локальные продукты"
+      ],
+      "imageUrls": [
+        "https://traveldanang.org/wp-content/uploads/2024/08/cho-han-da-nang.jpg"
+      ],
+      "coverImageUrl": "https://traveldanang.org/wp-content/uploads/2024/08/cho-han-da-nang.jpg",
+      "websiteUrl": "https://traveldanang.org/place/han-market/",
+      "phoneNumber": "",
+      "district": "Hải Châu",
+      "location": "119 Trần Phú, Hải Châu 1, Hải Châu, Đà Nẵng",
+      "type": "Рынок",
+      "status": "published",
+      "sortOrder": 90,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    },
+    {
+      "id": "culture-cham-museum",
+      "categoryId": "culture",
+      "title": "Da Nang Museum of Cham Sculpture",
+      "description": "Главный музей Дананга с крупнейшей коллекцией чамской скульптуры и одной из ключевых культурных точек города.",
+      "address": "02 Đ. 2 Tháng 9, Bình Hiên, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "",
+      "website": "https://traveldanang.org/place/cham-museum/",
+      "hours": "07:00–17:00",
+      "avgCheck": null,
+      "kind": "Музей",
+      "cuisine": "",
+      "services": [
+        "Экспозиция",
+        "История",
+        "Центр города"
+      ],
+      "tags": [
+        "museum",
+        "culture",
+        "history"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": true,
+      "top": true,
+      "imageLabel": "Cham Museum",
+      "imageSrc": "https://traveldanang.org/wp-content/uploads/2024/08/bao-tang-dieu-khac-cham-da-nang-2.jpg",
+      "imageGallery": [
+        "https://traveldanang.org/wp-content/uploads/2024/08/bao-tang-dieu-khac-cham-da-nang-2.jpg"
+      ],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "culture-da-nang-museum-of-cham-sculpture",
+      "categorySlug": "culture",
+      "featured": true,
+      "shortDescription": "Ключевой музей Дананга с коллекцией чамского искусства.",
+      "priceLabel": "",
+      "listingType": "Культура",
+      "childFriendly": true,
+      "petFriendly": false,
+      "mapQuery": "02 Đ. 2 Tháng 9, Bình Hiên, Hải Châu, Đà Nẵng, Vietnam",
+      "extra": [
+        "Экспозиция",
+        "История",
+        "Центр города"
+      ],
+      "imageUrls": [
+        "https://traveldanang.org/wp-content/uploads/2024/08/bao-tang-dieu-khac-cham-da-nang-2.jpg"
+      ],
+      "coverImageUrl": "https://traveldanang.org/wp-content/uploads/2024/08/bao-tang-dieu-khac-cham-da-nang-2.jpg",
+      "websiteUrl": "https://traveldanang.org/place/cham-museum/",
+      "phoneNumber": "",
+      "district": "Hải Châu",
+      "location": "02 Đ. 2 Tháng 9, Bình Hiên, Hải Châu, Đà Nẵng",
+      "type": "Музей",
+      "status": "published",
+      "sortOrder": 100,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    },
+    {
+      "id": "kids-helio-center",
+      "categoryId": "kids",
+      "title": "Helio Center",
+      "description": "Семейное пространство в Дананге с indoor- и outdoor-зонами, игровыми форматами и вечерней активностью для детей.",
+      "address": "01 Đường 2/9, Hòa Cường Bắc, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "+84 236 3630 666",
+      "website": "https://helio.vn/",
+      "hours": "Ежедневно 16:00–22:30",
+      "avgCheck": null,
+      "kind": "Семейный центр",
+      "cuisine": "",
+      "services": [
+        "Игры",
+        "Indoor zone",
+        "Family"
+      ],
+      "tags": [
+        "kids",
+        "family",
+        "evening"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": true,
+      "top": false,
+      "imageLabel": "Helio Center",
+      "imageSrc": "https://helio.vn/media/types/khu_trong_nha_ATBNMEi.jpg",
+      "imageGallery": [
+        "https://helio.vn/media/types/khu_trong_nha_ATBNMEi.jpg"
+      ],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "kids-helio-center",
+      "categorySlug": "kids",
+      "featured": false,
+      "shortDescription": "Семейная площадка с играми и вечерними активностями.",
+      "priceLabel": "",
+      "listingType": "Детям",
+      "childFriendly": true,
+      "petFriendly": false,
+      "mapQuery": "01 Đường 2/9, Hòa Cường Bắc, Hải Châu, Đà Nẵng, Vietnam",
+      "extra": [
+        "Игры",
+        "Indoor zone",
+        "Family"
+      ],
+      "imageUrls": [
+        "https://helio.vn/media/types/khu_trong_nha_ATBNMEi.jpg"
+      ],
+      "coverImageUrl": "https://helio.vn/media/types/khu_trong_nha_ATBNMEi.jpg",
+      "websiteUrl": "https://helio.vn/",
+      "phoneNumber": "+84 236 3630 666",
+      "district": "Hải Châu",
+      "location": "01 Đường 2/9, Hòa Cường Bắc, Hải Châu, Đà Nẵng",
+      "type": "Семейный центр",
+      "status": "published",
+      "sortOrder": 110,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    },
+    {
+      "id": "medicine-family-hospital",
+      "categoryId": "medicine",
+      "title": "Family Hospital",
+      "description": "Крупная многопрофильная больница в Дананге с международным отделением и экстренной помощью 24/7.",
+      "address": "73 Nguyễn Hữu Thọ, Hòa Thuận Tây, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "+84 236 3632 111",
+      "website": "https://www.familyhospital.vn/en/",
+      "hours": "24/7",
+      "avgCheck": null,
+      "kind": "Больница",
+      "cuisine": "",
+      "services": [
+        "Emergency",
+        "International department",
+        "24/7"
+      ],
+      "tags": [
+        "hospital",
+        "english",
+        "emergency"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Family Hospital",
+      "imageSrc": "https://www.familyhospital.vn/wp-content/uploads/2025/03/BANNER.jpg",
+      "imageGallery": [
+        "https://www.familyhospital.vn/wp-content/uploads/2025/03/BANNER.jpg"
+      ],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "medicine-family-hospital",
+      "categorySlug": "medicine",
+      "featured": true,
+      "shortDescription": "Крупная hospital-точка в Hải Châu с круглосуточной помощью.",
+      "priceLabel": "",
+      "listingType": "Медицина",
+      "childFriendly": false,
+      "petFriendly": false,
+      "mapQuery": "73 Nguyễn Hữu Thọ, Hòa Thuận Tây, Hải Châu, Đà Nẵng, Vietnam",
+      "extra": [
+        "Emergency",
+        "International department",
+        "24/7"
+      ],
+      "imageUrls": [
+        "https://www.familyhospital.vn/wp-content/uploads/2025/03/BANNER.jpg"
+      ],
+      "coverImageUrl": "https://www.familyhospital.vn/wp-content/uploads/2025/03/BANNER.jpg",
+      "websiteUrl": "https://www.familyhospital.vn/en/",
+      "phoneNumber": "+84 236 3632 111",
+      "district": "Hải Châu",
+      "location": "73 Nguyễn Hữu Thọ, Hòa Thuận Tây, Hải Châu, Đà Nẵng",
+      "type": "Больница",
+      "status": "published",
+      "sortOrder": 120,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    },
+    {
+      "id": "photo-son-tra-marina",
+      "categoryId": "photo-spots",
+      "title": "Son Tra Marina",
+      "description": "Известная фото-точка на полуострове Sơn Trà с бело-синим причалом, морским фоном и удобными кадрами на закате.",
+      "address": "Hồ Xanh, Thọ Quang, Sơn Trà, Đà Nẵng, Vietnam",
+      "phone": "",
+      "website": "https://danangfantasticity.com/the-son-tra-peninsula",
+      "hours": "",
+      "avgCheck": null,
+      "kind": "Фото-спот",
+      "cuisine": "",
+      "services": [
+        "Марина",
+        "Морской фон",
+        "Закат"
+      ],
+      "tags": [
+        "photo",
+        "sunset",
+        "son tra"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Son Tra Marina",
+      "imageSrc": "https://danangfantasticity.com/wp-content/uploads/2020/02/marina-4.jpg",
+      "imageGallery": [
+        "https://danangfantasticity.com/wp-content/uploads/2020/02/marina-4.jpg"
+      ],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "photo-spots-son-tra-marina",
+      "categorySlug": "photo-spots",
+      "featured": true,
+      "shortDescription": "Одна из самых узнаваемых фото-локаций на Sơn Trà.",
+      "priceLabel": "",
+      "listingType": "Фото-спот",
+      "childFriendly": false,
+      "petFriendly": false,
+      "mapQuery": "Hồ Xanh, Thọ Quang, Sơn Trà, Đà Nẵng, Vietnam",
+      "extra": [
+        "Марина",
+        "Морской фон",
+        "Закат"
+      ],
+      "imageUrls": [
+        "https://danangfantasticity.com/wp-content/uploads/2020/02/marina-4.jpg"
+      ],
+      "coverImageUrl": "https://danangfantasticity.com/wp-content/uploads/2020/02/marina-4.jpg",
+      "websiteUrl": "https://danangfantasticity.com/the-son-tra-peninsula",
+      "phoneNumber": "",
+      "district": "Sơn Trà",
+      "location": "Hồ Xanh, Thọ Quang, Sơn Trà, Đà Nẵng",
+      "type": "Фото-спот",
+      "status": "published",
+      "sortOrder": 130,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    },
+    {
+      "id": "coworking-enouvo-space",
+      "categoryId": "coworkings",
+      "title": "Enouvo Space 2",
+      "description": "Реальный коворкинг в районе Sơn Trà для удалённой работы, встреч и спокойных рабочих часов недалеко от пляжной части города.",
+      "address": "18 An Nhơn 3, An Hải, Sơn Trà, Đà Nẵng 550000, Vietnam",
+      "phone": "+84 93 533 07 27",
+      "website": "https://enouvospace.com/",
+      "hours": "Пн–Пт 08:00–19:00, Сб 08:00–17:00, Вс выходной",
+      "avgCheck": null,
+      "kind": "Коворкинг",
+      "cuisine": "",
+      "services": [
+        "Wi-Fi",
+        "Meeting room",
+        "Tea & coffee"
+      ],
+      "tags": [
+        "coworking",
+        "remote work",
+        "son tra"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": false,
+      "imageLabel": "Enouvo Space 2",
+      "imageSrc": "",
+      "imageGallery": [],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "coworkings-enouvo-space-2",
+      "categorySlug": "coworkings",
+      "featured": false,
+      "shortDescription": "Коворкинг в Sơn Trà для работы и встреч.",
+      "priceLabel": "",
+      "listingType": "Коворкинги",
+      "childFriendly": false,
+      "petFriendly": false,
+      "mapQuery": "18 An Nhơn 3, An Hải, Sơn Trà, Đà Nẵng 550000, Vietnam",
+      "extra": [
+        "Wi-Fi",
+        "Meeting room",
+        "Tea & coffee"
+      ],
+      "imageUrls": [],
+      "coverImageUrl": "",
+      "websiteUrl": "https://enouvospace.com/",
+      "phoneNumber": "+84 93 533 07 27",
+      "district": "Sơn Trà",
+      "location": "18 An Nhơn 3, An Hải, Sơn Trà, Đà Nẵng",
+      "type": "Коворкинг",
+      "status": "published",
+      "sortOrder": 135,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    },
+    {
+      "id": "car-rental-motorvina",
+      "categoryId": "car-rental",
+      "title": "Motorvina Da Nang",
+      "description": "Реальный сервис аренды байков во Вьетнаме с офисом в Дананге и возможностью брать транспорт для поездок по центру и северному побережью.",
+      "address": "66 Hải Phòng, Thạch Thang, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "+84 96 300 13 17",
+      "website": "https://motorvina.com/",
+      "hours": "Ежедневно 08:00–17:30",
+      "avgCheck": null,
+      "kind": "Прокат байков",
+      "cuisine": "",
+      "services": [
+        "Motorbike rental",
+        "One way",
+        "Travel support"
+      ],
+      "tags": [
+        "bike",
+        "rental",
+        "hai chau"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": false,
+      "imageLabel": "Motorvina",
+      "imageSrc": "https://motorvina.com/wp-content/uploads/2020/12/about-us-1.png",
+      "imageGallery": [
+        "https://motorvina.com/wp-content/uploads/2020/12/about-us-1.png"
+      ],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "car-rental-motorvina-da-nang",
+      "categorySlug": "car-rental",
+      "featured": false,
+      "shortDescription": "Прокат байков в Hải Châu с официальным офисом в Дананге.",
+      "priceLabel": "",
+      "listingType": "Автопрокат",
+      "childFriendly": false,
+      "petFriendly": false,
+      "mapQuery": "66 Hải Phòng, Thạch Thang, Hải Châu, Đà Nẵng, Vietnam",
+      "extra": [
+        "Motorbike rental",
+        "One way",
+        "Travel support"
+      ],
+      "imageUrls": [
+        "https://motorvina.com/wp-content/uploads/2020/12/about-us-1.png"
+      ],
+      "coverImageUrl": "https://motorvina.com/wp-content/uploads/2020/12/about-us-1.png",
+      "websiteUrl": "https://motorvina.com/",
+      "phoneNumber": "+84 96 300 13 17",
+      "district": "Hải Châu",
+      "location": "66 Hải Phòng, Thạch Thang, Hải Châu, Đà Nẵng",
+      "type": "Прокат байков",
+      "status": "published",
+      "sortOrder": 140,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    }
+  ],
+  "categories": [
+    {
+      "id": "restaurants",
+      "title": "Еда",
+      "path": "/restaurants",
+      "badge": "Популярно",
+      "description": "Рестораны, кафе, завтраки и места на каждый день.",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "restaurants",
+      "shortTitle": "Еда",
+      "accent": "sunset",
+      "imageSrc": "",
+      "filterSchema": {
+        "quickFilters": [
+          "breakfast",
+          "vegan",
+          "pets"
+        ],
+        "fields": [
+          "avgCheck",
+          "cuisine",
+          "kind",
+          "tags"
+        ]
+      },
+      "sortOrder": 10
+    },
+    {
+      "id": "events",
+      "title": "Досуг",
+      "path": "/section/events",
+      "badge": "",
+      "description": "Афиша, бары, вечерние планы и городские активности.",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "events",
+      "shortTitle": "Досуг",
+      "accent": "sunset",
+      "imageSrc": "",
+      "filterSchema": {
+        "quickFilters": [
+          "today",
+          "weekend",
+          "free"
+        ],
+        "fields": [
+          "kind",
+          "tags"
+        ]
+      },
+      "sortOrder": 20
+    },
+    {
+      "id": "wellness",
+      "title": "Оздоровление",
+      "path": "/wellness",
+      "badge": "",
+      "description": "СПА, массаж, хамам и спокойное восстановление.",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "wellness",
+      "shortTitle": "Оздоровление",
+      "accent": "emerald",
+      "imageSrc": "",
+      "filterSchema": {
+        "quickFilters": [
+          "childPrograms"
+        ],
+        "fields": [
+          "services",
+          "avgCheck",
+          "tags"
+        ]
+      },
+      "sortOrder": 30
+    },
+    {
+      "id": "active-rest",
+      "title": "Активный отдых",
+      "path": "/section/active-rest",
+      "badge": "",
+      "description": "",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "active-rest",
+      "shortTitle": "Активный отдых",
+      "accent": "sunset",
+      "imageSrc": "",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": []
+      },
+      "sortOrder": 40
+    },
+    {
+      "id": "hotels",
+      "title": "Резорты",
+      "path": "/section/hotels",
+      "badge": "",
+      "description": "",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "hotels",
+      "shortTitle": "Резорты",
+      "accent": "coast",
+      "imageSrc": "",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "hotelStars",
+          "hotelPool",
+          "hotelSpa",
+          "petFriendly",
+          "district"
+        ]
+      },
+      "sortOrder": 50
+    },
+    {
+      "id": "car-rental",
+      "title": "Транспорт",
+      "path": "/section/car-rental",
+      "badge": "",
+      "description": "",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "car-rental",
+      "shortTitle": "Транспорт",
+      "accent": "bridge",
+      "imageSrc": "",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "kind",
+          "services",
+          "avgCheck",
+          "district"
+        ]
+      },
+      "sortOrder": 60
+    },
+    {
+      "id": "atm",
+      "title": "Финансы",
+      "path": "/section/atm",
+      "badge": "",
+      "description": "",
+      "visible": true,
+      "showOnHome": false,
+      "slug": "atm",
+      "shortTitle": "Финансы",
+      "accent": "emerald",
+      "imageSrc": "",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "kind",
+          "services",
+          "district"
+        ]
+      },
+      "sortOrder": 70
+    },
+    {
+      "id": "shops",
+      "title": "Покупки",
+      "path": "/section/shops",
+      "badge": "",
+      "description": "",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "shops",
+      "shortTitle": "Покупки",
+      "accent": "sunset",
+      "imageSrc": "",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "kind",
+          "tags",
+          "district"
+        ]
+      },
+      "sortOrder": 80
+    },
+    {
+      "id": "culture",
+      "title": "Культура и искусство",
+      "path": "/section/culture",
+      "badge": "",
+      "description": "",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "culture",
+      "shortTitle": "Культура и искусство",
+      "accent": "coast",
+      "imageSrc": "",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "kind",
+          "tags",
+          "district"
+        ]
+      },
+      "sortOrder": 90
+    },
+    {
+      "id": "kids",
+      "title": "Детям",
+      "path": "/section/kids",
+      "badge": "",
+      "description": "",
+      "visible": true,
+      "showOnHome": false,
+      "slug": "kids",
+      "shortTitle": "Детям",
+      "accent": "emerald",
+      "imageSrc": "",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": []
+      },
+      "sortOrder": 100
+    },
+    {
+      "id": "bulletin-board",
+      "title": "Доска объявлений",
+      "path": "/section/bulletin-board",
+      "badge": "",
+      "description": "",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "bulletin-board",
+      "shortTitle": "Объявления",
+      "accent": "bridge",
+      "imageSrc": "",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "kind",
+          "tags",
+          "district"
+        ]
+      },
+      "sortOrder": 100
+    },
+    {
+      "id": "medicine",
+      "title": "Медицина",
+      "path": "/section/medicine",
+      "badge": "",
+      "description": "",
+      "visible": true,
+      "showOnHome": false,
+      "slug": "medicine",
+      "shortTitle": "Медицина",
+      "accent": "bridge",
+      "imageSrc": "",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": []
+      },
+      "sortOrder": 110
+    },
+    {
+      "id": "photo-spots",
+      "title": "Виды города",
+      "path": "/section/photo-spots",
+      "badge": "",
+      "description": "",
+      "visible": true,
+      "showOnHome": false,
+      "slug": "photo-spots",
+      "shortTitle": "Виды города",
+      "accent": "sunset",
+      "imageSrc": "",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "kind",
+          "tags",
+          "district"
+        ]
+      },
+      "sortOrder": 120
+    },
+    {
+      "id": "coworkings",
+      "title": "Коворкинги",
+      "path": "/section/coworkings",
+      "badge": "",
+      "description": "",
+      "visible": true,
+      "showOnHome": false,
+      "slug": "coworkings",
+      "shortTitle": "Коворкинги",
+      "accent": "coast",
+      "imageSrc": "",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "kind",
+          "services",
+          "district"
+        ]
+      },
+      "sortOrder": 130
+    },
+    {
+      "id": "misc",
+      "title": "Разное",
+      "path": "/section/misc",
+      "badge": "",
+      "description": "",
+      "visible": true,
+      "showOnHome": false,
+      "slug": "misc",
+      "shortTitle": "Разное",
+      "accent": "bridge",
+      "imageSrc": "",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "kind",
+          "tags",
+          "district"
+        ]
+      },
+      "sortOrder": 140
+    }
+  ],
+  "tips": [
+    {
+      "id": "tip-1",
+      "title": "Dragon Bridge лучше смотреть по выходным",
+      "text": "Шоу огня и воды на Dragon Bridge обычно проходит вечером с пятницы по воскресенье в 21:00.",
+      "linkPath": "/section/events",
+      "active": true,
+      "sortOrder": 10
+    },
+    {
+      "id": "tip-2",
+      "title": "За сувенирами удобнее идти в Han Market утром",
+      "text": "Утром на Han Market проще пройти ряды со специями, кофе и сладостями без вечерней плотности.",
+      "linkPath": "/section/shops",
+      "active": true,
+      "sortOrder": 20
+    },
+    {
+      "id": "tip-3",
+      "title": "Cham Museum удобно сочетать с прогулкой по центру",
+      "text": "Музей чамской скульптуры хорошо комбинируется с набережной Han River и вечерним Dragon Bridge.",
+      "linkPath": "/section/culture",
+      "active": true,
+      "sortOrder": 30
+    }
+  ],
+  "collections": [
+    {
+      "id": "collection-1",
+      "title": "Первый вечер в центре Дананга",
+      "description": "Cham Museum днём, ужин в Madame Lân и вечерний Dragon Bridge без сложной логистики.",
+      "linkPath": "/section/culture",
+      "imageSrc": "https://traveldanang.org/wp-content/uploads/2024/08/bao-tang-dieu-khac-cham-da-nang-2.jpg",
+      "itemIds": [
+        "culture-cham-museum",
+        "restaurant-madame-lan",
+        "event-dragon-bridge-show"
+      ],
+      "active": true,
+      "sortOrder": 10
+    },
+    {
+      "id": "collection-2",
+      "title": "Северный день у воды",
+      "description": "Курортный ритм Mikazuki: resort, water park и день без спешки у моря.",
+      "linkPath": "/section/active-rest",
+      "imageSrc": "https://static.wixstatic.com/media/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg/v1/fill/w_250%2Ch_167%2Cal_c%2Cq_90%2Cenc_auto/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg",
+      "itemIds": [
+        "hotel-mikazuki-resort",
+        "active-mikazuki-water-park",
+        "photo-son-tra-marina"
+      ],
+      "active": true,
+      "sortOrder": 20
+    }
+  ],
+  "home": {
+    "popularPlaceIds": [
+      "restaurant-madame-lan",
+      "culture-cham-museum",
+      "shop-han-market"
+    ],
+    "featuredCategoryIds": [
+      "restaurants",
+      "events",
+      "wellness",
+      "car-rental",
+      "photo-spots",
+      "atm"
+    ],
+    "tipIds": [
+      "tip-1",
+      "tip-2",
+      "tip-3"
+    ],
+    "collectionIds": [
+      "collection-1",
+      "collection-2"
+    ],
+    "sectionTitles": {
+      "popular": "Популярное",
+      "categories": "Категории",
+      "tips": "Советы",
+      "collections": "Подборки",
+      "allCategories": "Все рубрики"
+    }
+  },
+  "analytics": {
+    "events": [
+      {
+        "id": "f3c97804-ed5e-4d10-a13b-231494a991ca",
+        "kind": "category-click",
+        "label": "Резорты",
+        "path": "/section/hotels",
+        "entityId": "hotels",
+        "categoryId": "hotels",
+        "createdAt": "2026-05-11T12:51:00.808Z"
+      },
+      {
+        "id": "44946225-fed5-4e89-9a10-bd253ff39bc2",
+        "kind": "page-view",
+        "label": "Раздел hotels",
+        "path": "/section/hotels",
+        "createdAt": "2026-05-11T12:51:00.854Z"
+      },
+      {
+        "id": "3123b1dc-b34a-4e92-be3c-c5954ed1dccc",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T12:51:03.284Z"
+      },
+      {
+        "id": "70a85acd-51f4-47a7-ab7f-7596c71e4c2e",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T12:51:08.898Z"
+      },
+      {
+        "id": "0b506ee6-8c55-483c-950d-efcff312d77c",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T12:51:08.906Z"
+      },
+      {
+        "id": "d6add029-2803-4642-ac5d-f4d312401f80",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T12:58:14.889Z"
+      },
+      {
+        "id": "591e82c0-0007-4119-aa33-deebc94fa8d2",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T12:58:14.899Z"
+      },
+      {
+        "id": "d60dff72-7e72-4624-ace3-875a1d7b4eae",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T12:58:18.884Z"
+      },
+      {
+        "id": "391adc79-237f-4d80-a22c-140dd94dc203",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T12:58:18.896Z"
+      },
+      {
+        "id": "8c8cfaca-fb15-4af9-bb32-3a7b1818f7a3",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T13:03:50.707Z"
+      },
+      {
+        "id": "31bfdea7-3c54-4b7e-a681-a848fe859900",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T13:03:50.719Z"
+      },
+      {
+        "id": "156d032c-c574-4d12-9b8c-47a74450a964",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T13:03:57.109Z"
+      },
+      {
+        "id": "dc429163-76e4-4360-83a7-9d36276f62e4",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T13:03:57.099Z"
+      },
+      {
+        "id": "0bd43b9b-e972-4ded-b7f0-c93665abb5bd",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T13:04:00.327Z"
+      },
+      {
+        "id": "94c8ec03-4065-43a9-acbc-4d854ca6cdfe",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T13:04:00.339Z"
+      },
+      {
+        "id": "7b2f4b6a-fd31-4910-b2a8-54653b9b43aa",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T13:47:34.260Z"
+      },
+      {
+        "id": "868aedb4-6a52-493f-b618-faeeb6b188c4",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T13:47:34.273Z"
+      },
+      {
+        "id": "70ca0c38-8219-4346-87c6-e5966f8cbeb6",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T14:30:45.042Z"
+      },
+      {
+        "id": "3cdc171d-41c8-41e7-8bb5-f6aeedb06c85",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T14:30:45.055Z"
+      },
+      {
+        "id": "9a7ea38f-f14b-4125-8421-623008932ad8",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T14:38:15.494Z"
+      },
+      {
+        "id": "416880f2-7bd4-4fb2-a28b-e91599327709",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T14:38:15.512Z"
+      },
+      {
+        "id": "d24f827b-c2f3-40b7-ba4e-f940200d2c44",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T14:40:53.290Z"
+      },
+      {
+        "id": "cc91aaeb-190e-4bbc-8ba1-526c2deec7f6",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T14:40:53.299Z"
+      },
+      {
+        "id": "b63dd1f2-c98e-4fce-926f-72ba7ea58707",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T14:48:39.144Z"
+      },
+      {
+        "id": "658c9c76-b7c8-4075-a99f-dc7f7b701943",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T14:48:39.156Z"
+      },
+      {
+        "id": "fddb442d-11b5-4df4-9701-0fb4eabb7923",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T14:48:43.206Z"
+      },
+      {
+        "id": "f042ace4-8ddf-4fe3-9db5-669d75f6fe27",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T14:48:43.216Z"
+      },
+      {
+        "id": "d3e29ea5-f9ad-4f32-9e71-e69ef98a2c00",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T14:48:46.175Z"
+      },
+      {
+        "id": "ee00d768-2f11-4714-b214-6c5dacf207ec",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T14:48:46.188Z"
+      },
+      {
+        "id": "19e5c7fa-9294-425d-834e-1425db736507",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T14:54:44.949Z"
+      },
+      {
+        "id": "7d324761-d9f1-48fa-8bd9-2442e804980e",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T14:54:44.959Z"
+      },
+      {
+        "id": "6a809f34-42ad-4aa1-9dc3-d0c79f82b64f",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T15:36:17.582Z"
+      },
+      {
+        "id": "25fdba24-c48c-4492-82de-5775a32f5bcc",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T15:36:17.542Z"
+      },
+      {
+        "id": "e35d937b-d92d-4934-a345-cc57e0101602",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T15:36:17.600Z"
+      },
+      {
+        "id": "fd0d0bb1-2ef0-42f3-a682-12aa51473585",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T15:36:17.615Z"
+      },
+      {
+        "id": "985af30b-9cbe-4a1e-b2e7-a145aebc8e6d",
+        "kind": "category-click",
+        "label": "Доска объявлений",
+        "path": "/section/bulletin-board",
+        "entityId": "bulletin-board",
+        "categoryId": "bulletin-board",
+        "createdAt": "2026-05-11T15:43:13.068Z"
+      },
+      {
+        "id": "622031b2-2c1c-4b03-824b-85db4dccd405",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T15:43:13.091Z"
+      },
+      {
+        "id": "e5f96b19-d485-4cd9-8d97-5d6ede4bc2a6",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T15:47:19.547Z"
+      },
+      {
+        "id": "0851a340-a5b7-4fee-b519-68227dcf70f9",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T15:47:19.560Z"
+      },
+      {
+        "id": "7d68a392-3f88-45e4-bcb8-14c8aecc52d1",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T15:47:59.529Z"
+      },
+      {
+        "id": "f7e27fb9-538a-42fe-bf7c-60c91cc4f22c",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T15:47:59.536Z"
+      },
+      {
+        "id": "8ab7027a-26fe-4aa4-9f55-c8e3828df8ec",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T15:48:01.834Z"
+      },
+      {
+        "id": "92f6afa5-e5df-4c49-a89c-77fd180fd284",
+        "kind": "category-click",
+        "label": "Доска объявлений",
+        "path": "/section/bulletin-board",
+        "entityId": "bulletin-board",
+        "categoryId": "bulletin-board",
+        "createdAt": "2026-05-11T15:48:04.139Z"
+      },
+      {
+        "id": "c1d9fad6-de4d-4910-9ca5-382846fb68f4",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T15:48:04.148Z"
+      },
+      {
+        "id": "b57cd26c-2226-465b-a9eb-2120bab821af",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T16:12:15.178Z"
+      },
+      {
+        "id": "28a3e7e9-2f8f-4484-870e-e63a9ecf4fe2",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T16:12:15.187Z"
+      },
+      {
+        "id": "b44ac48a-bcbd-44fc-b445-030c7f457e2c",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T16:32:18.049Z"
+      },
+      {
+        "id": "86ab9dee-5bed-4129-ad6c-c16ea54e755d",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T16:32:18.096Z"
+      },
+      {
+        "id": "361062ad-dc68-4dad-80cb-1705fc27c736",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T16:32:22.274Z"
+      },
+      {
+        "id": "08c048c5-6099-45e9-9d4a-6b993940c5a6",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T16:32:22.425Z"
+      },
+      {
+        "id": "57e3dea9-af08-41e4-a116-5f7525058270",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T16:46:49.434Z"
+      },
+      {
+        "id": "4abfe82f-9c63-4739-849f-b1433044d7b8",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T16:46:49.443Z"
+      },
+      {
+        "id": "dd3d15d8-b8f3-469d-ba01-7bff865cf20d",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T16:46:50.895Z"
+      },
+      {
+        "id": "cae6cddd-cc6c-47fd-b946-9bc9005a63a4",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T16:46:50.957Z"
+      },
+      {
+        "id": "636ddf53-de68-439c-9d31-42d37903c0e8",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T16:55:59.787Z"
+      },
+      {
+        "id": "37e47909-92e4-46a3-81f9-2c8c9d873b93",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T16:55:59.797Z"
+      },
+      {
+        "id": "103a4e9e-2577-4ccc-b60f-69a1b8674343",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T16:56:00.932Z"
+      },
+      {
+        "id": "a6666bd6-8988-46b7-951f-427258437fb0",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T16:56:00.944Z"
+      },
+      {
+        "id": "3921041d-21d8-479f-92cf-8c42a2d73557",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T16:56:09.383Z"
+      },
+      {
+        "id": "4a2baf27-3569-461f-8d33-105d44b41779",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T16:56:09.389Z"
+      },
+      {
+        "id": "3d3cd238-db38-4c94-a320-9bee98c61cd7",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T16:56:11.179Z"
+      },
+      {
+        "id": "ba2a190f-f773-4088-8883-8b315f7983c8",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T16:56:11.232Z"
+      },
+      {
+        "id": "ec09d4fe-4c56-4ba0-9b19-a6877183beb6",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T17:01:19.170Z"
+      },
+      {
+        "id": "b28e8640-0e33-4608-a07a-5afffe93865e",
+        "kind": "category-click",
+        "label": "Доска объявлений",
+        "path": "/section/bulletin-board",
+        "entityId": "bulletin-board",
+        "categoryId": "bulletin-board",
+        "createdAt": "2026-05-11T17:16:27.707Z"
+      },
+      {
+        "id": "4aa4aacf-0f8c-4e97-84ef-4b4928ba2e35",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T17:16:27.724Z"
+      },
+      {
+        "id": "c643f870-583d-48da-9ff1-8fa2cd232db2",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T17:42:18.920Z"
+      },
+      {
+        "id": "d9fbc0ef-6733-414c-aac0-bc794a48b9f5",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T17:42:18.937Z"
+      },
+      {
+        "id": "4e89b29b-74cb-4193-a495-cbe7c1ac6b69",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T17:42:23.710Z"
+      },
+      {
+        "id": "9ce47bad-1080-43e8-a43a-3b3eba53dda9",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T17:42:23.727Z"
+      },
+      {
+        "id": "f724f0ad-3682-4a4e-89e0-e615196a1980",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-11T17:45:08.268Z"
+      },
+      {
+        "id": "e47d6a55-c803-4197-a46a-a9de36590564",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T17:45:10.552Z"
+      },
+      {
+        "id": "c44551fe-657d-429d-af9c-660a9d5c9889",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-11T18:02:29.955Z"
+      },
+      {
+        "id": "c260a80c-e528-4ec8-9220-63bccedcd753",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T10:21:11.172Z"
+      },
+      {
+        "id": "5f36d1c9-74a9-429f-a111-ae6b6dc24e75",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T11:24:13.427Z"
+      },
+      {
+        "id": "ef09ca9b-c0bb-4caa-ab8b-8ebd2f2a8280",
+        "kind": "page-view",
+        "label": "Помощь",
+        "path": "/help",
+        "createdAt": "2026-05-12T11:24:16.621Z"
+      },
+      {
+        "id": "1719d616-f932-4f35-9537-5108fcfd97c4",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T11:26:42.938Z"
+      },
+      {
+        "id": "2da8a38e-a64e-4cde-8c04-55ac47e7d1a5",
+        "kind": "page-view",
+        "label": "Поиск",
+        "path": "/search",
+        "createdAt": "2026-05-12T11:26:45.569Z"
+      },
+      {
+        "id": "9d1631dc-fae3-4d20-a464-4eb624d79ac4",
+        "kind": "page-view",
+        "label": "/map",
+        "path": "/map",
+        "createdAt": "2026-05-12T11:26:49.086Z"
+      },
+      {
+        "id": "b0bc3232-a7d9-4683-8bac-fb39ceecf9c5",
+        "kind": "page-view",
+        "label": "Избранное",
+        "path": "/favorites",
+        "createdAt": "2026-05-12T11:26:56.425Z"
+      },
+      {
+        "id": "c3744de1-12d9-4bbd-8bec-613d75e25cb9",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T11:27:00.271Z"
+      },
+      {
+        "id": "ff8b77bd-51a5-4b1f-8123-ea983f9d2b40",
+        "kind": "category-click",
+        "label": "Медицина",
+        "path": "/section/medicine",
+        "entityId": "medicine",
+        "categoryId": "medicine",
+        "createdAt": "2026-05-12T11:27:02.733Z"
+      },
+      {
+        "id": "4209149d-4a58-4a81-b892-1da727833631",
+        "kind": "page-view",
+        "label": "Раздел medicine",
+        "path": "/section/medicine",
+        "createdAt": "2026-05-12T11:27:02.744Z"
+      },
+      {
+        "id": "84d4998c-35e7-45a4-9c91-eb49cc61bde4",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-12T11:27:09.327Z"
+      },
+      {
+        "id": "4c3d36f9-2d07-418f-8afc-fc85b10be406",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T11:27:19.969Z"
+      },
+      {
+        "id": "2a712d41-3187-4caf-9c68-e60e640c7249",
+        "kind": "page-view",
+        "label": "Помощь",
+        "path": "/help",
+        "createdAt": "2026-05-12T11:27:26.259Z"
+      },
+      {
+        "id": "b34855d3-d9dd-4651-9d4c-d0a78432cdf8",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T11:27:29.900Z"
+      },
+      {
+        "id": "75884645-94a2-4695-acef-d5055ae8d794",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T13:13:20.400Z"
+      },
+      {
+        "id": "5ac869c0-b63a-4044-9aec-ed5a32a418b3",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T13:13:28.605Z"
+      },
+      {
+        "id": "ee97b0e7-5972-4bb0-b88c-3f73d6c44081",
+        "kind": "page-view",
+        "label": "Помощь",
+        "path": "/help",
+        "createdAt": "2026-05-12T13:13:30.521Z"
+      },
+      {
+        "id": "edf4c3eb-0af9-409b-9555-4f08751e0055",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T13:13:44.672Z"
+      },
+      {
+        "id": "eb9176da-9de0-4106-8e28-7ef08374c9a2",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T17:07:30.063Z"
+      },
+      {
+        "id": "88181c9c-2388-4789-9a20-139480cfe910",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T17:08:10.716Z"
+      },
+      {
+        "id": "d54c0a8d-f732-4ad4-bd77-eec53ccf4abe",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T17:12:35.390Z"
+      },
+      {
+        "id": "b576511a-fc33-4e7a-95d9-520b58b89e75",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T17:13:05.008Z"
+      },
+      {
+        "id": "35cfd31c-365f-4775-b252-de3a91dc9bb0",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T17:13:55.168Z"
+      },
+      {
+        "id": "08fc2451-2347-4fdc-8a74-7343d30ebcb7",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T17:14:27.515Z"
+      },
+      {
+        "id": "e88bd358-81a2-41cc-ae00-992980a614b4",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T17:14:30.466Z"
+      },
+      {
+        "id": "776f7604-abb3-4bff-a601-dd9d33be035c",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T17:14:48.898Z"
+      },
+      {
+        "id": "65c88eb9-b99f-435e-807f-7ecb95e8bb80",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T17:14:51.635Z"
+      },
+      {
+        "id": "138d9c19-0ee0-475d-9d91-aeaf2558cc3f",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T17:26:51.919Z"
+      },
+      {
+        "id": "6ed711b3-3b25-4edd-9252-841fe6b69ee2",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T17:27:01.701Z"
+      },
+      {
+        "id": "e8fd450f-99bd-49c8-99fa-69a27184b43c",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T17:32:36.119Z"
+      },
+      {
+        "id": "0431abd2-a1f5-4169-adf5-b9b70450d69f",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T17:32:43.072Z"
+      },
+      {
+        "id": "bf6865c1-0fd2-47bb-8edf-6c1072e915e9",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T17:32:55.006Z"
+      },
+      {
+        "id": "2ad838bb-44d9-4a1a-a63a-c090615381c8",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T17:33:43.321Z"
+      },
+      {
+        "id": "b06ad68f-d61b-4f63-86fa-8ba3fedc7c53",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T20:41:51.093Z"
+      },
+      {
+        "id": "24b0c500-69ad-4dc4-b526-fe4897c72bd6",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T20:45:57.776Z"
+      },
+      {
+        "id": "80709399-02f0-4e90-a300-f2163bfcadcb",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T20:46:38.205Z"
+      },
+      {
+        "id": "4d4fc6a2-a377-4a42-89d9-ad309eddbe69",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T20:47:27.906Z"
+      },
+      {
+        "id": "e593fb17-eba3-47e4-8888-b7bac21a7d11",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T20:49:48.708Z"
+      },
+      {
+        "id": "8b56c7b9-ff3b-4cfd-8f93-7e04300857fc",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T20:50:19.653Z"
+      },
+      {
+        "id": "39de698a-9b94-411b-85a3-36cf4eb142f8",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T20:54:44.592Z"
+      },
+      {
+        "id": "c66afba9-114b-4de4-8e91-4f84ada3d3a5",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T20:55:27.826Z"
+      },
+      {
+        "id": "d6b16e70-a4e7-47bc-b46e-0450eed84741",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T20:58:24.404Z"
+      },
+      {
+        "id": "6d4280cd-bd9c-48c4-8517-fc206542ade3",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:30:08.034Z"
+      },
+      {
+        "id": "30279717-f5fb-435f-b0ed-d35b1f05a462",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:30:31.212Z"
+      },
+      {
+        "id": "b5e86b7a-dcc0-413c-9731-63a299594460",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:30:34.127Z"
+      },
+      {
+        "id": "606e0482-5670-45a8-a014-b09e940021a6",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:30:42.788Z"
+      },
+      {
+        "id": "e9f10179-7bd2-44c0-ac31-775a935e92ef",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:31:10.019Z"
+      },
+      {
+        "id": "37cceb3f-f4d6-4ae3-8a00-775ea802e8f2",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:31:34.198Z"
+      },
+      {
+        "id": "5ce6daf3-3090-4010-b576-8f2a139a40cb",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:31:37.585Z"
+      },
+      {
+        "id": "0c21788c-2cf8-4b5a-9077-d9265183765e",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:31:50.898Z"
+      },
+      {
+        "id": "8894100e-5e71-4e9d-b704-1472a90933d6",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:31:53.726Z"
+      },
+      {
+        "id": "cfd69f1c-c391-4f4c-a752-44e4e1a131da",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:32:04.885Z"
+      },
+      {
+        "id": "8c625d2b-57d3-4c0b-8ba1-e689313c7dd7",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:32:17.814Z"
+      },
+      {
+        "id": "0d6ab19f-6f81-4ff6-bbb6-05d70b0bc6df",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:32:33.158Z"
+      },
+      {
+        "id": "036a51e2-35d6-453a-a868-375892e74c75",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:34:43.428Z"
+      },
+      {
+        "id": "19195084-87fa-4302-b8a0-59e15109d4b8",
+        "kind": "category-click",
+        "label": "Оздоровление",
+        "path": "/wellness",
+        "entityId": "wellness",
+        "categoryId": "wellness",
+        "createdAt": "2026-05-12T21:34:57.905Z"
+      },
+      {
+        "id": "a0b94b1d-7ddf-4a11-8c25-d30d077ea04d",
+        "kind": "page-view",
+        "label": "Оздоровление",
+        "path": "/wellness",
+        "createdAt": "2026-05-12T21:34:57.918Z"
+      },
+      {
+        "id": "4fcdf1f8-c9fb-465d-bfce-c3d77b47cfa4",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:35:05.693Z"
+      },
+      {
+        "id": "7d987e62-1826-4fde-9430-cab219bd6391",
+        "kind": "category-click",
+        "label": "Активный отдых",
+        "path": "/section/active-rest",
+        "entityId": "active-rest",
+        "categoryId": "active-rest",
+        "createdAt": "2026-05-12T21:35:07.286Z"
+      },
+      {
+        "id": "56d89e85-d8c1-43bd-8311-40a683effd2e",
+        "kind": "page-view",
+        "label": "Раздел active-rest",
+        "path": "/section/active-rest",
+        "createdAt": "2026-05-12T21:35:07.296Z"
+      },
+      {
+        "id": "c6b4354f-b532-4e8f-b45b-7efd0a33bb2d",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:35:09.191Z"
+      },
+      {
+        "id": "3d9725e2-afc7-410b-bf8b-9ab726c6aee0",
+        "kind": "category-click",
+        "label": "Маршруты",
+        "path": "/programs",
+        "entityId": "programs",
+        "categoryId": "programs",
+        "createdAt": "2026-05-12T21:35:10.118Z"
+      },
+      {
+        "id": "d5187cb6-8f3b-454f-a716-270b0e982c3d",
+        "kind": "page-view",
+        "label": "/programs",
+        "path": "/programs",
+        "createdAt": "2026-05-12T21:35:10.131Z"
+      },
+      {
+        "id": "2d293dda-19d4-4377-a6bd-c917e3192562",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:35:18.942Z"
+      },
+      {
+        "id": "82c27e11-f7fc-4a03-a94b-ef1cff57892d",
+        "kind": "category-click",
+        "label": "Маршруты",
+        "path": "/programs",
+        "entityId": "programs",
+        "categoryId": "programs",
+        "createdAt": "2026-05-12T21:35:20.393Z"
+      },
+      {
+        "id": "d1800522-ed74-4681-beca-e44f2c41d112",
+        "kind": "page-view",
+        "label": "/programs",
+        "path": "/programs",
+        "createdAt": "2026-05-12T21:35:20.404Z"
+      },
+      {
+        "id": "0d91e5b5-47fe-4ca5-a6d3-46f08883873b",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:35:21.539Z"
+      },
+      {
+        "id": "7858534f-4f96-46f6-a696-1a79d0121bb6",
+        "kind": "category-click",
+        "label": "Финансы",
+        "path": "/section/atm",
+        "entityId": "atm",
+        "categoryId": "atm",
+        "createdAt": "2026-05-12T21:35:22.620Z"
+      },
+      {
+        "id": "7c503624-488c-4b46-b2dd-e16905940285",
+        "kind": "page-view",
+        "label": "Раздел atm",
+        "path": "/section/atm",
+        "createdAt": "2026-05-12T21:35:22.631Z"
+      },
+      {
+        "id": "f0f396ee-5e9c-4d74-ae94-3c4d171b88e8",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:35:24.095Z"
+      },
+      {
+        "id": "62ef73fd-5c9f-488b-81e8-592fe397738f",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:38:13.025Z"
+      },
+      {
+        "id": "05de1282-9216-4963-bab9-3f86d97dfb46",
+        "kind": "category-click",
+        "label": "Маршруты",
+        "path": "/programs",
+        "entityId": "programs",
+        "categoryId": "programs",
+        "createdAt": "2026-05-12T21:40:20.747Z"
+      },
+      {
+        "id": "708e0eac-f2b7-474f-995c-6421242e2029",
+        "kind": "page-view",
+        "label": "/programs",
+        "path": "/programs",
+        "createdAt": "2026-05-12T21:40:20.772Z"
+      },
+      {
+        "id": "8367b2c1-3122-4df2-ac7a-2c76d1d2b26f",
+        "kind": "page-view",
+        "label": "/programs",
+        "path": "/programs",
+        "createdAt": "2026-05-12T21:45:42.180Z"
+      },
+      {
+        "id": "5e8e2a55-7f40-4fd0-9caa-34febb0a4931",
+        "kind": "page-view",
+        "label": "/programs",
+        "path": "/programs",
+        "createdAt": "2026-05-12T21:45:44.906Z"
+      },
+      {
+        "id": "bb0ba2d3-cacd-42c1-b5b9-4002c7eda57f",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:45:47.729Z"
+      },
+      {
+        "id": "872bd9c2-2eec-431b-92d0-bc9c61426fac",
+        "kind": "category-click",
+        "label": "Маршруты",
+        "path": "/programs",
+        "entityId": "programs",
+        "categoryId": "programs",
+        "createdAt": "2026-05-12T21:45:49.811Z"
+      },
+      {
+        "id": "3a7a119a-ca98-4c9f-bdc6-8e81243ee09d",
+        "kind": "page-view",
+        "label": "/programs",
+        "path": "/programs",
+        "createdAt": "2026-05-12T21:45:49.824Z"
+      },
+      {
+        "id": "33f88565-22f6-4165-a706-f7fc4e935a63",
+        "kind": "page-view",
+        "label": "/programs",
+        "path": "/programs",
+        "createdAt": "2026-05-12T21:46:30.919Z"
+      },
+      {
+        "id": "79d304ab-574d-40f6-ac78-96a95a1e2928",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:46:32.781Z"
+      },
+      {
+        "id": "b612c2d0-7086-4db7-a529-770ba54cbfa5",
+        "kind": "category-click",
+        "label": "Доска объявлений",
+        "path": "/section/bulletin-board",
+        "entityId": "bulletin-board",
+        "categoryId": "bulletin-board",
+        "createdAt": "2026-05-12T21:46:33.935Z"
+      },
+      {
+        "id": "8c9b66de-9a16-486a-af0c-549978cbd76b",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-12T21:46:33.949Z"
+      },
+      {
+        "id": "7eacf529-23ad-4ce0-bd6c-4d9431adce50",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:46:35.153Z"
+      },
+      {
+        "id": "90c4b7aa-5ec2-4438-bf62-ea111fe87cab",
+        "kind": "category-click",
+        "label": "Детям",
+        "path": "/section/kids",
+        "entityId": "kids",
+        "categoryId": "kids",
+        "createdAt": "2026-05-12T21:46:36.047Z"
+      },
+      {
+        "id": "c404bac6-b086-4d89-8e1a-9d230ec9cb1f",
+        "kind": "page-view",
+        "label": "Раздел kids",
+        "path": "/section/kids",
+        "createdAt": "2026-05-12T21:46:36.062Z"
+      },
+      {
+        "id": "e76f46a5-393f-495d-ad3f-3affe8229476",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:46:37.112Z"
+      },
+      {
+        "id": "d2f60180-4428-4393-be08-a376079e49d4",
+        "kind": "category-click",
+        "label": "Активный отдых",
+        "path": "/section/active-rest",
+        "entityId": "active-rest",
+        "categoryId": "active-rest",
+        "createdAt": "2026-05-12T21:46:38.107Z"
+      },
+      {
+        "id": "827afbd4-4bb6-4adc-8950-cd3d52cf90a5",
+        "kind": "page-view",
+        "label": "Раздел active-rest",
+        "path": "/section/active-rest",
+        "createdAt": "2026-05-12T21:46:38.117Z"
+      },
+      {
+        "id": "27ed619d-b525-4daa-8a69-c3cb49589ebe",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T21:46:39.304Z"
+      },
+      {
+        "id": "b5703ee9-3e43-4d67-a2b6-4d87728a77a6",
+        "kind": "category-click",
+        "label": "Маршруты",
+        "path": "/programs",
+        "entityId": "programs",
+        "categoryId": "programs",
+        "createdAt": "2026-05-12T21:46:40.378Z"
+      },
+      {
+        "id": "f960b0a4-08dc-48df-bdb5-0b4bf76e6ffd",
+        "kind": "page-view",
+        "label": "/programs",
+        "path": "/programs",
+        "createdAt": "2026-05-12T21:46:40.387Z"
+      },
+      {
+        "id": "3fa22bd6-bd03-4d4d-b61c-dc470f071787",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T22:54:57.151Z"
+      },
+      {
+        "id": "ec50eebd-9de2-4bb2-83b2-71126cb9b6b0",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T22:55:04.621Z"
+      },
+      {
+        "id": "41ac18c6-b98a-4f46-ad59-81c3463f5ecf",
+        "kind": "category-click",
+        "label": "Оздоровление",
+        "path": "/wellness",
+        "entityId": "wellness",
+        "categoryId": "wellness",
+        "createdAt": "2026-05-12T22:55:09.866Z"
+      },
+      {
+        "id": "080f2468-6192-4c08-8659-a696238cf5a5",
+        "kind": "page-view",
+        "label": "Оздоровление",
+        "path": "/wellness",
+        "createdAt": "2026-05-12T22:55:09.895Z"
+      },
+      {
+        "id": "a45db878-4126-4695-bc78-75568b0519fe",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T22:55:12.979Z"
+      },
+      {
+        "id": "fd98544d-29f6-4524-98ee-ef636af45952",
+        "kind": "category-click",
+        "label": "Разное",
+        "path": "/section/misc",
+        "entityId": "misc",
+        "categoryId": "misc",
+        "createdAt": "2026-05-12T22:55:16.085Z"
+      },
+      {
+        "id": "3add05c6-1ee5-45c0-a8b3-1d8b7183fa84",
+        "kind": "page-view",
+        "label": "Раздел misc",
+        "path": "/section/misc",
+        "createdAt": "2026-05-12T22:55:16.101Z"
+      },
+      {
+        "id": "b76f763b-46bd-4002-95ff-664fe602c964",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T22:55:17.737Z"
+      },
+      {
+        "id": "6a03528c-a103-4218-a78d-a05304e56f52",
+        "kind": "category-click",
+        "label": "Покупки",
+        "path": "/section/shops",
+        "entityId": "shops",
+        "categoryId": "shops",
+        "createdAt": "2026-05-12T22:55:19.323Z"
+      },
+      {
+        "id": "e1a496c3-9693-4f36-bc15-7ca789f258be",
+        "kind": "page-view",
+        "label": "Раздел shops",
+        "path": "/section/shops",
+        "createdAt": "2026-05-12T22:55:19.335Z"
+      },
+      {
+        "id": "dbc9d4e3-ea63-46bd-9a2e-d66e87b5f993",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T22:57:08.058Z"
+      },
+      {
+        "id": "3b796b77-afef-404f-b170-9720a30fdc30",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T23:11:22.992Z"
+      },
+      {
+        "id": "9a5b51d2-330d-41b0-ac3b-885ef200af74",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T23:11:23.117Z"
+      },
+      {
+        "id": "37e72372-e5cd-44b5-8b53-e84debd7faad",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T23:11:34.227Z"
+      },
+      {
+        "id": "e67aae41-978f-44bf-bb35-a88471146610",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T23:11:41.172Z"
+      },
+      {
+        "id": "22691373-892a-4536-90c3-ab85345482ab",
+        "kind": "category-click",
+        "label": "Оздоровление",
+        "path": "/wellness",
+        "entityId": "wellness",
+        "categoryId": "wellness",
+        "createdAt": "2026-05-12T23:11:53.133Z"
+      },
+      {
+        "id": "cad04c65-dd18-4dbf-afd2-28429831c09d",
+        "kind": "page-view",
+        "label": "Оздоровление",
+        "path": "/wellness",
+        "createdAt": "2026-05-12T23:11:53.147Z"
+      },
+      {
+        "id": "b2d90792-7783-4dd6-b03c-8a59fbc135bd",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T23:11:57.529Z"
+      },
+      {
+        "id": "8e9475bf-add1-4297-83bc-be6e3d52d444",
+        "kind": "category-click",
+        "label": "Финансы",
+        "path": "/section/atm",
+        "entityId": "atm",
+        "categoryId": "atm",
+        "createdAt": "2026-05-12T23:11:58.635Z"
+      },
+      {
+        "id": "3d41bb36-dfde-4ad9-9063-7537e5736934",
+        "kind": "page-view",
+        "label": "Раздел atm",
+        "path": "/section/atm",
+        "createdAt": "2026-05-12T23:11:58.643Z"
+      },
+      {
+        "id": "a98a6130-361f-439a-8b45-4509a15d3089",
+        "kind": "page-view",
+        "label": "Раздел atm",
+        "path": "/section/atm",
+        "createdAt": "2026-05-12T23:30:28.097Z"
+      },
+      {
+        "id": "df75d40c-2c35-46f3-a64d-3f0d6f74911d",
+        "kind": "page-view",
+        "label": "Раздел atm",
+        "path": "/section/atm",
+        "createdAt": "2026-05-12T23:30:33.202Z"
+      },
+      {
+        "id": "98727c8b-3cb2-4ff3-88e3-1d35dd3fc300",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T23:30:37.424Z"
+      },
+      {
+        "id": "067bb1d8-64df-4a43-b638-b345a9f2d224",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T23:30:41.402Z"
+      },
+      {
+        "id": "eb5bab06-8582-4a01-b1e9-5347c756af21",
+        "kind": "category-click",
+        "label": "Транспорт",
+        "path": "/section/car-rental",
+        "entityId": "car-rental",
+        "categoryId": "car-rental",
+        "createdAt": "2026-05-12T23:30:44.920Z"
+      },
+      {
+        "id": "1c49d6d0-413e-4860-a63c-cac1d52f85ab",
+        "kind": "page-view",
+        "label": "Раздел car-rental",
+        "path": "/section/car-rental",
+        "createdAt": "2026-05-12T23:30:44.948Z"
+      },
+      {
+        "id": "554c20d4-86a0-4b8f-a5ff-4b73deb0104c",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T23:30:48.218Z"
+      },
+      {
+        "id": "d8df2daa-2a4b-4541-80ab-4f473d125397",
+        "kind": "category-click",
+        "label": "Маршруты",
+        "path": "/programs",
+        "entityId": "programs",
+        "categoryId": "programs",
+        "createdAt": "2026-05-12T23:30:49.860Z"
+      },
+      {
+        "id": "018d4db4-53f3-4d39-8736-4740b68cd290",
+        "kind": "page-view",
+        "label": "/programs",
+        "path": "/programs",
+        "createdAt": "2026-05-12T23:30:49.875Z"
+      },
+      {
+        "id": "77a4a51f-331b-465b-94ab-e55d60b6d4ab",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T23:30:53.097Z"
+      },
+      {
+        "id": "15509d31-766e-4696-bf8b-df14de2ee6d9",
+        "kind": "category-click",
+        "label": "Покупки",
+        "path": "/section/shops",
+        "entityId": "shops",
+        "categoryId": "shops",
+        "createdAt": "2026-05-12T23:30:54.118Z"
+      },
+      {
+        "id": "952d3bd5-a981-464c-ba5d-aa67c93cb909",
+        "kind": "page-view",
+        "label": "Раздел shops",
+        "path": "/section/shops",
+        "createdAt": "2026-05-12T23:30:54.127Z"
+      },
+      {
+        "id": "2cbc5c93-eaa2-4dcb-bdb3-f207da0e8901",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T23:31:06.067Z"
+      },
+      {
+        "id": "ebc6770e-ce57-4753-88b9-41aa3c128afa",
+        "kind": "page-view",
+        "label": "Раздел shops",
+        "path": "/section/shops",
+        "createdAt": "2026-05-12T23:59:18.938Z"
+      },
+      {
+        "id": "210023ba-0065-4794-a0bb-b9f93aa44590",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T23:59:19.035Z"
+      },
+      {
+        "id": "00c39a2d-1bd4-443e-8931-d5bc4aa2159e",
+        "kind": "page-view",
+        "label": "Раздел shops",
+        "path": "/section/shops",
+        "createdAt": "2026-05-12T23:59:29.510Z"
+      },
+      {
+        "id": "f862d701-ac98-4a5c-800d-69231e9fce9d",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T23:59:30.826Z"
+      },
+      {
+        "id": "14eb0dfa-5b26-46b8-816b-f60e341a7e52",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-12T23:59:55.023Z"
+      },
+      {
+        "id": "c2781bf8-5428-4802-aab4-09199a09c479",
+        "kind": "category-click",
+        "label": "Оздоровление",
+        "path": "/wellness",
+        "entityId": "wellness",
+        "categoryId": "wellness",
+        "createdAt": "2026-05-12T23:59:56.531Z"
+      },
+      {
+        "id": "f5161de6-291c-434f-8a24-e0619839953e",
+        "kind": "page-view",
+        "label": "Оздоровление",
+        "path": "/wellness",
+        "createdAt": "2026-05-12T23:59:56.540Z"
+      },
+      {
+        "id": "3882cccc-375c-4702-9323-d4510846cd85",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T00:00:06.296Z"
+      },
+      {
+        "id": "5371e71b-4052-4e06-9b59-4890fb9eb862",
+        "kind": "category-click",
+        "label": "Культура и искусство",
+        "path": "/section/culture",
+        "entityId": "culture",
+        "categoryId": "culture",
+        "createdAt": "2026-05-13T00:00:07.961Z"
+      },
+      {
+        "id": "e9094381-275a-442f-99c7-c31cb2817477",
+        "kind": "page-view",
+        "label": "Раздел culture",
+        "path": "/section/culture",
+        "createdAt": "2026-05-13T00:00:07.969Z"
+      },
+      {
+        "id": "24d7ce1f-0289-44fd-b7f1-9841f7f8d0e1",
+        "kind": "page-view",
+        "label": "Раздел culture",
+        "path": "/section/culture",
+        "createdAt": "2026-05-13T00:07:47.321Z"
+      },
+      {
+        "id": "954ae3b6-6522-4390-bbb2-7706b004517a",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T00:07:53.513Z"
+      },
+      {
+        "id": "07e031e7-7fc5-40df-8c96-b9266b79dce1",
+        "kind": "page-view",
+        "label": "Раздел culture",
+        "path": "/section/culture",
+        "createdAt": "2026-05-13T00:08:02.865Z"
+      },
+      {
+        "id": "8d4a7905-8960-4941-b1fc-a0153e32d8e6",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T00:08:04.698Z"
+      },
+      {
+        "id": "4582cc39-7bdd-44df-b665-597209d791b5",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T00:08:06.046Z"
+      },
+      {
+        "id": "89a539d3-80a5-42d0-97ea-56e16b39dac8",
+        "kind": "category-click",
+        "label": "Транспорт",
+        "path": "/section/car-rental",
+        "entityId": "car-rental",
+        "categoryId": "car-rental",
+        "createdAt": "2026-05-13T00:08:07.694Z"
+      },
+      {
+        "id": "bf185d61-4561-4aa6-82d1-c4cc04b90320",
+        "kind": "page-view",
+        "label": "Раздел car-rental",
+        "path": "/section/car-rental",
+        "createdAt": "2026-05-13T00:08:07.703Z"
+      },
+      {
+        "id": "210762f4-a3e6-4d81-b736-c2b26258b9bd",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T00:08:09.050Z"
+      },
+      {
+        "id": "eaf21bb5-3e6d-4bd4-9fa3-4f04053e37d8",
+        "kind": "category-click",
+        "label": "Разное",
+        "path": "/section/misc",
+        "entityId": "misc",
+        "categoryId": "misc",
+        "createdAt": "2026-05-13T00:08:10.450Z"
+      },
+      {
+        "id": "aa74807c-0419-4fa4-aa34-166a3a145c61",
+        "kind": "page-view",
+        "label": "Раздел misc",
+        "path": "/section/misc",
+        "createdAt": "2026-05-13T00:08:10.458Z"
+      },
+      {
+        "id": "b9c66dd6-eee9-47f5-99e5-de8eb0bb195e",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T00:08:11.585Z"
+      },
+      {
+        "id": "4be337d6-2cf7-4e40-8f09-d8d254e8dd30",
+        "kind": "category-click",
+        "label": "Виды города",
+        "path": "/section/photo-spots",
+        "entityId": "photo-spots",
+        "categoryId": "photo-spots",
+        "createdAt": "2026-05-13T00:08:12.739Z"
+      },
+      {
+        "id": "55e3a2df-5f00-430d-8b20-98394927ad38",
+        "kind": "page-view",
+        "label": "Раздел photo-spots",
+        "path": "/section/photo-spots",
+        "createdAt": "2026-05-13T00:08:12.748Z"
+      },
+      {
+        "id": "c8d1e4d0-772b-4fb7-b3b6-8cf699e5a8e2",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T00:08:14.451Z"
+      },
+      {
+        "id": "19d99787-5558-4aaa-9daf-a76728b89bc3",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T00:08:38.626Z"
+      },
+      {
+        "id": "a118caa8-df73-4cf0-8951-c24f2fbbe44e",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T00:08:41.793Z"
+      },
+      {
+        "id": "4ab1d98f-110a-4178-b53a-227129c1ed5e",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T00:08:56.440Z"
+      },
+      {
+        "id": "ac5d9d21-33b6-4169-a027-d26a67786c99",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T09:23:16.282Z"
+      },
+      {
+        "id": "e6169a44-6cf0-4e41-8595-88424d1f2488",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T09:24:18.590Z"
+      },
+      {
+        "id": "8a2d9562-011a-4509-a5bd-407fec5bf1a3",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T09:24:25.852Z"
+      },
+      {
+        "id": "620155b2-d0c0-4031-8c43-9ecee61eca17",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T09:26:46.196Z"
+      },
+      {
+        "id": "c89616f5-2ac8-4313-a3df-670925e96298",
+        "kind": "category-click",
+        "label": "Маршруты",
+        "path": "/programs",
+        "entityId": "programs",
+        "categoryId": "programs",
+        "createdAt": "2026-05-13T09:27:00.571Z"
+      },
+      {
+        "id": "1e7208e0-50c6-478d-953a-8db05638df0e",
+        "kind": "page-view",
+        "label": "/programs",
+        "path": "/programs",
+        "createdAt": "2026-05-13T09:27:00.604Z"
+      },
+      {
+        "id": "c73a2dfe-735e-488b-8fd0-778627aa1908",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T09:27:02.701Z"
+      },
+      {
+        "id": "b8fc0aaf-42e8-4f57-a7ce-7039f0dc337b",
+        "kind": "category-click",
+        "label": "Активный отдых",
+        "path": "/section/active-rest",
+        "entityId": "active-rest",
+        "categoryId": "active-rest",
+        "createdAt": "2026-05-13T09:27:04.177Z"
+      },
+      {
+        "id": "f0c2c3bf-7bc6-4743-9d50-b2f2e6fa5eed",
+        "kind": "page-view",
+        "label": "Раздел active-rest",
+        "path": "/section/active-rest",
+        "createdAt": "2026-05-13T09:27:04.193Z"
+      },
+      {
+        "id": "d3456b04-b90c-4dd8-b553-46fee3abae4a",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T09:27:09.686Z"
+      },
+      {
+        "id": "ad04b4a8-b6ea-47a7-a5cf-7bb184b62c92",
+        "kind": "category-click",
+        "label": "Активный отдых",
+        "path": "/section/active-rest",
+        "entityId": "active-rest",
+        "categoryId": "active-rest",
+        "createdAt": "2026-05-13T09:34:59.044Z"
+      },
+      {
+        "id": "4c7203ce-0ab5-48f4-9f97-53bdb1c5306b",
+        "kind": "page-view",
+        "label": "Раздел active-rest",
+        "path": "/section/active-rest",
+        "createdAt": "2026-05-13T09:34:59.057Z"
+      },
+      {
+        "id": "38868d2f-c466-4b5a-a616-8ef7f2501bfe",
+        "kind": "page-view",
+        "label": "Раздел active-rest",
+        "path": "/section/active-rest",
+        "createdAt": "2026-05-13T09:44:42.943Z"
+      },
+      {
+        "id": "8c613c7b-1b0f-4175-8d31-27bbf9cff280",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T09:44:42.992Z"
+      },
+      {
+        "id": "4c38e7f1-f57c-495f-887d-1653f004698b",
+        "kind": "page-view",
+        "label": "Раздел active-rest",
+        "path": "/section/active-rest",
+        "createdAt": "2026-05-13T09:46:34.364Z"
+      },
+      {
+        "id": "f11167b1-c3cd-464d-8bd6-1f75c256ff41",
+        "kind": "page-view",
+        "label": "Раздел active-rest",
+        "path": "/section/active-rest",
+        "createdAt": "2026-05-13T10:30:26.015Z"
+      },
+      {
+        "id": "ae38d431-e5c6-471d-beb3-51d8766a0e58",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T10:30:26.183Z"
+      },
+      {
+        "id": "829912b2-33f8-4795-a442-40cabce6d918",
+        "kind": "page-view",
+        "label": "Раздел active-rest",
+        "path": "/section/active-rest",
+        "createdAt": "2026-05-13T10:30:41.146Z"
+      },
+      {
+        "id": "fd7bf879-ccb4-4b71-9dc2-e49818df0949",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T10:30:43.771Z"
+      },
+      {
+        "id": "a8e3ebf0-8d0b-42dd-909a-509348d776b1",
+        "kind": "page-view",
+        "label": "Раздел active-rest",
+        "path": "/section/active-rest",
+        "createdAt": "2026-05-13T10:32:57.060Z"
+      },
+      {
+        "id": "99acf306-5802-4a9d-bdd0-19947138e66c",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T10:32:59.500Z"
+      },
+      {
+        "id": "061a14f1-9969-4b76-aea3-5cd4630966d9",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T10:55:16.394Z"
+      },
+      {
+        "id": "312f0d7c-3d0f-430a-bd26-450489fe06d9",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T10:55:16.513Z"
+      },
+      {
+        "id": "88b89db4-e22e-425a-a2a6-00d8ac1e0aad",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T10:56:12.640Z"
+      },
+      {
+        "id": "0f3423b1-cb05-405d-bc53-dd0fa3fd5a43",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T10:56:12.923Z"
+      },
+      {
+        "id": "d18f7cef-a863-45f0-b90f-3fcbfaff3097",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T11:06:27.578Z"
+      },
+      {
+        "id": "901e874d-d836-4d25-a1c5-a6da3764adf5",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T11:06:27.700Z"
+      },
+      {
+        "id": "168cba73-f99b-4b95-bd25-7c801fc51fe8",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T11:06:37.726Z"
+      },
+      {
+        "id": "8102b38a-a1f2-4ab4-ab00-94cd4d19e42b",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T11:06:38.312Z"
+      },
+      {
+        "id": "7743680c-7723-4b2e-801a-5e378bb25b3a",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T11:35:17.524Z"
+      },
+      {
+        "id": "e61dab55-13dd-4496-9ae3-fb1246442c67",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T11:35:26.047Z"
+      },
+      {
+        "id": "39feac5c-b547-4a42-842c-ef3c613a3867",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T11:35:37.632Z"
+      },
+      {
+        "id": "06cb1e50-0e8f-4b98-8b92-f63fbc35e910",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T11:35:44.239Z"
+      },
+      {
+        "id": "c6878e9d-a48d-4491-ad1b-1124f8257867",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T11:35:54.881Z"
+      },
+      {
+        "id": "4bf9ff23-348b-44c2-bf22-570e5a2b8cc5",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T11:50:55.681Z"
+      },
+      {
+        "id": "d6d068a4-9d90-4844-a7c3-166f238ff68d",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T19:04:22.301Z"
+      },
+      {
+        "id": "405c87a9-bde5-4684-882b-e4849207d660",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-13T19:04:40.527Z"
+      },
+      {
+        "id": "74db37d4-2fd6-430b-97e8-53be83f0bce0",
+        "kind": "page-view",
+        "label": "Избранное",
+        "path": "/favorites",
+        "createdAt": "2026-05-13T19:04:45.799Z"
+      },
+      {
+        "id": "1d0cde6b-b7e9-4770-ada3-6958918fd109",
+        "kind": "page-view",
+        "label": "/map",
+        "path": "/map",
+        "createdAt": "2026-05-13T19:04:47.987Z"
+      },
+      {
+        "id": "ab88d994-0474-43ad-8dc4-fbcd6f7c3cfc",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T19:04:57.158Z"
+      },
+      {
+        "id": "ecb23a1e-3676-4949-b13d-c41292bf869f",
+        "kind": "category-click",
+        "label": "Активный отдых",
+        "path": "/section/active-rest",
+        "entityId": "active-rest",
+        "categoryId": "active-rest",
+        "createdAt": "2026-05-13T19:04:58.650Z"
+      },
+      {
+        "id": "bf7e0d1f-0209-4369-b9d4-298b81701af1",
+        "kind": "page-view",
+        "label": "Раздел active-rest",
+        "path": "/section/active-rest",
+        "createdAt": "2026-05-13T19:04:58.664Z"
+      },
+      {
+        "id": "087e9bc5-3030-4c84-a80a-2196a78a6273",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-13T19:05:01.966Z"
+      },
+      {
+        "id": "8ad798de-3efa-4544-8119-d2da70b0c8df",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-14T12:27:52.866Z"
+      },
+      {
+        "id": "d2bdbab1-2b75-4088-a45a-b58cfbc4b646",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-14T12:28:04.171Z"
+      },
+      {
+        "id": "e3b75527-5497-48bd-8dd5-15c8cb56eff4",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-16T11:44:15.389Z"
+      },
+      {
+        "id": "8c746430-f982-48a7-b3f0-55f04547c1b6",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-16T11:52:21.997Z"
+      },
+      {
+        "id": "254aae2a-2f07-4a37-bd93-0ea7d6c1a4cc",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-16T13:26:47.289Z"
+      },
+      {
+        "id": "1a23e745-c9d0-4fd9-a388-cded2d19683e",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-16T13:26:59.567Z"
+      },
+      {
+        "id": "342e2341-bafc-4610-b222-a90ff2652d5b",
+        "kind": "category-click",
+        "label": "Оздоровление",
+        "path": "/wellness",
+        "entityId": "wellness",
+        "categoryId": "wellness",
+        "createdAt": "2026-05-16T13:27:01.019Z"
+      },
+      {
+        "id": "48293b61-5510-44ac-8936-263fae042985",
+        "kind": "page-view",
+        "label": "Оздоровление",
+        "path": "/wellness",
+        "createdAt": "2026-05-16T13:27:01.041Z"
+      },
+      {
+        "id": "5db646a5-0374-437f-af11-01cfe0c3f288",
+        "kind": "place-click",
+        "label": "Herbal Spa",
+        "path": "/place/wellness-herbal-spa",
+        "entityId": "wellness-herbal-spa",
+        "categoryId": "wellness",
+        "createdAt": "2026-05-16T13:27:01.789Z"
+      },
+      {
+        "id": "abbf4b5a-da8d-4300-96ce-db0979fd325a",
+        "kind": "page-view",
+        "label": "Карточка места",
+        "path": "/place/wellness-herbal-spa",
+        "createdAt": "2026-05-16T13:27:01.810Z"
+      },
+      {
+        "id": "18043667-9a12-4c6a-ae1b-1d22d3611936",
+        "kind": "page-view",
+        "label": "Карточка места",
+        "path": "/place/wellness-herbal-spa",
+        "createdAt": "2026-05-16T13:31:42.549Z"
+      },
+      {
+        "id": "45a9ae92-d1a4-4996-962e-9557596d390d",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-16T13:31:42.698Z"
+      },
+      {
+        "id": "07266eac-69b2-4cf8-96a1-139784e4e03e",
+        "kind": "page-view",
+        "label": "Карточка места",
+        "path": "/place/wellness-herbal-spa",
+        "createdAt": "2026-05-16T13:31:56.117Z"
+      },
+      {
+        "id": "8a123931-1a89-4b85-98f5-36d96b5390b5",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-16T13:31:58.832Z"
+      },
+      {
+        "id": "181a47f1-ede8-4839-a4e2-3c96d7f1ce3c",
+        "kind": "page-view",
+        "label": "Карточка места",
+        "path": "/place/wellness-herbal-spa",
+        "createdAt": "2026-05-16T13:32:29.569Z"
+      },
+      {
+        "id": "76407158-f774-4e7e-8358-ae2974e4a49c",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-16T13:32:32.699Z"
+      },
+      {
+        "id": "72436f01-8db8-4c08-914d-b7defb6741e7",
+        "kind": "page-view",
+        "label": "Карточка места",
+        "path": "/place/wellness-herbal-spa",
+        "createdAt": "2026-05-16T13:33:15.343Z"
+      },
+      {
+        "id": "994c20bd-2d09-4942-b259-3e7e0b3d41a1",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-16T13:33:17.622Z"
+      },
+      {
+        "id": "1631c978-9986-4659-b16d-fc389b62c97e",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-16T13:37:10.556Z"
+      },
+      {
+        "id": "36ec2b96-70d5-4ce3-8db4-05e6dea7eb4a",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-16T13:43:51.068Z"
+      },
+      {
+        "id": "40d85085-01d5-49cd-9a30-9d047067e01e",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-16T13:43:52.717Z"
+      },
+      {
+        "id": "5fb9db68-859f-4444-a78f-e6320880f546",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-16T13:44:55.032Z"
+      },
+      {
+        "id": "e229a09d-5fc1-4df0-a45f-92dc403b4667",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-16T13:45:04.144Z"
+      },
+      {
+        "id": "9c5221f8-39c2-425e-9d2d-3a671eb7d2f5",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-16T13:45:58.291Z"
+      },
+      {
+        "id": "634d41db-d9b4-4b5a-8bb7-8f560b87da9e",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-16T14:51:20.026Z"
+      },
+      {
+        "id": "2c0adfdc-c8f3-498d-b6b4-c344fb0c6e34",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-16T14:51:21.711Z"
+      },
+      {
+        "id": "771d6d3d-d493-415a-9f0d-387d073aed98",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-16T14:51:35.953Z"
+      },
+      {
+        "id": "9f0f69a6-3d56-4aac-a327-6da45454618b",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-16T14:51:36.356Z"
+      },
+      {
+        "id": "b7fc7ead-3b0e-41b7-8df8-3f332a21bede",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-16T16:56:27.907Z"
+      },
+      {
+        "id": "f620837d-5e15-4fc7-90a2-663e6103ca64",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-16T16:56:28.079Z"
+      },
+      {
+        "id": "4c78a319-f428-4fd7-9004-07888572a60f",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-16T16:56:41.236Z"
+      },
+      {
+        "id": "ade8f90b-43f7-4575-8b75-802e7a448ecf",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-16T16:56:41.566Z"
+      },
+      {
+        "id": "dbcb6f07-b1f2-4e64-a940-4d8266a5eb98",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-16T18:58:40.438Z"
+      },
+      {
+        "id": "82b48035-3553-4660-9eac-72d0ee46d1de",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-16T19:54:24.242Z"
+      },
+      {
+        "id": "1d46afb9-e23d-4d1e-91d7-a54847ae8dd4",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-16T19:54:24.654Z"
+      },
+      {
+        "id": "b6040b4d-43c5-4f3f-bc06-cc5d247ddb0f",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T13:00:40.256Z"
+      },
+      {
+        "id": "6248a88a-c502-45dd-967b-8719836ae1ce",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T13:03:45.881Z"
+      },
+      {
+        "id": "bd475896-6840-451d-835c-3674d0d7e625",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T13:04:33.867Z"
+      },
+      {
+        "id": "cd3c8d68-304b-415a-afed-256cda31d29d",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T14:03:34.604Z"
+      },
+      {
+        "id": "e3292f1e-3080-4f85-9e61-1ea147da5644",
+        "kind": "category-click",
+        "label": "Доска объявлений",
+        "path": "/section/bulletin-board",
+        "entityId": "bulletin-board",
+        "categoryId": "bulletin-board",
+        "createdAt": "2026-05-17T14:08:28.426Z"
+      },
+      {
+        "id": "f14b4ad4-c4e3-4894-85d7-2aaf452d300f",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-17T14:08:28.506Z"
+      },
+      {
+        "id": "af1c254d-fe31-49f8-b401-e10698355f10",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T15:12:03.905Z"
+      },
+      {
+        "id": "bcf01738-8764-4b1d-9b76-37732603b79d",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-17T16:03:26.366Z"
+      },
+      {
+        "id": "c8e7b4fb-92d2-4e44-a87e-3ba5c6ed78f1",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T16:03:26.627Z"
+      },
+      {
+        "id": "93ca974f-74f6-4ed8-8119-d21b1ce7c3d1",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T16:03:27.756Z"
+      },
+      {
+        "id": "150fa8c4-e9a2-4554-bc7f-cc0816651dd3",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T16:04:41.888Z"
+      },
+      {
+        "id": "5c9cc8f0-6b6e-442f-988c-296c5bfd744e",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-17T16:04:41.966Z"
+      },
+      {
+        "id": "d170fc98-5144-4cf5-827c-e25cdedacf09",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T16:04:42.072Z"
+      },
+      {
+        "id": "f5259d07-9525-4254-a03f-606279485708",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T16:05:04.710Z"
+      },
+      {
+        "id": "db205b44-50d9-4dc1-b628-b3ae5e1c9b4f",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T16:05:04.713Z"
+      },
+      {
+        "id": "47a6e6b9-d90f-4819-a13b-133530c83046",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-17T16:05:04.713Z"
+      },
+      {
+        "id": "6185bfba-4d21-4de5-9a1f-070ef63552d7",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-17T16:15:00.545Z"
+      },
+      {
+        "id": "812e5af4-b661-4a8f-8feb-3e22087d12e5",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T16:15:00.493Z"
+      },
+      {
+        "id": "7a41a3a9-659a-4ff5-85fa-58ef9440ea60",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T16:15:00.709Z"
+      },
+      {
+        "id": "0f1d090a-eca4-4937-9f4f-15ccbe137505",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T16:49:35.802Z"
+      },
+      {
+        "id": "f0dc773a-47ec-49b5-b3ff-8562fbb76170",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T16:49:37.985Z"
+      },
+      {
+        "id": "8c005496-0bd7-4f7b-82de-b9210221118f",
+        "kind": "category-click",
+        "label": "Еда",
+        "path": "/restaurants",
+        "entityId": "restaurants",
+        "categoryId": "restaurants",
+        "createdAt": "2026-05-17T16:49:38.958Z"
+      },
+      {
+        "id": "bd73de1e-2687-4293-8ed1-f8fc6675c88a",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T16:49:38.970Z"
+      },
+      {
+        "id": "0e83bee1-5310-4637-b5d4-f53d1e91e91b",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T16:51:43.635Z"
+      },
+      {
+        "id": "e00d0b88-dcb8-4a45-b779-4111ff181601",
+        "kind": "category-click",
+        "label": "Еда",
+        "path": "/restaurants",
+        "entityId": "restaurants",
+        "categoryId": "restaurants",
+        "createdAt": "2026-05-17T16:54:44.457Z"
+      },
+      {
+        "id": "15ca1930-e1b4-48ed-b2f4-a8c662aefa43",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T16:54:44.472Z"
+      },
+      {
+        "id": "21739606-b75f-4407-9102-216a09d79229",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T16:55:22.531Z"
+      },
+      {
+        "id": "2f996881-55f0-4bc1-a221-d8fa93838d01",
+        "kind": "category-click",
+        "label": "Еда",
+        "path": "/restaurants",
+        "entityId": "restaurants",
+        "categoryId": "restaurants",
+        "createdAt": "2026-05-17T17:05:09.506Z"
+      },
+      {
+        "id": "f72fdce1-6e41-45ac-be53-b57f2c3cc9f8",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T17:05:09.520Z"
+      },
+      {
+        "id": "b6fbd408-f4df-4daf-9fd2-a873d0635587",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T17:05:12.093Z"
+      },
+      {
+        "id": "ff1ee426-1fae-42ac-932d-9622e648fa6c",
+        "kind": "category-click",
+        "label": "Еда",
+        "path": "/restaurants",
+        "entityId": "restaurants",
+        "categoryId": "restaurants",
+        "createdAt": "2026-05-17T17:09:22.060Z"
+      },
+      {
+        "id": "29736dc8-ada2-41ae-9ff7-fe160d0099ab",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T17:09:22.073Z"
+      },
+      {
+        "id": "9024ec9d-3dbe-44ef-8776-108bda245786",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T17:09:23.741Z"
+      },
+      {
+        "id": "17714b34-9a72-4fb1-8064-8ce603cd7751",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T17:11:36.264Z"
+      },
+      {
+        "id": "a7497925-a765-417a-ada5-bf0b4df2a6c6",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T17:11:40.110Z"
+      },
+      {
+        "id": "95c35c47-6d9a-43cb-a87a-83c768fabc7e",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T17:11:43.053Z"
+      },
+      {
+        "id": "709f7369-8684-4117-bb50-0a036cd46004",
+        "kind": "category-click",
+        "label": "Еда",
+        "path": "/restaurants",
+        "entityId": "restaurants",
+        "categoryId": "restaurants",
+        "createdAt": "2026-05-17T17:11:49.906Z"
+      },
+      {
+        "id": "ad586f56-3fb2-4db3-a573-3e8e0d565130",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T17:11:49.919Z"
+      },
+      {
+        "id": "4258bdc9-b6c5-4761-9e54-99bad7e869f0",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T17:15:31.141Z"
+      },
+      {
+        "id": "3c1eab3c-44aa-44e1-bc25-1df3437e7e7d",
+        "kind": "category-click",
+        "label": "Еда",
+        "path": "/restaurants",
+        "entityId": "restaurants",
+        "categoryId": "restaurants",
+        "createdAt": "2026-05-17T17:15:38.361Z"
+      },
+      {
+        "id": "2e2eaa43-895a-449e-947e-744c2c4f91c5",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T17:15:38.369Z"
+      },
+      {
+        "id": "9bf2a7d4-7ffb-4920-9af2-274778b7c5da",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T17:19:05.578Z"
+      },
+      {
+        "id": "35d19071-94bc-49a4-9fca-e5546fa5f85d",
+        "kind": "category-click",
+        "label": "Еда",
+        "path": "/restaurants",
+        "entityId": "restaurants",
+        "categoryId": "restaurants",
+        "createdAt": "2026-05-17T17:19:11.071Z"
+      },
+      {
+        "id": "5d3ece01-bff1-4058-8ae1-9eba3b981b1a",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T17:19:11.083Z"
+      },
+      {
+        "id": "1b5f2ebe-fbc9-43e6-bb07-b796d47d97a6",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T17:22:57.915Z"
+      },
+      {
+        "id": "c839607f-ee3c-4520-88b7-76d3183b4f7f",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T17:25:58.001Z"
+      },
+      {
+        "id": "da77f9ce-042c-4280-8a1a-0aae0f79ce36",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T17:31:55.576Z"
+      },
+      {
+        "id": "6f4f7bd2-8383-42ff-a711-d05c59cbb12c",
+        "kind": "category-click",
+        "label": "Доска объявлений",
+        "path": "/section/bulletin-board",
+        "entityId": "bulletin-board",
+        "categoryId": "bulletin-board",
+        "createdAt": "2026-05-17T17:31:57.206Z"
+      },
+      {
+        "id": "4e0d0750-00c2-4798-a792-6552d700f051",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-17T17:31:57.217Z"
+      },
+      {
+        "id": "f110186a-a956-4bc7-a7e3-4e0906c77ebe",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T17:32:23.120Z"
+      },
+      {
+        "id": "77f58063-bbf2-4bbc-9ff7-91fcfaefcffe",
+        "kind": "category-click",
+        "label": "Еда",
+        "path": "/restaurants",
+        "entityId": "restaurants",
+        "categoryId": "restaurants",
+        "createdAt": "2026-05-17T17:32:24.083Z"
+      },
+      {
+        "id": "b8b1adfb-b027-418a-ac49-ecf0a038136b",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T17:32:24.096Z"
+      },
+      {
+        "id": "8aae0fde-5ee8-4c1f-98c6-a0145d5d687c",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T17:34:43.252Z"
+      },
+      {
+        "id": "82f23b7d-d755-453f-a702-41649ca8ff58",
+        "kind": "category-click",
+        "label": "Доска объявлений",
+        "path": "/section/bulletin-board",
+        "entityId": "bulletin-board",
+        "categoryId": "bulletin-board",
+        "createdAt": "2026-05-17T17:34:44.433Z"
+      },
+      {
+        "id": "a1ed7a72-c532-403a-a7ac-17ab38847da1",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-17T17:34:44.443Z"
+      },
+      {
+        "id": "9e213975-c540-4305-9061-b1cc25af5b60",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T17:37:07.038Z"
+      },
+      {
+        "id": "9e0a7e3c-ef65-4707-bbe8-f621311a56dc",
+        "kind": "category-click",
+        "label": "Еда",
+        "path": "/restaurants",
+        "entityId": "restaurants",
+        "categoryId": "restaurants",
+        "createdAt": "2026-05-17T17:37:08.293Z"
+      },
+      {
+        "id": "514cbbbc-39f3-47ec-9dd8-8f30b0024b57",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T17:37:08.302Z"
+      },
+      {
+        "id": "a2832656-8e1a-44a2-8677-369f9596d7e3",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T17:38:12.962Z"
+      },
+      {
+        "id": "76c90a25-dc67-4155-85e6-40ce9fe69134",
+        "kind": "category-click",
+        "label": "Доска объявлений",
+        "path": "/section/bulletin-board",
+        "entityId": "bulletin-board",
+        "categoryId": "bulletin-board",
+        "createdAt": "2026-05-17T17:38:14.423Z"
+      },
+      {
+        "id": "0f1a00c0-3213-4457-a12c-9f23fbf4032c",
+        "kind": "page-view",
+        "label": "Раздел bulletin-board",
+        "path": "/section/bulletin-board",
+        "createdAt": "2026-05-17T17:38:14.430Z"
+      },
+      {
+        "id": "623071ae-2d07-4665-a5bf-aba8b4ed8a16",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T17:40:41.798Z"
+      },
+      {
+        "id": "ca59c63c-532a-45b3-8418-bdd0893e0df1",
+        "kind": "category-click",
+        "label": "Еда",
+        "path": "/restaurants",
+        "entityId": "restaurants",
+        "categoryId": "restaurants",
+        "createdAt": "2026-05-17T17:40:43.621Z"
+      },
+      {
+        "id": "bf1ce392-df15-41ab-b73d-74debec25d4f",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T17:40:43.629Z"
+      },
+      {
+        "id": "0d4ed645-6ca3-4160-8f41-4c2e0e901577",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T17:45:13.178Z"
+      },
+      {
+        "id": "9d129418-30c3-46eb-aa40-d596f7c2297b",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T17:57:28.907Z"
+      },
+      {
+        "id": "260024bf-a14e-412a-8138-87248f3c00f1",
+        "kind": "category-click",
+        "label": "Еда",
+        "path": "/restaurants",
+        "entityId": "restaurants",
+        "categoryId": "restaurants",
+        "createdAt": "2026-05-17T17:57:29.895Z"
+      },
+      {
+        "id": "9d479c86-50e9-45a4-ab5d-38bda31ec2de",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T17:57:29.920Z"
+      },
+      {
+        "id": "c7f3f499-3e29-4500-a76a-c80829530d69",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T18:00:11.325Z"
+      },
+      {
+        "id": "1e9fbcc5-6b2b-4c97-898e-485921f18a34",
+        "kind": "place-click",
+        "label": "Madame Lân",
+        "path": "/place/restaurants-madame-ln",
+        "entityId": "restaurant-madame-lan",
+        "categoryId": "restaurants",
+        "createdAt": "2026-05-17T18:00:13.067Z"
+      },
+      {
+        "id": "c27533c0-d037-4764-8793-115c76ec8eb5",
+        "kind": "page-view",
+        "label": "Карточка места",
+        "path": "/place/restaurants-madame-ln",
+        "createdAt": "2026-05-17T18:00:13.083Z"
+      },
+      {
+        "id": "4e87783e-df12-4a2d-a51c-f9197c931beb",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T18:00:15.931Z"
+      },
+      {
+        "id": "8c654079-ea51-4691-8632-d5495818a11c",
+        "kind": "page-view",
+        "label": "Поиск",
+        "path": "/search",
+        "createdAt": "2026-05-17T18:05:33.926Z"
+      },
+      {
+        "id": "56a2a552-1cff-48d8-abbb-072cdf860333",
+        "kind": "page-view",
+        "label": "/map",
+        "path": "/map",
+        "createdAt": "2026-05-17T18:05:36.129Z"
+      },
+      {
+        "id": "2fb52c6d-4289-41b5-ab31-a34914c4b122",
+        "kind": "page-view",
+        "label": "Избранное",
+        "path": "/favorites",
+        "createdAt": "2026-05-17T18:05:37.516Z"
+      },
+      {
+        "id": "ebd1d411-b9c2-4f8d-b31a-3b6a21a7b508",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T18:05:38.443Z"
+      },
+      {
+        "id": "e838ee68-8832-47ee-be0f-c47d4de0943e",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T18:05:39.793Z"
+      },
+      {
+        "id": "c12d13a2-0c3b-42bf-a88b-b8ccd93f5530",
+        "kind": "category-click",
+        "label": "Активный отдых",
+        "path": "/section/active-rest",
+        "entityId": "active-rest",
+        "categoryId": "active-rest",
+        "createdAt": "2026-05-17T18:05:40.736Z"
+      },
+      {
+        "id": "a6b7958b-f768-4af0-bac8-c88e44eb384c",
+        "kind": "page-view",
+        "label": "Раздел active-rest",
+        "path": "/section/active-rest",
+        "createdAt": "2026-05-17T18:05:40.747Z"
+      },
+      {
+        "id": "182fde75-9314-4d96-9f31-426272d669af",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T18:05:44.461Z"
+      },
+      {
+        "id": "defad52d-1e0f-4add-a491-6c3b82a6d2a7",
+        "kind": "category-click",
+        "label": "Еда",
+        "path": "/restaurants",
+        "entityId": "restaurants",
+        "categoryId": "restaurants",
+        "createdAt": "2026-05-17T18:05:45.670Z"
+      },
+      {
+        "id": "3985f446-cf65-47eb-be3c-a3d651984f1d",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T18:05:45.679Z"
+      },
+      {
+        "id": "1f7df17a-c3e5-4011-8fb5-68bb822b037c",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T18:12:45.912Z"
+      },
+      {
+        "id": "13fa7e87-a5ff-4d09-ba2c-ccb0c1d2658f",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T18:17:24.031Z"
+      },
+      {
+        "id": "399ee29b-9c85-4b38-90c0-d6597bb44f1a",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T18:17:24.434Z"
+      },
+      {
+        "id": "d65610dc-ecdf-405e-94ac-4d40e29e3889",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T18:17:50.536Z"
+      },
+      {
+        "id": "e4192675-0208-4623-bfe7-8a8fd66809cd",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T18:17:51.415Z"
+      },
+      {
+        "id": "875dfa02-4d59-48e3-921e-eeeb11c29bad",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T18:20:54.006Z"
+      },
+      {
+        "id": "99ef9cc9-6511-4ce4-8325-a191d330de6a",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T18:20:54.366Z"
+      },
+      {
+        "id": "a284cb88-a887-4be6-bab7-0009d343df93",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T18:21:34.652Z"
+      },
+      {
+        "id": "a2e1851f-8ba2-48a7-a5f2-2fd63650ef86",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T18:23:39.131Z"
+      },
+      {
+        "id": "5c149fa5-2f8e-48b8-80aa-e9079a3f172d",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T18:25:01.743Z"
+      },
+      {
+        "id": "8b871b01-9e5e-4b18-8693-3600853078f2",
+        "kind": "page-view",
+        "label": "Контакты",
+        "path": "/contacts",
+        "createdAt": "2026-05-17T18:25:01.923Z"
+      },
+      {
+        "id": "b692c0c0-549d-446a-ad26-7d3a9e8c31bb",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T18:26:25.680Z"
+      },
+      {
+        "id": "eab59732-501f-40c2-963b-b704e1fa8d6e",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T18:40:17.680Z"
+      },
+      {
+        "id": "96fd3947-d626-4537-b347-581ab0f4da34",
+        "kind": "category-click",
+        "label": "Еда",
+        "path": "/restaurants",
+        "entityId": "restaurants",
+        "categoryId": "restaurants",
+        "createdAt": "2026-05-17T18:42:41.801Z"
+      },
+      {
+        "id": "42474e24-dfe3-4d23-bc74-bb53740d4617",
+        "kind": "page-view",
+        "label": "Рестораны",
+        "path": "/restaurants",
+        "createdAt": "2026-05-17T18:42:41.826Z"
+      },
+      {
+        "id": "91256f86-4332-446b-b892-b1c7aa30001c",
+        "kind": "page-view",
+        "label": "Главная",
+        "path": "/",
+        "createdAt": "2026-05-17T19:18:22.044Z"
+      },
+      {
+        "id": "dd691344-02d8-4bc9-8af9-5436916dd853",
+        "kind": "tip-click",
+        "label": "Dragon Bridge лучше смотреть по выходным",
+        "path": "/section/events",
+        "entityId": "tip-1",
+        "createdAt": "2026-05-17T19:18:23.630Z"
+      }
+    ]
+  },
+  "restaurants": [
+    {
+      "id": "restaurant-madame-lan",
+      "categoryId": "restaurants",
+      "title": "Madame Lân",
+      "description": "Известный ресторан в центре Дананга с классическими вьетнамскими блюдами и видом на реку Han.",
+      "address": "04 Bạch Đằng, Thạch Thang, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "+84 905 697 555",
+      "website": "https://www.madamelan.com/en",
+      "hours": "Ежедневно 06:30–21:30",
+      "avgCheck": null,
+      "kind": "Ресторан",
+      "cuisine": "Вьетнамская",
+      "services": [
+        "Вид на реку",
+        "Большой зал"
+      ],
+      "tags": [
+        "центр",
+        "han river",
+        "вьетнамская кухня"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Madame Lân",
+      "imageSrc": "https://cdn.prod.website-files.com/654dfdc9a008278170eea03f/661e086f76d6e4e39a01854c_507a6748.webp",
+      "imageGallery": [
+        "https://cdn.prod.website-files.com/654dfdc9a008278170eea03f/661e086f76d6e4e39a01854c_507a6748.webp"
+      ],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "restaurants-madame-ln",
+      "categorySlug": "restaurants",
+      "featured": true,
+      "shortDescription": "Вьетнамский ресторан на Bach Dang у реки Han.",
+      "priceLabel": "",
+      "listingType": "Ресторан",
+      "childFriendly": false,
+      "petFriendly": false,
+      "mapQuery": "04 Bạch Đằng, Thạch Thang, Hải Châu, Đà Nẵng, Vietnam",
+      "extra": [
+        "Вид на реку",
+        "Большой зал"
+      ],
+      "imageUrls": [
+        "https://cdn.prod.website-files.com/654dfdc9a008278170eea03f/661e086f76d6e4e39a01854c_507a6748.webp"
+      ],
+      "coverImageUrl": "https://cdn.prod.website-files.com/654dfdc9a008278170eea03f/661e086f76d6e4e39a01854c_507a6748.webp",
+      "websiteUrl": "https://www.madamelan.com/en",
+      "phoneNumber": "+84 905 697 555",
+      "district": "Hải Châu",
+      "location": "04 Bạch Đằng, Thạch Thang, Hải Châu, Đà Nẵng",
+      "type": "Ресторан",
+      "status": "published",
+      "sortOrder": 10,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    }
+  ],
+  "wellness": [
+    {
+      "id": "wellness-herbal-spa",
+      "categoryId": "wellness",
+      "title": "Herbal Spa",
+      "description": "Реальный spa-центр недалеко от пляжной части Дананга, известный массажными программами и приватными комнатами.",
+      "address": "201 D. Đình Nghệ, An Hải Bắc, Sơn Trà, Đà Nẵng 550000, Vietnam",
+      "phone": "+84 236 7305 779",
+      "website": "https://herbalspa.vn/en",
+      "hours": "Ежедневно 09:00–22:30",
+      "avgCheck": 650000,
+      "kind": "СПА",
+      "cuisine": "",
+      "services": [
+        "Массаж",
+        "Ароматерапия",
+        "Private room"
+      ],
+      "tags": [
+        "spa",
+        "massage",
+        "son tra"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Herbal Spa",
+      "imageSrc": "https://herbalspa.vn/data/slide_desktop/Herbal_Spa_2026.webp",
+      "imageGallery": [
+        "https://herbalspa.vn/data/slide_desktop/Herbal_Spa_2026.webp"
+      ],
+      "hotelStars": null,
+      "hotelPool": false,
+      "hotelSpa": false,
+      "slug": "wellness-herbal-spa",
+      "categorySlug": "wellness",
+      "featured": true,
+      "shortDescription": "Популярный spa-салон в Sơn Trà с длинным режимом работы.",
+      "priceLabel": "от 650,000 VND",
+      "listingType": "СПА",
+      "childFriendly": false,
+      "petFriendly": false,
+      "mapQuery": "201 D. Đình Nghệ, An Hải Bắc, Sơn Trà, Đà Nẵng 550000, Vietnam",
+      "extra": [
+        "Массаж",
+        "Ароматерапия",
+        "Private room"
+      ],
+      "imageUrls": [
+        "https://herbalspa.vn/data/slide_desktop/Herbal_Spa_2026.webp"
+      ],
+      "coverImageUrl": "https://herbalspa.vn/data/slide_desktop/Herbal_Spa_2026.webp",
+      "websiteUrl": "https://herbalspa.vn/en",
+      "phoneNumber": "+84 236 7305 779",
+      "district": "Sơn Trà",
+      "location": "201 D. Đình Nghệ, An Hải Bắc, Sơn Trà, Đà Nẵng",
+      "type": "СПА",
+      "status": "published",
+      "sortOrder": 20,
+      "lat": null,
+      "lng": null,
+      "visible": true
+    }
+  ]
+}

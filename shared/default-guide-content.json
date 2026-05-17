@@ -1,0 +1,988 @@
+{
+  "version": 4,
+  "places": [
+    {
+      "id": "restaurant-madame-lan",
+      "categoryId": "restaurants",
+      "title": "Madame Lân",
+      "description": "Известный ресторан в центре Дананга с классическими вьетнамскими блюдами и видом на реку Han.",
+      "address": "04 Bạch Đằng, Thạch Thang, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "+84 905 697 555",
+      "website": "https://www.madamelan.com/en",
+      "hours": "06:30–21:30",
+      "avgCheck": null,
+      "kind": "Ресторан",
+      "cuisine": "Вьетнамская",
+      "services": [
+        "Вид на реку",
+        "Большой зал"
+      ],
+      "tags": [
+        "центр",
+        "han river",
+        "вьетнамская кухня"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Madame Lân",
+      "imageSrc": "https://cdn.prod.website-files.com/654dfdc9a008278170eea03f/661e086f76d6e4e39a01854c_507a6748.webp",
+      "imageGallery": [
+        "https://cdn.prod.website-files.com/654dfdc9a008278170eea03f/661e086f76d6e4e39a01854c_507a6748.webp"
+      ],
+      "shortDescription": "Вьетнамский ресторан на Bach Dang у реки Han.",
+      "priceLabel": "",
+      "listingType": "Ресторан",
+      "district": "Hải Châu",
+      "location": "04 Bạch Đằng, Thạch Thang, Hải Châu, Đà Nẵng",
+      "type": "Ресторан",
+      "status": "published",
+      "sortOrder": 10
+    },
+    {
+      "id": "wellness-herbal-spa",
+      "categoryId": "wellness",
+      "title": "Herbal Spa",
+      "description": "Реальный spa-центр недалеко от пляжной части Дананга, известный массажными программами и приватными комнатами.",
+      "address": "201 D. Đình Nghệ, An Hải Bắc, Sơn Trà, Đà Nẵng 550000, Vietnam",
+      "phone": "+84 236 7305 779",
+      "website": "https://herbalspa.vn/en",
+      "hours": "09:00–22:30",
+      "avgCheck": 650000,
+      "kind": "СПА",
+      "cuisine": "",
+      "services": [
+        "Массаж",
+        "Ароматерапия",
+        "Private room"
+      ],
+      "tags": [
+        "spa",
+        "massage",
+        "son tra"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Herbal Spa",
+      "imageSrc": "https://herbalspa.vn/data/slide_desktop/Herbal_Spa_2026.webp",
+      "imageGallery": [
+        "https://herbalspa.vn/data/slide_desktop/Herbal_Spa_2026.webp"
+      ],
+      "shortDescription": "Популярный spa-салон в Sơn Trà с длинным режимом работы.",
+      "priceLabel": "от 650,000 VND",
+      "listingType": "СПА",
+      "district": "Sơn Trà",
+      "location": "201 D. Đình Nghệ, An Hải Bắc, Sơn Trà, Đà Nẵng",
+      "type": "СПА",
+      "status": "published",
+      "sortOrder": 20
+    },
+    {
+      "id": "active-mikazuki-water-park",
+      "categoryId": "active-rest",
+      "title": "Mikazuki Water Park 365",
+      "description": "Крытый и открытый водный парк в северной части Дананга с горками, lazy river и семейными зонами отдыха.",
+      "address": "Xuan Thieu Tourism Area, Nguyễn Tất Thành, Hòa Hiệp Nam, Liên Chiểu, Đà Nẵng, Vietnam",
+      "phone": "+84 236 3774 555",
+      "website": "https://www.mikazukiwaterpark.com/",
+      "hours": "09:00–19:00",
+      "avgCheck": null,
+      "kind": "Аквапарк",
+      "cuisine": "",
+      "services": [
+        "Горки",
+        "Lazy river",
+        "Family zone"
+      ],
+      "tags": [
+        "water",
+        "family",
+        "lien chieu"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": true,
+      "top": true,
+      "imageLabel": "Mikazuki Water Park 365",
+      "imageSrc": "https://static.wixstatic.com/media/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg/v1/fill/w_250%2Ch_167%2Cal_c%2Cq_90%2Cenc_auto/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg",
+      "imageGallery": [
+        "https://static.wixstatic.com/media/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg/v1/fill/w_250%2Ch_167%2Cal_c%2Cq_90%2Cenc_auto/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg"
+      ],
+      "shortDescription": "Крупный семейный water park в северной части Дананга.",
+      "priceLabel": "",
+      "listingType": "Активный отдых",
+      "district": "Liên Chiểu",
+      "location": "Xuan Thieu Tourism Area, Nguyễn Tất Thành, Liên Chiểu, Đà Nẵng",
+      "type": "Аквапарк",
+      "status": "published",
+      "sortOrder": 30
+    },
+    {
+      "id": "route-hai-van-pass",
+      "categoryId": "photo-spots",
+      "title": "Hải Vân Pass Viewpoints",
+      "description": "Один из самых известных маршрутов рядом с Данангом: серпантин, видовые точки и остановки с панорамой моря и гор.",
+      "address": "Hải Vân Pass, Hòa Hiệp Bắc, Liên Chiểu, Đà Nẵng, Vietnam",
+      "phone": "",
+      "website": "https://danangfantasticity.com/en/sight-seeing-en/hai-van-pass",
+      "hours": "",
+      "avgCheck": null,
+      "kind": "Видовая дорога",
+      "cuisine": "",
+      "services": [
+        "Видовые точки",
+        "Поездка на байке",
+        "Фотостопы"
+      ],
+      "tags": [
+        "view",
+        "road trip",
+        "mountains"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Hải Vân Pass",
+      "imageSrc": "https://danangfantasticity.com/wp-content/uploads/2024/05/kinh-nghiem-di-hai-van-quan-da-nang-tu-a-den-z-3.jpg",
+      "imageGallery": [
+        "https://danangfantasticity.com/wp-content/uploads/2024/05/kinh-nghiem-di-hai-van-quan-da-nang-tu-a-den-z-3.jpg"
+      ],
+      "shortDescription": "Живописные виды и фотостопы на перевале Hải Vân.",
+      "priceLabel": "",
+      "listingType": "Виды города",
+      "district": "Liên Chiểu",
+      "location": "Hải Vân Pass, Liên Chiểu, Đà Nẵng",
+      "type": "Видовая точка",
+      "status": "published",
+      "sortOrder": 40
+    },
+    {
+      "id": "hotel-mikazuki-resort",
+      "categoryId": "hotels",
+      "title": "Da Nang Mikazuki Japanese Resorts & Spa",
+      "description": "Крупный курортный комплекс на северном побережье Дананга с японским spa-форматом, бассейнами и прямым выходом к морю.",
+      "address": "Xuan Thieu Tourism Area, Nguyễn Tất Thành, Hòa Hiệp Nam, Liên Chiểu, Đà Nẵng, Vietnam",
+      "phone": "+84 236 3774 555",
+      "website": "https://mikazuki.com.vn/en/",
+      "hours": "",
+      "avgCheck": null,
+      "kind": "Курорт",
+      "cuisine": "",
+      "services": [
+        "Бассейн",
+        "Onsen",
+        "Пляж"
+      ],
+      "tags": [
+        "resort",
+        "beach",
+        "japanese style"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": true,
+      "top": true,
+      "imageLabel": "Da Nang Mikazuki Japanese Resorts & Spa",
+      "imageSrc": "https://static.wixstatic.com/media/f39377_136053b0734645718cf437f01a1abf56~mv2.jpg/v1/fill/w_250%2Ch_140%2Cal_c%2Cq_90%2Cenc_auto/f39377_136053b0734645718cf437f01a1abf56~mv2.jpg",
+      "imageGallery": [
+        "https://static.wixstatic.com/media/f39377_136053b0734645718cf437f01a1abf56~mv2.jpg/v1/fill/w_250%2Ch_140%2Cal_c%2Cq_90%2Cenc_auto/f39377_136053b0734645718cf437f01a1abf56~mv2.jpg"
+      ],
+      "shortDescription": "Пятизвёздочный resort в Liên Chiểu с японским spa-акцентом.",
+      "priceLabel": "",
+      "listingType": "Отель",
+      "district": "Liên Chiểu",
+      "location": "Xuan Thieu Tourism Area, Nguyễn Tất Thành, Liên Chiểu, Đà Nẵng",
+      "type": "Отель",
+      "hotelStars": 5,
+      "hotelPool": true,
+      "hotelSpa": true,
+      "status": "published",
+      "sortOrder": 50
+    },
+    {
+      "id": "event-dragon-bridge-show",
+      "categoryId": "events",
+      "title": "Dragon Bridge Fire & Water Show",
+      "description": "Знаменитое вечернее шоу на мосту Rồng: огонь и вода по выходным, одно из самых узнаваемых зрелищ Дананга.",
+      "address": "Cầu Rồng, Nguyễn Văn Linh, Phước Ninh, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "",
+      "website": "https://www.vietnamairlines.com/us/en/plan-book/travel/travel-guide/dragon-bridge-danang",
+      "hours": "Пятница–воскресенье, 21:00",
+      "avgCheck": null,
+      "kind": "Городское шоу",
+      "cuisine": "",
+      "services": [
+        "Огонь",
+        "Вода",
+        "Вечерняя прогулка"
+      ],
+      "tags": [
+        "weekend",
+        "night",
+        "han river"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": true,
+      "top": true,
+      "imageLabel": "Dragon Bridge",
+      "imageSrc": "https://traveldanang.org/wp-content/uploads/2024/08/cau-rong-da-nang.jpg",
+      "imageGallery": [
+        "https://traveldanang.org/wp-content/uploads/2024/08/cau-rong-da-nang.jpg"
+      ],
+      "shortDescription": "Вечернее шоу на Dragon Bridge по выходным.",
+      "priceLabel": "Бесплатно",
+      "listingType": "Событие",
+      "district": "Hải Châu",
+      "location": "Dragon Bridge, Nguyễn Văn Linh, Hải Châu, Đà Nẵng",
+      "type": "Событие",
+      "status": "published",
+      "sortOrder": 60
+    },
+    {
+      "id": "transport-da-nang-airport",
+      "categoryId": "misc",
+      "title": "Da Nang International Airport",
+      "description": "Главный аэропорт города для внутренних и международных рейсов, ближайшая транспортная точка для прилёта в Дананг.",
+      "address": "Duy Tân, Hòa Thuận Tây, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "+84 236 3539 555",
+      "website": "https://www.vietnamairports.vn/danangairport/en/",
+      "hours": "24/7",
+      "avgCheck": null,
+      "kind": "Аэропорт",
+      "cuisine": "",
+      "services": [
+        "Прилёт",
+        "Такси",
+        "Трансфер"
+      ],
+      "tags": [
+        "airport",
+        "24/7",
+        "arrival"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Da Nang International Airport",
+      "imageSrc": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Da_Nang_International_Airport%2C_Vietnam.jpg/500px-Da_Nang_International_Airport%2C_Vietnam.jpg",
+      "imageGallery": [
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Da_Nang_International_Airport%2C_Vietnam.jpg/500px-Da_Nang_International_Airport%2C_Vietnam.jpg"
+      ],
+      "shortDescription": "Международный аэропорт Дананга в районе Hải Châu.",
+      "priceLabel": "",
+      "listingType": "Разное",
+      "district": "Hải Châu",
+      "location": "Duy Tân, Hòa Thuận Tây, Hải Châu, Đà Nẵng",
+      "type": "Аэропорт",
+      "status": "published",
+      "sortOrder": 70
+    },
+    {
+      "id": "atm-vietcombank-tran-phu",
+      "categoryId": "atm",
+      "title": "Vietcombank ATM Trần Phú",
+      "description": "Банкомат и точка ориентира в центральной части Дананга, рядом с улицей Trần Phú и прогулочной зоной.",
+      "address": "68 Trần Phú, Hải Châu 1, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "",
+      "website": "https://www.vietcombank.com.vn/",
+      "hours": "24/7",
+      "avgCheck": null,
+      "kind": "Банкомат",
+      "cuisine": "",
+      "services": [
+        "Наличные",
+        "VISA",
+        "Mastercard"
+      ],
+      "tags": [
+        "cash",
+        "center",
+        "24/7"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": false,
+      "imageLabel": "Vietcombank ATM",
+      "imageSrc": "",
+      "imageGallery": [],
+      "shortDescription": "Центральный ATM на Trần Phú в районе Hải Châu.",
+      "priceLabel": "",
+      "listingType": "Банкомат",
+      "district": "Hải Châu",
+      "location": "68 Trần Phú, Hải Châu 1, Hải Châu, Đà Nẵng",
+      "type": "Банкомат",
+      "status": "published",
+      "sortOrder": 80
+    },
+    {
+      "id": "shop-han-market",
+      "categoryId": "shops",
+      "title": "Han Market",
+      "description": "Один из самых известных рынков Дананга, куда обычно идут за кофе, сладостями, сувенирами и повседневными покупками.",
+      "address": "119 Trần Phú, Hải Châu 1, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "",
+      "website": "https://traveldanang.org/place/han-market/",
+      "hours": "",
+      "avgCheck": null,
+      "kind": "Рынок",
+      "cuisine": "",
+      "services": [
+        "Сувениры",
+        "Кофе",
+        "Локальные продукты"
+      ],
+      "tags": [
+        "market",
+        "souvenirs",
+        "center"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Han Market",
+      "imageSrc": "https://traveldanang.org/wp-content/uploads/2024/08/cho-han-da-nang.jpg",
+      "imageGallery": [
+        "https://traveldanang.org/wp-content/uploads/2024/08/cho-han-da-nang.jpg"
+      ],
+      "shortDescription": "Популярный центральный рынок Дананга.",
+      "priceLabel": "",
+      "listingType": "Покупки",
+      "district": "Hải Châu",
+      "location": "119 Trần Phú, Hải Châu 1, Hải Châu, Đà Nẵng",
+      "type": "Рынок",
+      "status": "published",
+      "sortOrder": 90
+    },
+    {
+      "id": "culture-cham-museum",
+      "categoryId": "culture",
+      "title": "Da Nang Museum of Cham Sculpture",
+      "description": "Главный музей Дананга с крупнейшей коллекцией чамской скульптуры и одной из ключевых культурных точек города.",
+      "address": "02 Đ. 2 Tháng 9, Bình Hiên, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "",
+      "website": "https://traveldanang.org/place/cham-museum/",
+      "hours": "07:00–17:00",
+      "avgCheck": null,
+      "kind": "Музей",
+      "cuisine": "",
+      "services": [
+        "Экспозиция",
+        "История",
+        "Центр города"
+      ],
+      "tags": [
+        "museum",
+        "culture",
+        "history"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": true,
+      "top": true,
+      "imageLabel": "Cham Museum",
+      "imageSrc": "https://traveldanang.org/wp-content/uploads/2024/08/bao-tang-dieu-khac-cham-da-nang-2.jpg",
+      "imageGallery": [
+        "https://traveldanang.org/wp-content/uploads/2024/08/bao-tang-dieu-khac-cham-da-nang-2.jpg"
+      ],
+      "shortDescription": "Ключевой музей Дананга с коллекцией чамского искусства.",
+      "priceLabel": "",
+      "listingType": "Культура",
+      "district": "Hải Châu",
+      "location": "02 Đ. 2 Tháng 9, Bình Hiên, Hải Châu, Đà Nẵng",
+      "type": "Музей",
+      "status": "published",
+      "sortOrder": 100
+    },
+    {
+      "id": "kids-helio-center",
+      "categoryId": "kids",
+      "title": "Helio Center",
+      "description": "Семейное пространство в Дананге с indoor- и outdoor-зонами, игровыми форматами и вечерней активностью для детей.",
+      "address": "01 Đường 2/9, Hòa Cường Bắc, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "+84 236 3630 666",
+      "website": "https://helio.vn/",
+      "hours": "16:00–22:30",
+      "avgCheck": null,
+      "kind": "Семейный центр",
+      "cuisine": "",
+      "services": [
+        "Игры",
+        "Indoor zone",
+        "Family"
+      ],
+      "tags": [
+        "kids",
+        "family",
+        "evening"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": true,
+      "top": false,
+      "imageLabel": "Helio Center",
+      "imageSrc": "https://helio.vn/media/types/khu_trong_nha_ATBNMEi.jpg",
+      "imageGallery": [
+        "https://helio.vn/media/types/khu_trong_nha_ATBNMEi.jpg"
+      ],
+      "shortDescription": "Семейная площадка с играми и вечерними активностями.",
+      "priceLabel": "",
+      "listingType": "Детям",
+      "district": "Hải Châu",
+      "location": "01 Đường 2/9, Hòa Cường Bắc, Hải Châu, Đà Nẵng",
+      "type": "Семейный центр",
+      "status": "published",
+      "sortOrder": 110
+    },
+    {
+      "id": "medicine-family-hospital",
+      "categoryId": "medicine",
+      "title": "Family Hospital",
+      "description": "Крупная многопрофильная больница в Дананге с международным отделением и экстренной помощью 24/7.",
+      "address": "73 Nguyễn Hữu Thọ, Hòa Thuận Tây, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "+84 236 3632 111",
+      "website": "https://www.familyhospital.vn/en/",
+      "hours": "24/7",
+      "avgCheck": null,
+      "kind": "Больница",
+      "cuisine": "",
+      "services": [
+        "Emergency",
+        "International department",
+        "24/7"
+      ],
+      "tags": [
+        "hospital",
+        "english",
+        "emergency"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Family Hospital",
+      "imageSrc": "https://www.familyhospital.vn/wp-content/uploads/2025/03/BANNER.jpg",
+      "imageGallery": [
+        "https://www.familyhospital.vn/wp-content/uploads/2025/03/BANNER.jpg"
+      ],
+      "shortDescription": "Крупная hospital-точка в Hải Châu с круглосуточной помощью.",
+      "priceLabel": "",
+      "listingType": "Медицина",
+      "district": "Hải Châu",
+      "location": "73 Nguyễn Hữu Thọ, Hòa Thuận Tây, Hải Châu, Đà Nẵng",
+      "type": "Больница",
+      "status": "published",
+      "sortOrder": 120
+    },
+    {
+      "id": "photo-son-tra-marina",
+      "categoryId": "photo-spots",
+      "title": "Son Tra Marina",
+      "description": "Известная фото-точка на полуострове Sơn Trà с бело-синим причалом, морским фоном и удобными кадрами на закате.",
+      "address": "Hồ Xanh, Thọ Quang, Sơn Trà, Đà Nẵng, Vietnam",
+      "phone": "",
+      "website": "https://danangfantasticity.com/the-son-tra-peninsula",
+      "hours": "",
+      "avgCheck": null,
+      "kind": "Фото-спот",
+      "cuisine": "",
+      "services": [
+        "Марина",
+        "Морской фон",
+        "Закат"
+      ],
+      "tags": [
+        "photo",
+        "sunset",
+        "son tra"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": true,
+      "imageLabel": "Son Tra Marina",
+      "imageSrc": "https://danangfantasticity.com/wp-content/uploads/2020/02/marina-4.jpg",
+      "imageGallery": [
+        "https://danangfantasticity.com/wp-content/uploads/2020/02/marina-4.jpg"
+      ],
+      "shortDescription": "Одна из самых узнаваемых фото-локаций на Sơn Trà.",
+      "priceLabel": "",
+      "listingType": "Фото-спот",
+      "district": "Sơn Trà",
+      "location": "Hồ Xanh, Thọ Quang, Sơn Trà, Đà Nẵng",
+      "type": "Фото-спот",
+      "status": "published",
+      "sortOrder": 130
+    },
+    {
+      "id": "coworking-enouvo-space",
+      "categoryId": "coworkings",
+      "title": "Enouvo Space 2",
+      "description": "Реальный коворкинг в районе Sơn Trà для удалённой работы, встреч и спокойных рабочих часов недалеко от пляжной части города.",
+      "address": "18 An Nhơn 3, An Hải, Sơn Trà, Đà Nẵng 550000, Vietnam",
+      "phone": "+84 93 533 07 27",
+      "website": "https://enouvospace.com/",
+      "hours": "Пн–Пт 08:00–19:00, Сб 08:00–17:00, Вс выходной",
+      "avgCheck": null,
+      "kind": "Коворкинг",
+      "cuisine": "",
+      "services": [
+        "Wi-Fi",
+        "Meeting room",
+        "Tea & coffee"
+      ],
+      "tags": [
+        "coworking",
+        "remote work",
+        "son tra"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": false,
+      "imageLabel": "Enouvo Space 2",
+      "imageSrc": "",
+      "imageGallery": [],
+      "shortDescription": "Коворкинг в Sơn Trà для работы и встреч.",
+      "priceLabel": "",
+      "listingType": "Коворкинги",
+      "district": "Sơn Trà",
+      "location": "18 An Nhơn 3, An Hải, Sơn Trà, Đà Nẵng",
+      "type": "Коворкинг",
+      "status": "published",
+      "sortOrder": 135
+    },
+    {
+      "id": "car-rental-motorvina",
+      "categoryId": "car-rental",
+      "title": "Motorvina Da Nang",
+      "description": "Реальный сервис аренды байков во Вьетнаме с офисом в Дананге и возможностью брать транспорт для поездок по центру и северному побережью.",
+      "address": "66 Hải Phòng, Thạch Thang, Hải Châu, Đà Nẵng, Vietnam",
+      "phone": "+84 96 300 13 17",
+      "website": "https://motorvina.com/",
+      "hours": "08:00–17:30",
+      "avgCheck": null,
+      "kind": "Прокат байков",
+      "cuisine": "",
+      "services": [
+        "Motorbike rental",
+        "One way",
+        "Travel support"
+      ],
+      "tags": [
+        "bike",
+        "rental",
+        "hai chau"
+      ],
+      "breakfast": false,
+      "vegan": false,
+      "pets": false,
+      "childPrograms": false,
+      "top": false,
+      "imageLabel": "Motorvina",
+      "imageSrc": "https://motorvina.com/wp-content/uploads/2020/12/about-us-1.png",
+      "imageGallery": [
+        "https://motorvina.com/wp-content/uploads/2020/12/about-us-1.png"
+      ],
+      "shortDescription": "Прокат байков в Hải Châu с официальным офисом в Дананге.",
+      "priceLabel": "",
+      "listingType": "Автопрокат",
+      "district": "Hải Châu",
+      "location": "66 Hải Phòng, Thạch Thang, Hải Châu, Đà Nẵng",
+      "type": "Прокат байков",
+      "status": "published",
+      "sortOrder": 140
+    }
+  ],
+  "categories": [
+    {
+      "id": "restaurants",
+      "title": "Еда",
+      "path": "/restaurants",
+      "badge": "Популярно",
+      "description": "Рестораны, кафе, завтраки и места на каждый день.",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "restaurants",
+      "shortTitle": "Еда",
+      "accent": "sunset",
+      "filterSchema": {
+        "quickFilters": [
+          "breakfast",
+          "vegan",
+          "pets"
+        ],
+        "fields": [
+          "avgCheck",
+          "cuisine",
+          "kind",
+          "tags"
+        ]
+      }
+    },
+    {
+      "id": "events",
+      "title": "Досуг",
+      "path": "/section/events",
+      "description": "Афиша, бары, вечерние планы и городские активности.",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "events",
+      "shortTitle": "Досуг",
+      "accent": "sunset",
+      "filterSchema": {
+        "quickFilters": [
+          "today",
+          "weekend",
+          "free"
+        ],
+        "fields": [
+          "kind",
+          "tags"
+        ]
+      }
+    },
+    {
+      "id": "wellness",
+      "title": "Оздоровление",
+      "path": "/wellness",
+      "description": "СПА, массаж, хамам и спокойное восстановление.",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "wellness",
+      "shortTitle": "Оздоровление",
+      "accent": "emerald",
+      "filterSchema": {
+        "quickFilters": [
+          "childPrograms"
+        ],
+        "fields": [
+          "services",
+          "avgCheck",
+          "tags"
+        ]
+      }
+    },
+    {
+      "id": "active-rest",
+      "title": "Активный отдых",
+      "path": "/section/active-rest",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "active-rest",
+      "shortTitle": "Активный отдых",
+      "accent": "sunset",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": []
+      }
+    },
+    {
+      "id": "hotels",
+      "title": "Резорты",
+      "path": "/section/hotels",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "hotels",
+      "shortTitle": "Резорты",
+      "accent": "coast",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "hotelStars",
+          "hotelPool",
+          "hotelSpa",
+          "petFriendly",
+          "district"
+        ]
+      }
+    },
+    {
+      "id": "car-rental",
+      "title": "Транспорт",
+      "path": "/section/car-rental",
+      "visible": true,
+      "showOnHome": false,
+      "slug": "car-rental",
+      "shortTitle": "Транспорт",
+      "accent": "bridge",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "kind",
+          "services",
+          "avgCheck",
+          "district"
+        ]
+      }
+    },
+    {
+      "id": "atm",
+      "title": "Финансы",
+      "path": "/section/atm",
+      "visible": true,
+      "showOnHome": false,
+      "slug": "atm",
+      "shortTitle": "Финансы",
+      "accent": "emerald",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "kind",
+          "services",
+          "district"
+        ]
+      }
+    },
+    {
+      "id": "shops",
+      "title": "Покупки",
+      "path": "/section/shops",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "shops",
+      "shortTitle": "Покупки",
+      "accent": "sunset",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "kind",
+          "tags",
+          "district"
+        ]
+      }
+    },
+    {
+      "id": "bulletin-board",
+      "title": "Доска объявлений",
+      "path": "/section/bulletin-board",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "bulletin-board",
+      "shortTitle": "Объявления",
+      "accent": "bridge",
+      "filterSchema": {
+        "quickFilters": [
+          "Работа",
+          "Продажи",
+          "Вакансии",
+          "Резюме"
+        ],
+        "fields": [
+          "kind",
+          "cuisine",
+          "avgCheck",
+          "tags",
+          "district"
+        ]
+      },
+      "description": "Работа, продажи, аренда, услуги и локальные предложения в одном разделе."
+    },
+    {
+      "id": "culture",
+      "title": "Культура и искусство",
+      "path": "/section/culture",
+      "visible": true,
+      "showOnHome": true,
+      "slug": "culture",
+      "shortTitle": "Культура и искусство",
+      "accent": "coast",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "kind",
+          "tags",
+          "district"
+        ]
+      }
+    },
+    {
+      "id": "kids",
+      "title": "Детям",
+      "path": "/section/kids",
+      "visible": true,
+      "showOnHome": false,
+      "slug": "kids",
+      "shortTitle": "Детям",
+      "accent": "emerald",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": []
+      }
+    },
+    {
+      "id": "medicine",
+      "title": "Медицина",
+      "path": "/section/medicine",
+      "visible": true,
+      "showOnHome": false,
+      "slug": "medicine",
+      "shortTitle": "Медицина",
+      "accent": "bridge",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": []
+      }
+    },
+    {
+      "id": "photo-spots",
+      "title": "Виды города",
+      "path": "/section/photo-spots",
+      "visible": true,
+      "showOnHome": false,
+      "slug": "photo-spots",
+      "shortTitle": "Виды города",
+      "accent": "sunset",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "kind",
+          "tags",
+          "district"
+        ]
+      }
+    },
+    {
+      "id": "coworkings",
+      "title": "Коворкинги",
+      "path": "/section/coworkings",
+      "visible": true,
+      "showOnHome": false,
+      "slug": "coworkings",
+      "shortTitle": "Коворкинги",
+      "accent": "coast",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "kind",
+          "services",
+          "district"
+        ]
+      }
+    },
+    {
+      "id": "misc",
+      "title": "Разное",
+      "path": "/section/misc",
+      "visible": true,
+      "showOnHome": false,
+      "slug": "misc",
+      "shortTitle": "Разное",
+      "accent": "bridge",
+      "filterSchema": {
+        "quickFilters": [],
+        "fields": [
+          "kind",
+          "tags",
+          "district"
+        ]
+      }
+    }
+  ],
+  "tips": [
+    {
+      "id": "tip-1",
+      "title": "Dragon Bridge лучше смотреть по выходным",
+      "text": "Шоу огня и воды на Dragon Bridge обычно проходит вечером с пятницы по воскресенье в 21:00.",
+      "linkPath": "/section/events",
+      "active": true
+    },
+    {
+      "id": "tip-2",
+      "title": "За сувенирами удобнее идти в Han Market утром",
+      "text": "Утром на Han Market проще пройти ряды со специями, кофе и сладостями без вечерней плотности.",
+      "linkPath": "/section/shops",
+      "active": true
+    },
+    {
+      "id": "tip-3",
+      "title": "Cham Museum удобно сочетать с прогулкой по центру",
+      "text": "Музей чамской скульптуры хорошо комбинируется с набережной Han River и вечерним Dragon Bridge.",
+      "linkPath": "/section/culture",
+      "active": true
+    }
+  ],
+  "collections": [
+    {
+      "id": "collection-1",
+      "title": "Первый вечер в центре Дананга",
+      "description": "Cham Museum днём, ужин в Madame Lân и вечерний Dragon Bridge без сложной логистики.",
+      "linkPath": "/section/culture",
+      "imageSrc": "https://traveldanang.org/wp-content/uploads/2024/08/bao-tang-dieu-khac-cham-da-nang-2.jpg",
+      "itemIds": [
+        "culture-cham-museum",
+        "restaurant-madame-lan",
+        "event-dragon-bridge-show"
+      ],
+      "active": true
+    },
+    {
+      "id": "collection-2",
+      "title": "Северный день у воды",
+      "description": "Курортный ритм Mikazuki: resort, water park и день без спешки у моря.",
+      "linkPath": "/section/active-rest",
+      "imageSrc": "https://static.wixstatic.com/media/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg/v1/fill/w_250%2Ch_167%2Cal_c%2Cq_90%2Cenc_auto/f39377_bc84461358bf41edb70371233a0a244a~mv2.jpg",
+      "itemIds": [
+        "hotel-mikazuki-resort",
+        "active-mikazuki-water-park",
+        "photo-son-tra-marina"
+      ],
+      "active": true
+    }
+  ],
+  "home": {
+    "popularPlaceIds": [
+      "restaurant-madame-lan",
+      "culture-cham-museum",
+      "shop-han-market"
+    ],
+    "featuredCategoryIds": [
+      "restaurants",
+      "events",
+      "wellness",
+      "car-rental",
+      "photo-spots",
+      "atm"
+    ],
+    "tipIds": [
+      "tip-1",
+      "tip-2",
+      "tip-3"
+    ],
+    "collectionIds": [
+      "collection-1",
+      "collection-2"
+    ],
+    "sectionTitles": {
+      "popular": "Популярное",
+      "categories": "Категории",
+      "tips": "Советы",
+      "collections": "Подборки",
+      "allCategories": "Все рубрики"
+    }
+  },
+  "analytics": {
+    "events": []
+  }
+}

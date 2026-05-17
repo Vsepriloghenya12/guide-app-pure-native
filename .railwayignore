@@ -1,0 +1,9 @@
+.git
+.env
+mobile/node_modules
+server/node_modules
+node_modules
+.expo
+android
+ios
+storage/uploads

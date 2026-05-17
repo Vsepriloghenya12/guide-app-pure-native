@@ -1,0 +1,11 @@
+node_modules
+mobile/node_modules
+server/node_modules
+.env
+.git
+.expo
+android
+ios
+storage/uploads
+npm-debug.log*
+.DS_Store
