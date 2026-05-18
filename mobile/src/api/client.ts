@@ -1,7 +1,8 @@
 import type { BootstrapPayload, SupportContentStore } from '../types';
 import { normalizeBootstrap, normalizeSupportContent } from '../utils/normalizers';
 
-export const API_BASE_URL = String(process.env.EXPO_PUBLIC_API_BASE_URL || '').replace(/\/+$/g, '');
+const rawApiBaseUrl = String(process.env.EXPO_PUBLIC_API_BASE_URL || '').replace(/\/+$/g, '');
+export const API_BASE_URL = rawApiBaseUrl.includes('your-app.up.railway.app') || rawApiBaseUrl.includes('your-railway-backend') ? '' : rawApiBaseUrl;
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_BASE_URL) {

@@ -16,6 +16,7 @@ import {
   useWindowDimensions
 } from 'react-native';
 import * as Location from 'expo-location';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import type { BootstrapPayload, GuideCategory, GuideCollection, GuidePlace, GuideTip, SupportContentStore } from './src/types';
 import { fetchBootstrap, fetchSupportContent, API_BASE_URL, sendAnalytics } from './src/api/client';
 import { appleMapsUrl, directionsUrl, googleMapsUrl, openExternalUrl } from './src/utils/links';
@@ -114,8 +115,8 @@ function matchesQuickToken(place: GuidePlace, token: string) {
     place.district,
     place.hours,
     place.priceLabel,
-    ...(place.services || []),
-    ...(place.tags || [])
+    ...toTextArray((place as GuidePlace & { services?: unknown }).services),
+    ...toTextArray((place as GuidePlace & { tags?: unknown }).tags)
   ]
     .filter(Boolean)
     .map((value) => normalizeToken(String(value)));
@@ -123,6 +124,79 @@ function matchesQuickToken(place: GuidePlace, token: string) {
   return haystack.some((value) => value.includes(normalized));
 }
 
+
+
+function toText(value: unknown, fallback = '') {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string') return value.trim() || fallback;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return toText(record.title || record.name || record.label || record.text || record.value, fallback);
+  }
+  return fallback;
+}
+
+function toTextArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => toText(item)).filter(Boolean);
+  }
+  const textValue = toText(value);
+  if (!textValue) return [];
+  return textValue.split(/\n|,/g).map((item) => item.trim()).filter(Boolean);
+}
+
+function getPlaceImageUrls(place: GuidePlace) {
+  const record = place as GuidePlace & { imageGallery?: unknown; imageUrls?: unknown };
+  return [
+    toText(record.coverImageUrl),
+    toText(record.imageSrc),
+    ...toTextArray(record.imageGallery),
+    ...toTextArray(record.imageUrls)
+  ]
+    .map((item) => normalizeImageUrl(item, API_BASE_URL))
+    .filter(Boolean) as string[];
+}
+
+function getPrimaryImageUrl(place: GuidePlace) {
+  return getPlaceImageUrls(place)[0] || '';
+}
+
+function placeCoordinate(place: GuidePlace) {
+  const lat = typeof place.lat === 'number' ? place.lat : Number(place.lat);
+  const lng = typeof place.lng === 'number' ? place.lng : Number(place.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { latitude: lat, longitude: lng };
+}
+
+function buildMapRegion(points: Array<{ latitude: number; longitude: number }>): Region {
+  if (points.length === 0) {
+    return { latitude: 16.0678, longitude: 108.2208, latitudeDelta: 0.12, longitudeDelta: 0.12 };
+  }
+
+  const lats = points.map((point) => point.latitude);
+  const lngs = points.map((point) => point.longitude);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const latitudeDelta = Math.max(0.025, (maxLat - minLat) * 1.8);
+  const longitudeDelta = Math.max(0.025, (maxLng - minLng) * 1.8);
+
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLng + maxLng) / 2,
+    latitudeDelta,
+    longitudeDelta
+  };
+}
+
+function normalizeBulletinSection(value: unknown) {
+  const text = toText(value, 'Разное');
+  const normalized = normalizeToken(text);
+  if (!normalized || normalized.includes('аренд')) return 'Разное';
+  return text;
+}
 
 function buildRoutesShortcut(): GuideCategory {
   return {
@@ -746,12 +820,13 @@ function BulletinBoardScreen({
 }) {
   const [query, setQuery] = useState('');
   const [activeSection, setActiveSection] = useState('Все');
-  const sections = ['Все', 'Работа', 'Продажи', 'Услуги', 'Аренда'];
+  const sections = ['Все', 'Работа', 'Продажи', 'Услуги', 'Разное'];
   const normalizedQuery = query.trim().toLowerCase();
   const filteredListings = listings.filter((place) => {
-    const section = place.kind || place.cuisine || place.district || 'Другое';
-    const matchesSection = activeSection === 'Все' || normalizeToken(section).includes(normalizeToken(activeSection)) || (place.tags || []).some((tag) => normalizeToken(tag).includes(normalizeToken(activeSection)));
-    const haystack = [place.title, place.description, place.shortDescription, place.kind, place.cuisine, place.district, place.priceLabel, ...(place.tags || [])]
+    const section = normalizeBulletinSection(place.kind || place.cuisine || place.district || 'Разное');
+    const tagList = toTextArray((place as GuidePlace & { tags?: unknown }).tags);
+    const matchesSection = activeSection === 'Все' || normalizeToken(section).includes(normalizeToken(activeSection)) || tagList.some((tag) => normalizeToken(tag).includes(normalizeToken(activeSection)));
+    const haystack = [place.title, place.description, place.shortDescription, place.kind, place.cuisine, place.district, place.priceLabel, ...tagList]
       .filter(Boolean)
       .join(' ')
       .toLowerCase();
@@ -807,9 +882,6 @@ function BulletinBoardScreen({
       </View>
 
       <View style={styles.restaurantListNative}>
-        {filteredListings.length === 0 ? (
-          <EmptyState title="Пока нет объявлений" text="Добавь объявления в CMS: категория “Доска объявлений”." />
-        ) : null}
         {filteredListings.map((place) => (
           <CategoryListingCard
             key={place.id}
@@ -835,7 +907,7 @@ function CategoryListingCard({
   onPress: () => void;
   onToggleFavorite: () => void;
 }) {
-  const imageUrl = normalizeImageUrl(place.coverImageUrl || place.imageSrc || place.imageGallery?.[0], API_BASE_URL);
+  const imageUrl = getPrimaryImageUrl(place);
   const checkLabel = place.priceLabel || (place.avgCheck ? `${place.avgCheck.toLocaleString('ru-RU')} ₫` : 'Не указан');
   const hoursLabel = place.hours || 'Не указано';
   const cuisineLabel = place.cuisine || place.kind || place.district || 'Не указано';
@@ -879,6 +951,70 @@ function RestaurantFact({ icon, value, tone }: { icon: string; value: string; to
   );
 }
 
+
+
+function GuideMap({
+  places = [],
+  routePoints = [],
+  onOpenPlace,
+  height = 250
+}: {
+  places?: GuidePlace[];
+  routePoints?: NativeRoutePoint[];
+  onOpenPlace?: (place: GuidePlace) => void;
+  height?: number;
+}) {
+  const placeMarkers = places
+    .map((place) => ({ place, coordinate: placeCoordinate(place) }))
+    .filter((item): item is { place: GuidePlace; coordinate: { latitude: number; longitude: number } } => Boolean(item.coordinate));
+  const routeCoordinates = routePoints
+    .map((point) => ({ latitude: Number(point.lat), longitude: Number(point.lng) }))
+    .filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude));
+  const allCoordinates = [...routeCoordinates, ...placeMarkers.map((item) => item.coordinate)];
+
+  if (allCoordinates.length === 0) {
+    return (
+      <View style={[styles.nativeMapCard, { height }]}>
+        <Text style={styles.nativeMapEmptyTitle}>Карта пока пустая</Text>
+        <Text style={styles.nativeMapEmptyText}>Добавь координаты lat/lng в карточки, и точки появятся на карте.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.nativeMapCard, { height }]}>
+      <MapView
+        provider={PROVIDER_GOOGLE}
+        style={styles.nativeMap}
+        initialRegion={buildMapRegion(allCoordinates)}
+        showsUserLocation
+        showsMyLocationButton
+      >
+        {routeCoordinates.length > 1 ? (
+          <Polyline coordinates={routeCoordinates} strokeColor="#1f63c7" strokeWidth={5} />
+        ) : null}
+        {routeCoordinates.map((coordinate, index) => (
+          <Marker
+            key={`route-${index}`}
+            coordinate={coordinate}
+            title={`${index + 1}. ${routePoints[index]?.title || 'Точка маршрута'}`}
+            description={routePoints[index]?.text || ''}
+            pinColor={index === 0 ? '#22a06b' : index === routeCoordinates.length - 1 ? '#e05a3f' : '#1f63c7'}
+          />
+        ))}
+        {placeMarkers.map(({ place, coordinate }) => (
+          <Marker
+            key={place.id}
+            coordinate={coordinate}
+            title={place.title}
+            description={place.address || place.district || place.kind || ''}
+            onCalloutPress={() => onOpenPlace?.(place)}
+          />
+        ))}
+      </MapView>
+    </View>
+  );
+}
 
 function RoutesScreen({ onBack, onOpenRoute }: { onBack: () => void; onOpenRoute: (routeId: string) => void }) {
   return (
@@ -956,25 +1092,9 @@ function RouteDetailScreen({ route, onBack }: { route: NativeRoute; onBack: () =
 
       <View style={styles.routeMapCard}>
         <Text style={styles.routeBlockTitle}>Карта маршрута</Text>
-        <View style={styles.routeMapCanvas}>
-          <View style={styles.routeMapLine} />
-          {route.points.map((point, index) => (
-            <View
-              key={`${point.title}-map-${index}`}
-              style={[
-                styles.routeMapPin,
-                {
-                  left: `${8 + (index * 84) / Math.max(route.points.length - 1, 1)}%`,
-                  top: `${index % 2 === 0 ? 28 : 58}%`
-                }
-              ]}
-            >
-              <Text style={styles.routeMapPinText}>{index + 1}</Text>
-            </View>
-          ))}
-        </View>
+        <GuideMap routePoints={route.points} height={270} />
         <TouchableOpacity activeOpacity={0.86} onPress={() => void openExternalUrl(googleRouteUrl(route))} style={styles.routeMapButton}>
-          <Text style={styles.routeMapButtonText}>Открыть построенный маршрут в Google Maps</Text>
+          <Text style={styles.routeMapButtonText}>Открыть маршрут во внешнем Google Maps</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -1030,7 +1150,7 @@ function SearchScreen({
   const [query, setQuery] = useState('');
   const normalizedQuery = query.trim().toLowerCase();
   const results = normalizedQuery
-    ? listings.filter((place) => [place.title, place.description, place.address, place.district, place.kind, place.cuisine, ...(place.tags || [])].join(' ').toLowerCase().includes(normalizedQuery))
+    ? listings.filter((place) => [place.title, place.description, place.address, place.district, place.kind, place.cuisine, ...toTextArray((place as GuidePlace & { tags?: unknown }).tags)].join(' ').toLowerCase().includes(normalizedQuery))
     : listings.slice(0, 12);
 
   return (
@@ -1112,22 +1232,23 @@ function NearbyScreen({
     setStatus('');
   }, []);
 
+  const placesWithCoordinates = useMemo(() => listings.filter((place) => Boolean(placeCoordinate(place))), [listings]);
   const placesWithDistance = useMemo(() => {
-    return listings
-      .filter(hasCoordinates)
-      .map((place) => ({ ...place, distanceKm: position ? haversineDistanceKm(position, { lat: place.lat, lng: place.lng }) : null }))
+    return placesWithCoordinates
+      .map((place) => ({ ...place, distanceKm: position ? haversineDistanceKm(position, { lat: Number(place.lat), lng: Number(place.lng) }) : null }))
       .sort((left, right) => (left.distanceKm ?? 9999) - (right.distanceKm ?? 9999));
-  }, [listings, position]);
+  }, [placesWithCoordinates, position]);
 
   return (
     <View style={styles.screenGap}>
-      <ScreenHeader title="Карта" text="Места рядом и быстрый переход в карты." />
+      <ScreenHeader title="Карта" text="Наша карта с точками, которые добавлены в гид." />
+      <GuideMap places={placesWithCoordinates} onOpenPlace={openDetail} height={310} />
       <AppButton label={position ? 'Обновить геолокацию' : 'Показать места рядом'} onPress={() => void askLocation()} />
       {status ? <Text style={styles.noteText}>{status}</Text> : null}
-      {placesWithDistance.length === 0 ? <EmptyState title="Нет координат" text="У опубликованных мест пока не заполнены lat/lng." /> : null}
-      {placesWithDistance.map((place) => (
+      {placesWithCoordinates.length === 0 ? <EmptyState title="Нет координат" text="У опубликованных мест пока не заполнены lat/lng." /> : null}
+      {placesWithDistance.slice(0, 12).map((place) => (
         <View key={place.id} style={styles.nearbyCardWrap}>
-          <ListingCard
+          <CategoryListingCard
             place={place}
             isFavorite={favoriteSet.has(place.slug || place.id)}
             onPress={() => openDetail(place)}
@@ -1229,52 +1350,65 @@ function AuthSheet({ visible, onClose }: { visible: boolean; onClose: () => void
 }
 
 function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place: GuidePlace; category?: GuideCategory; isFavorite: boolean; onToggleFavorite: () => void }) {
-  const imageUrl = normalizeImageUrl(place.coverImageUrl || place.imageSrc || place.imageGallery?.[0], API_BASE_URL);
-  const gallery = [imageUrl, ...(place.imageGallery || []).map((item) => normalizeImageUrl(item, API_BASE_URL))].filter(Boolean);
-  const details = Array.from(new Set([...(place.extra || []), ...(place.services || [])].filter(Boolean)));
+  const gallery = getPlaceImageUrls(place);
+  const details = Array.from(new Set([...toTextArray((place as GuidePlace & { extra?: unknown }).extra), ...toTextArray((place as GuidePlace & { services?: unknown }).services)]));
+  const tags = toTextArray((place as GuidePlace & { tags?: unknown }).tags);
+  const description = toText(place.description || place.shortDescription, 'Описание пока не заполнено.');
+  const title = toText(place.title, 'Место');
+  const categoryLabel = toText(category?.title || place.kind || place.categoryId, 'Раздел');
+  const phone = toText(place.phoneNumber || place.phone);
+  const website = toText(place.websiteUrl || place.website);
+  const hasMapPoint = Boolean(placeCoordinate(place));
 
   return (
-    <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
+    <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} showsVerticalScrollIndicator={false}>
       <View style={styles.screenGap}>
-        {gallery[0] ? <Image source={{ uri: gallery[0] }} style={styles.detailImage} /> : null}
+        {gallery[0] ? <Image source={{ uri: gallery[0] }} style={styles.detailImage} /> : <View style={[styles.detailImage, styles.detailImageFallback]} />}
         <View style={styles.detailCard}>
           <View style={styles.detailTitleRow}>
             <View style={styles.flex}>
-              <Text style={styles.detailTitle}>{place.title}</Text>
-              <Text style={styles.detailSubtitle}>{category?.title || place.kind || place.categoryId}</Text>
+              <Text style={styles.detailTitle}>{title}</Text>
+              <Text style={styles.detailSubtitle}>{categoryLabel}</Text>
             </View>
             <TouchableOpacity activeOpacity={0.8} onPress={onToggleFavorite} style={styles.detailFavorite}>
               <Text style={uiStyles.favoriteText}>{isFavorite ? '★' : '☆'}</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.detailText}>{place.description || place.shortDescription}</Text>
+          <Text style={styles.detailText}>{description}</Text>
           <View style={uiStyles.pillsRow}>
-            <Pill label={place.priceLabel || ''} />
-            <Pill label={place.cuisine || ''} />
-            <Pill label={place.district || ''} />
+            <Pill label={toText(place.priceLabel)} />
+            <Pill label={toText(place.cuisine)} />
+            <Pill label={toText(place.district)} />
             {place.breakfast ? <Pill label="Завтрак" /> : null}
             {place.vegan ? <Pill label="Vegan" /> : null}
-            {place.pets ? <Pill label="Pet-friendly" /> : null}
+            {place.pets || place.petFriendly ? <Pill label="Pet-friendly" /> : null}
             {place.childPrograms || place.childFriendly ? <Pill label="Для детей" /> : null}
           </View>
         </View>
 
-        <InfoBlock title="Адрес" value={place.address || place.location || 'Не указан'} />
-        <InfoBlock title="Время работы" value={place.hours || 'Не указано'} />
-        <InfoBlock title="Телефон" value={place.phoneNumber || place.phone || 'Не указан'} />
+        {hasMapPoint ? (
+          <View style={styles.detailCard}>
+            <SectionTitle title="Карта" />
+            <GuideMap places={[place]} height={230} />
+          </View>
+        ) : null}
+
+        <InfoBlock title="Адрес" value={toText(place.address || place.location, 'Не указан')} />
+        <InfoBlock title="Время работы" value={toText(place.hours, 'Не указано')} />
+        <InfoBlock title="Телефон" value={phone || 'Не указан'} />
 
         <View style={styles.actionsGrid}>
           <AppButton label="Маршрут" onPress={() => void openExternalUrl(directionsUrl(place))} />
           <AppButton label="Google Maps" variant="ghost" onPress={() => void openExternalUrl(googleMapsUrl(place))} />
           {Platform.OS === 'ios' ? <AppButton label="Apple Maps" variant="ghost" onPress={() => void openExternalUrl(appleMapsUrl(place))} /> : null}
-          {place.phone || place.phoneNumber ? <AppButton label="Позвонить" variant="ghost" onPress={() => void openExternalUrl(`tel:${place.phoneNumber || place.phone}`)} /> : null}
-          {place.website || place.websiteUrl ? <AppButton label="Сайт" variant="ghost" onPress={() => void openExternalUrl(place.websiteUrl || place.website || '')} /> : null}
+          {phone ? <AppButton label="Позвонить" variant="ghost" onPress={() => void openExternalUrl(`tel:${phone}`)} /> : null}
+          {website ? <AppButton label="Сайт" variant="ghost" onPress={() => void openExternalUrl(website)} /> : null}
         </View>
 
-        {(place.tags || []).length > 0 ? (
+        {tags.length > 0 ? (
           <View style={styles.detailCard}>
             <SectionTitle title="Теги" />
-            <View style={uiStyles.pillsRow}>{place.tags?.map((tag) => <Pill key={tag} label={tag} />)}</View>
+            <View style={uiStyles.pillsRow}>{tags.map((tag) => <Pill key={tag} label={tag} />)}</View>
           </View>
         ) : null}
 
@@ -1413,6 +1547,7 @@ const styles = StyleSheet.create({
   contactValue: { color: '#155ea6', fontSize: 16, fontWeight: '900', marginTop: 10 },
 
   detailImage: { width: '100%', height: 250, borderRadius: 28, backgroundColor: '#dce8f4' },
+  detailImageFallback: { backgroundColor: '#d7e6f5' },
   detailCard: { padding: 18, borderRadius: 26, backgroundColor: '#fff', borderWidth: 1, borderColor: '#d8e0ea', gap: 10, shadowColor: '#263856', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.06, shadowRadius: 14, elevation: 2 },
   detailTitleRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   detailTitle: { color: '#102a43', fontSize: 29, lineHeight: 34, fontWeight: '900' },
@@ -1427,6 +1562,10 @@ const styles = StyleSheet.create({
   nearbyCardWrap: { gap: 8 },
   nearbyBadge: { alignSelf: 'flex-start', marginLeft: 12, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: '#102a43' },
   nearbyText: { color: '#fff', fontWeight: '800' },
+  nativeMapCard: { width: '100%', borderRadius: 22, overflow: 'hidden', backgroundColor: '#e8f1f8', borderWidth: 1, borderColor: '#d8e0ea', justifyContent: 'center' },
+  nativeMap: { ...StyleSheet.absoluteFillObject },
+  nativeMapEmptyTitle: { color: '#162640', fontSize: 17, fontWeight: '900', textAlign: 'center' },
+  nativeMapEmptyText: { color: '#60718a', fontSize: 13, lineHeight: 18, fontWeight: '700', textAlign: 'center', marginTop: 6, paddingHorizontal: 18 },
 
   categoryContent: { flex: 1, backgroundColor: '#ffffff' },
   categoryContentInner: { paddingHorizontal: 14, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 14 : 16, paddingBottom: 92, gap: 10, backgroundColor: '#ffffff' },
@@ -1446,15 +1585,15 @@ const styles = StyleSheet.create({
   categoryTitleText: { color: '#102a43', fontSize: 22, lineHeight: 27, fontWeight: '900' },
   categoryDescriptionText: { color: '#62748b', fontSize: 12.5, lineHeight: 18, marginTop: 4, fontWeight: '700' },
   restaurantListNative: { gap: 0 },
-  restaurantCardNative: { minHeight: 94, flexDirection: 'row', gap: 12, paddingVertical: 10, paddingHorizontal: 0, borderRadius: 0, backgroundColor: 'transparent', borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)', shadowOpacity: 0, elevation: 0 },
-  restaurantCardImage: { width: 88, height: 74, borderRadius: 12, backgroundColor: '#dce8f4', overflow: 'hidden', justifyContent: 'flex-end' },
+  restaurantCardNative: { minHeight: 116, width: '100%', flexDirection: 'row', gap: 12, paddingVertical: 12, paddingHorizontal: 0, borderRadius: 0, backgroundColor: 'transparent', borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)', shadowOpacity: 0, elevation: 0, overflow: 'hidden' },
+  restaurantCardImage: { width: 118, height: 94, borderRadius: 16, backgroundColor: '#dce8f4', overflow: 'hidden', justifyContent: 'flex-end', flexShrink: 0 },
   restaurantCardImageFallback: { backgroundColor: '#dce8f4' },
-  restaurantCardImageReal: { borderRadius: 12 },
+  restaurantCardImageReal: { borderRadius: 16 },
   restaurantCardImageShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(7, 17, 34, 0.30)' },
   restaurantCardImageTitle: { position: 'absolute', left: 7, right: 7, bottom: 7, color: '#ffffff', fontSize: 11, lineHeight: 13, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
   restaurantCardSavedMark: { position: 'absolute', right: 6, top: 5, color: '#ffffff', fontSize: 13, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-  restaurantCardBody: { flex: 1, minWidth: 0, justifyContent: 'center', gap: 4, paddingTop: 0 },
-  restaurantCardTitle: { color: '#162640', fontSize: 14.5, lineHeight: 17, fontWeight: '900', letterSpacing: -0.2 },
+  restaurantCardBody: { flex: 1, minWidth: 0, maxWidth: '100%', justifyContent: 'center', gap: 4, paddingTop: 0, paddingRight: 2, overflow: 'hidden' },
+  restaurantCardTitle: { color: '#162640', fontSize: 14.2, lineHeight: 17, fontWeight: '900', letterSpacing: -0.2 },
   restaurantCardSubtitle: { color: '#60718a', fontSize: 11.8, lineHeight: 15, fontWeight: '500' },
   restaurantFacts: { gap: 3, marginTop: 2 },
   restaurantFactRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
@@ -1463,7 +1602,7 @@ const styles = StyleSheet.create({
   restaurantFactIconHours: { color: '#2b78dd' },
   restaurantFactIconCuisine: { color: '#ef8b32' },
   restaurantFactIconPrice: { color: '#22a06b' },
-  restaurantFactText: { flex: 1, color: '#24364f', fontSize: 11.5, lineHeight: 15, fontWeight: '700' },
+  restaurantFactText: { flex: 1, minWidth: 0, color: '#24364f', fontSize: 11.2, lineHeight: 15, fontWeight: '700' },
 
   bulletinContentInner: { paddingTop: 16 },
   bulletinToolbar: { alignItems: 'center' },

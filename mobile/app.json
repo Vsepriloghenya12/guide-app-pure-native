@@ -3,7 +3,7 @@
     "name": "Da Nang Guide",
     "slug": "danang-guide-native",
     "scheme": "danangguide",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "assetBundlePatterns": [
@@ -20,9 +20,7 @@
       "package": "com.danangguide.app",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
@@ -40,12 +38,6 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "backgroundColor": "#ffffff",
-    "extra": {
-      "eas": {
-        "projectId": "d8adecca-0de4-4ec4-8746-3e7317f732c5"
-      }
-    },
-    "owner": "realone12"
+    "backgroundColor": "#ffffff"
   }
 }

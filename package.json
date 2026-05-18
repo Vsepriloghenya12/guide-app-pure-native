@@ -1,25 +1,31 @@
 {
-  "name": "guide-app-pure-native",
-  "version": "0.2.8-sdk54-visual-fixes-v8",
+  "name": "guide-app-native-connected",
+  "version": "0.3.0-full-backend-owner-mobile",
   "private": true,
   "workspaces": [
     "server",
+    "webapp",
     "mobile"
   ],
   "scripts": {
-    "build": "npm run build:server",
+    "dev": "concurrently --kill-others-on-fail --names web,api \"npm run dev --workspace webapp\" \"npm run dev --workspace server\"",
     "dev:server": "npm run dev --workspace server",
-    "start": "npm run start --workspace server",
+    "dev:web": "npm run dev --workspace webapp",
+    "build": "npm run build --workspace webapp && npm run build --workspace server",
     "build:server": "npm run build --workspace server",
+    "start": "npm run start --workspace server",
     "mobile:start": "npm run start --workspace mobile",
     "mobile:android": "npm run android --workspace mobile",
     "mobile:ios": "npm run ios --workspace mobile",
     "mobile:prebuild": "npm run prebuild --workspace mobile",
     "mobile:doctor": "npm run doctor --workspace mobile",
-    "apk:build": "cd mobile && npx eas build -p android --profile preview",
-    "apk:configure": "cd mobile && npx eas init"
+    "apk:configure": "cd mobile && eas init",
+    "apk:build": "cd mobile && eas build -p android --profile preview"
   },
   "engines": {
     "node": ">=20.19.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   }
 }

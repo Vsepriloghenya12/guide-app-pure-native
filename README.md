@@ -1,77 +1,52 @@
-# Da Nang Guide — Pure Native Mobile
+# Danang Guide — native mobile + Railway backend + owner CMS
 
-Это версия проекта без web-frontend, Capacitor, Vite, PWA, service worker и generated Android WebView-обёртки.
+Проект состоит из трёх частей:
 
-Архитектура:
+- `mobile` — чистое мобильное приложение Expo / React Native.
+- `server` — backend/API для Railway.
+- `webapp` — web-страница владельца/CMS, которая отдаётся backend после сборки.
 
-- `mobile/` — чистое мобильное приложение на Expo / React Native.
-- `server/` — Express API для Railway.
-- `shared/` — единый seed-контент, который использует и backend, и mobile fallback.
-- `storage/` — локальное fallback-хранилище для backend.
+Главный файл с пошаговым подключением: `CONNECT_AND_TEST.md`.
 
-## Что уже перенесено в native
-
-- Главная.
-- Разделы.
-- Список мест.
-- Детальная карточка места.
-- Поиск.
-- Избранное через native storage.
-- Раздел «Рядом» через native location permission.
-- Контакты и экстренные номера.
-- Открытие телефонов, сайтов и карт через native Linking.
-- Offline seed fallback, если API временно недоступен.
-
-## Что намеренно не включено
-
-- `webapp/`.
-- Capacitor.
-- PWA/offline HTML.
-- Web CSS.
-- Browser APIs: `window`, `document`, `localStorage`.
-- Owner CMS как web-интерфейс.
-
-Owner API на backend сохранён. Для полноценной нативной админки нужно делать отдельный owner-раздел в React Native или оставить CMS как отдельный защищённый web-инструмент.
-
-## Локальный запуск backend
+## Быстрый локальный запуск
 
 ```bash
 npm install
-cp .env.example .env
 npm run dev:server
 ```
 
-## Локальный запуск mobile
+Проверка API:
+
+```text
+http://localhost:8080/api/bootstrap
+```
+
+Во втором терминале для страницы владельца:
+
+```bash
+npm run dev:web
+```
+
+Страница владельца локально:
+
+```text
+http://127.0.0.1:5180/owner-login
+```
+
+Локальный пароль по умолчанию: `guide2026`.
+
+## APK
+
+Перед сборкой APK укажите реальный Railway URL в `mobile/.env`:
+
+```text
+EXPO_PUBLIC_API_BASE_URL=https://your-real-railway-backend.up.railway.app
+EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_android_api_key
+```
+
+Затем:
 
 ```bash
 cd mobile
-cp .env.example .env
-# в .env указать Railway или локальный backend:
-# EXPO_PUBLIC_API_BASE_URL=http://192.168.1.10:8080
-npm install
-npm run start
+eas build -p android --profile preview --clear-cache
 ```
-
-Для теста на физическом телефоне нельзя использовать `localhost` как API URL, потому что телефон будет искать backend на самом себе. Используйте IP компьютера в локальной сети или Railway URL.
-
-## Android build
-
-```bash
-cd mobile
-npm install
-npm run prebuild
-npm run android
-```
-
-Для production-сборки лучше использовать EAS Build.
-
-## Railway backend
-
-Railway запускает только API-сервер:
-
-```bash
-npm run build
-npm run start
-```
-
-Backend больше не пытается отдавать `webapp/dist`.

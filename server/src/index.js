@@ -75,6 +75,7 @@ function loadEnvFile(filePath) {
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+const webDistPath = path.resolve(__dirname, '../../webapp/dist');
 const defaultUploadsRoot = path.resolve(__dirname, '../../storage/uploads');
 const uploadsRoot = resolveUploadsRoot();
 const uploadsPublicBasePath = '/uploads';
@@ -1316,11 +1317,23 @@ app.post('/api/owner/upload', requireOwner, async (req, res) => {
 
 app.use(uploadsPublicBasePath, express.static(uploadsRoot, { maxAge: '7d' }));
 
+if (fs.existsSync(webDistPath)) {
+  app.use(express.static(webDistPath, { maxAge: '1h' }));
+}
+
 app.get('*', (req, res) => {
-  res.status(404).json({
-    ok: false,
-    message: req.path.startsWith('/api/') ? 'API endpoint not found' : 'This backend serves the native mobile app API only.'
-  });
+  if (req.path.startsWith('/api/')) {
+    res.status(404).json({ ok: false, message: 'API endpoint not found' });
+    return;
+  }
+
+  const indexHtmlPath = path.join(webDistPath, 'index.html');
+  if (fs.existsSync(indexHtmlPath)) {
+    res.sendFile(indexHtmlPath);
+    return;
+  }
+
+  res.status(200).send('Danang Guide backend is running. Build the webapp to enable /owner-login and /owner.');
 });
 
 const server = app.listen(PORT, async () => {
