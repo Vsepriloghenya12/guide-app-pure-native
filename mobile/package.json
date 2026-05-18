@@ -1,6 +1,6 @@
 {
   "name": "guide-app-mobile",
-  "version": "0.3.3-auth-map-fix",
+  "version": "0.3.4-place-detail-fix",
   "private": true,
   "main": "index.js",
   "scripts": {

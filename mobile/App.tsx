@@ -24,7 +24,7 @@ import { appleMapsUrl, directionsUrl, googleMapsUrl, openExternalUrl } from './s
 import { estimateTravelTime, formatDistance, hasCoordinates, haversineDistanceKm } from './src/utils/geo';
 import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
 import { saveAuthToken } from './src/utils/auth';
-import { EmptyState, AppButton, CategoryCard, ListingCard, LoadingState, Pill, uiStyles } from './src/components/ui';
+import { EmptyState, AppButton, CategoryCard, ListingCard, LoadingState, Pill } from './src/components/ui';
 import { normalizeImageUrl } from './src/utils/normalizers';
 import { categoryIcons, defaultCategoryIcon, heroBackground, heroLogo } from './src/assets';
 
@@ -1520,11 +1520,11 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
               <Text style={styles.detailSubtitle}>{categoryLabel}</Text>
             </View>
             <TouchableOpacity activeOpacity={0.8} onPress={onToggleFavorite} style={styles.detailFavorite}>
-              <Text style={uiStyles.favoriteText}>{isFavorite ? '★' : '☆'}</Text>
+              <Text style={styles.detailFavoriteText}>{isFavorite ? '★' : '☆'}</Text>
             </TouchableOpacity>
           </View>
           <Text style={styles.detailText}>{description}</Text>
-          <View style={uiStyles.pillsRow}>
+          <View style={styles.detailPillsRow}>
             <Pill label={toText(place.priceLabel)} />
             <Pill label={toText(place.cuisine)} />
             <Pill label={toText(place.district)} />
@@ -1557,7 +1557,7 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
         {tags.length > 0 ? (
           <View style={styles.detailCard}>
             <SectionTitle title="Теги" />
-            <View style={uiStyles.pillsRow}>{tags.map((tag) => <Pill key={tag} label={tag} />)}</View>
+            <View style={styles.detailPillsRow}>{tags.map((tag) => <Pill key={tag} label={tag} />)}</View>
           </View>
         ) : null}
 
@@ -1707,6 +1707,8 @@ const styles = StyleSheet.create({
   detailTitle: { color: '#102a43', fontSize: 29, lineHeight: 34, fontWeight: '900' },
   detailSubtitle: { color: '#53739b', fontSize: 15, fontWeight: '800', marginTop: 6 },
   detailFavorite: { width: 48, height: 48, borderRadius: 18, backgroundColor: '#f1f5fa', alignItems: 'center', justifyContent: 'center' },
+  detailFavoriteText: { color: '#2f78d6', fontSize: 24, lineHeight: 26, fontWeight: '900' },
+  detailPillsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   detailText: { color: '#486581', fontSize: 16, lineHeight: 24 },
   infoBlock: { padding: 16, borderRadius: 22, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', gap: 4, shadowColor: '#263856', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 1 },
   infoLabel: { color: '#53739b', fontSize: 13, fontWeight: '900', textTransform: 'uppercase' },
