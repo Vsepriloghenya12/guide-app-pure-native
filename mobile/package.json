@@ -1,6 +1,6 @@
 {
   "name": "guide-app-mobile",
-  "version": "0.3.4-place-detail-fix",
+  "version": "1.0.8",
   "private": true,
   "main": "index.js",
   "scripts": {

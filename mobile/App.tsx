@@ -5,6 +5,7 @@ import {
   ImageBackground,
   Linking,
   Modal,
+  PanResponder,
   Platform,
   RefreshControl,
   ScrollView,
@@ -19,11 +20,11 @@ import {
 import * as Location from 'expo-location';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import type { BootstrapPayload, GuideCategory, GuideCollection, GuidePlace, GuideTip, SupportContentStore } from './src/types';
-import { fetchBootstrap, fetchSupportContent, API_BASE_URL, sendAnalytics } from './src/api/client';
+import { fetchBootstrap, fetchSupportContent, fetchAuthSession, logoutAuthSession, API_BASE_URL, sendAnalytics } from './src/api/client';
 import { appleMapsUrl, directionsUrl, googleMapsUrl, openExternalUrl } from './src/utils/links';
 import { estimateTravelTime, formatDistance, hasCoordinates, haversineDistanceKm } from './src/utils/geo';
 import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
-import { saveAuthToken } from './src/utils/auth';
+import { clearAuthToken, saveAuthToken } from './src/utils/auth';
 import { EmptyState, AppButton, CategoryCard, ListingCard, LoadingState, Pill } from './src/components/ui';
 import { normalizeImageUrl } from './src/utils/normalizers';
 import { categoryIcons, defaultCategoryIcon, heroBackground, heroLogo } from './src/assets';
@@ -34,6 +35,7 @@ type Route =
   | { name: 'category'; categoryId: string }
   | { name: 'routes' }
   | { name: 'routeDetail'; routeId: string }
+  | { name: 'tips' }
   | { name: 'programs' }
   | { name: 'detail'; slug: string };
 
@@ -370,6 +372,28 @@ function googleRoutePointsUrl(points: NativeRoutePoint[]) {
   return `https://www.google.com/maps/dir/?${params.join('&')}`;
 }
 
+
+function normalizeBannerLink(value: unknown) {
+  const raw = toText(value).trim();
+  if (!raw || raw === '#') return '';
+  if (/^(https?:|mailto:|tel:|tg:|telegram:|whatsapp:|geo:|maps:|danangguide:)/i.test(raw)) {
+    return raw;
+  }
+  if (/^www\./i.test(raw)) {
+    return `https://${raw}`;
+  }
+  return raw;
+}
+
+function isExternalBannerLink(value: string) {
+  return /^(https?:|mailto:|tel:|tg:|telegram:|whatsapp:|geo:|maps:)/i.test(value);
+}
+
+function positiveModulo(value: number, divisor: number) {
+  if (!divisor) return 0;
+  return ((value % divisor) + divisor) % divisor;
+}
+
 function dedupeHomeCategories(categories: GuideCategory[]) {
   const seenIds = new Set<string>();
   const seenLabels = new Set<string>();
@@ -431,16 +455,19 @@ function AppContent() {
   const [favoriteSlugs, setFavoriteSlugs] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [isAuthSheetOpen, setAuthSheetOpen] = useState(false);
+  const [authUser, setAuthUser] = useState<Record<string, unknown> | null>(null);
 
   const loadApp = useCallback(async () => {
-    const [nextPayload, nextSupport, savedFavorites] = await Promise.all([
+    const [nextPayload, nextSupport, savedFavorites, authSession] = await Promise.all([
       fetchBootstrap(),
       fetchSupportContent(),
-      loadFavoriteSlugs()
+      loadFavoriteSlugs(),
+      fetchAuthSession()
     ]);
     setPayload(nextPayload);
     setSupport(nextSupport);
     setFavoriteSlugs(savedFavorites);
+    setAuthUser(authSession.authenticated && authSession.user && typeof authSession.user === 'object' ? authSession.user as Record<string, unknown> : null);
   }, []);
 
   useEffect(() => {
@@ -486,6 +513,13 @@ function AppContent() {
     await saveFavoriteSlugs(next);
   }, [favoriteSet, favoriteSlugs]);
 
+  const handleLogout = useCallback(async () => {
+    await logoutAuthSession();
+    await clearAuthToken();
+    setAuthUser(null);
+    setAuthSheetOpen(false);
+  }, []);
+
   const openCategory = useCallback((category: GuideCategory) => {
     if (category.id === 'routes') {
       void sendAnalytics('category-click', category.title, '/routes', category.id, category.id);
@@ -512,7 +546,7 @@ function AppContent() {
   const selectedCategory = route.name === 'category' ? categories.find((item) => item.id === route.categoryId) : null;
   const selectedListing = route.name === 'detail' ? listings.find((item) => item.slug === route.slug || item.id === route.slug) : null;
   const isHomeRoot = route.name === 'tabs' && route.tab === 'home';
-  const hideTopHeader = isHomeRoot || route.name === 'category' || route.name === 'routes' || route.name === 'routeDetail' || route.name === 'programs';
+  const hideTopHeader = isHomeRoot || route.name === 'category' || route.name === 'routes' || route.name === 'routeDetail' || route.name === 'programs' || route.name === 'tips';
 
   return (
     <View style={styles.safeArea}>
@@ -550,6 +584,11 @@ function AppContent() {
         />
       ) : route.name === 'programs' ? (
         <ProgramsScreen onBack={() => setRoute({ name: 'tabs', tab: 'home' })} />
+      ) : route.name === 'tips' ? (
+        <TipsScreen
+          tips={payload.tips.filter((tip) => tip.active)}
+          onBack={() => setRoute({ name: 'tabs', tab: 'home' })}
+        />
       ) : route.name === 'category' && selectedCategory ? (
         <CategoryScreen
           category={selectedCategory}
@@ -577,6 +616,7 @@ function AppContent() {
               toggleFavorite={toggleFavorite}
               onOpenAuth={() => setAuthSheetOpen(true)}
               onOpenPrograms={() => setRoute({ name: 'programs' })}
+              onOpenTips={() => setRoute({ name: 'tips' })}
             />
           ) : null}
           {route.name === 'tabs' && route.tab === 'sections' ? (
@@ -599,7 +639,7 @@ function AppContent() {
       {route.name !== 'detail' ? (
         <BottomTabs active={route.name === 'tabs' ? route.tab : 'home'} onChange={(tab) => setRoute({ name: 'tabs', tab })} />
       ) : null}
-      <AuthSheet visible={isAuthSheetOpen} onClose={() => setAuthSheetOpen(false)} />
+      <AuthSheet visible={isAuthSheetOpen} user={authUser} onClose={() => setAuthSheetOpen(false)} onLogout={handleLogout} />
     </View>
   );
 }
@@ -611,7 +651,8 @@ function HomeScreen({
   openDetail,
   toggleFavorite,
   onOpenAuth,
-  onOpenPrograms
+  onOpenPrograms,
+  onOpenTips
 }: {
   payload: BootstrapPayload;
   favoriteSet: Set<string>;
@@ -620,26 +661,91 @@ function HomeScreen({
   toggleFavorite: (slug: string) => void;
   onOpenAuth: () => void;
   onOpenPrograms: () => void;
+  onOpenTips: () => void;
 }) {
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   const [selectedTip, setSelectedTip] = useState<GuideTip | null>(null);
-  const bannerListRef = useRef<FlatList<GuideCollection> | null>(null);
   const { width: viewportWidth } = useWindowDimensions();
-  const visibleCategories = dedupeHomeCategories(
-    withRoutesShortcut(payload.categories.filter((category) => category.visible && !hiddenHomeCategoryIds.has(category.id)))
+  const visibleCategories = useMemo(
+    () => dedupeHomeCategories(
+      withRoutesShortcut(payload.categories.filter((category) => category.visible && !hiddenHomeCategoryIds.has(category.id)))
+    ),
+    [payload.categories]
   );
-  const activeBanners = payload.collections.filter((collection) => collection.active);
-  const visibleTips = payload.tips.filter((tip) => tip.active).slice(0, 3);
-  const bannerWidth = Math.max(292, Math.min(360, viewportWidth - 104));
-  const bannerGap = 12;
-  const bannerStep = bannerWidth + bannerGap;
-  const bannerSideInset = Math.max(24, (viewportWidth - bannerWidth) / 2);
+  const activeBanners = useMemo(() => payload.collections.filter((collection) => collection.active), [payload.collections]);
+  const visibleTips = useMemo(() => payload.tips.filter((tip) => tip.active).slice(0, 3), [payload.tips]);
 
-  const handleBannerMomentum = useCallback((event: any) => {
-    if (activeBanners.length < 2) return;
-    const nextIndex = Math.max(0, Math.min(activeBanners.length - 1, Math.round(event.nativeEvent.contentOffset.x / bannerStep)));
-    setActiveHeroIndex(nextIndex);
-  }, [activeBanners.length, bannerStep]);
+  useEffect(() => {
+    setActiveHeroIndex(0);
+  }, [activeBanners.length]);
+
+  const showPreviousBanner = useCallback(() => {
+    setActiveHeroIndex((current) => positiveModulo(current - 1, activeBanners.length));
+  }, [activeBanners.length]);
+
+  const showNextBanner = useCallback(() => {
+    setActiveHeroIndex((current) => positiveModulo(current + 1, activeBanners.length));
+  }, [activeBanners.length]);
+
+  const bannerPanResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15,
+    onPanResponderRelease: (_, gesture) => {
+      if (activeBanners.length < 2) return;
+      if (gesture.dx < -28) {
+        showNextBanner();
+      } else if (gesture.dx > 28) {
+        showPreviousBanner();
+      }
+    }
+  }), [activeBanners.length, showNextBanner, showPreviousBanner]);
+
+  const openBannerLink = useCallback((banner: GuideCollection) => {
+    const link = normalizeBannerLink(banner.linkPath);
+    if (!link || link === '/') return;
+
+    void sendAnalytics('collection-click', banner.title, link, banner.id);
+
+    if (isExternalBannerLink(link)) {
+      void openExternalUrl(link);
+      return;
+    }
+
+    if (link === '/programs' || link === 'programs') {
+      onOpenPrograms();
+      return;
+    }
+
+    if (link === '/routes' || link === 'routes') {
+      openCategory(buildRoutesShortcut());
+      return;
+    }
+
+    const sectionMatch = link.match(/^\/?section\/([^/?#]+)/i);
+    if (sectionMatch?.[1]) {
+      const targetSlug = decodeURIComponent(sectionMatch[1]);
+      const targetCategory = payload.categories.find((category) => category.slug === targetSlug || category.id === targetSlug);
+      if (targetCategory) {
+        openCategory(targetCategory);
+        return;
+      }
+    }
+
+    const placeMatch = link.match(/^\/?place\/([^/?#]+)/i);
+    if (placeMatch?.[1]) {
+      const targetSlug = decodeURIComponent(placeMatch[1]);
+      const targetPlace = payload.listings.find((place) => place.slug === targetSlug || place.id === targetSlug);
+      if (targetPlace) {
+        openDetail(targetPlace);
+        return;
+      }
+    }
+
+    if (/^\//.test(link)) {
+      return;
+    }
+
+    void openExternalUrl(`https://${link}`);
+  }, [onOpenPrograms, openCategory, openDetail, payload.categories, payload.listings]);
 
   return (
     <View style={[styles.homeRoot, { width: viewportWidth, maxWidth: viewportWidth }]}>
@@ -654,38 +760,36 @@ function HomeScreen({
       <View style={[styles.homeBody, { width: viewportWidth }]}> 
         {activeBanners.length > 0 ? (
           <View style={styles.bannerStack}>
-            <FlatList
-              ref={bannerListRef}
-              data={activeBanners}
-              keyExtractor={(banner) => banner.id}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              decelerationRate="fast"
-              snapToInterval={bannerStep}
-              snapToAlignment="start"
-              bounces={false}
-              disableIntervalMomentum
-              contentContainerStyle={{ paddingHorizontal: bannerSideInset }}
-              getItemLayout={(_, index) => ({ length: bannerStep, offset: bannerStep * index, index })}
-              onMomentumScrollEnd={handleBannerMomentum}
-              renderItem={({ item: banner, index }) => (
-                <View style={{ width: bannerWidth, marginRight: index === activeBanners.length - 1 ? 0 : bannerGap }}>
-                  <TouchableOpacity activeOpacity={0.92} style={styles.homeBanner}>
-                    <ImageBackground source={bannerImageSource(banner)} style={styles.full} imageStyle={styles.homeBannerImage}>
-                      <View style={styles.bannerOverlay} />
+            <View style={styles.bannerCarousel} {...bannerPanResponder.panHandlers}>
+              {activeBanners.length > 1 ? (
+                <TouchableOpacity activeOpacity={0.78} onPress={showPreviousBanner} style={[styles.homeBanner, styles.homeBannerPreview, styles.homeBannerPreviewLeft]}>
+                  <ImageBackground source={bannerImageSource(activeBanners[positiveModulo(activeHeroIndex - 1, activeBanners.length)])} style={styles.full} imageStyle={styles.homeBannerImage} />
+                </TouchableOpacity>
+              ) : null}
+
+              <View style={styles.homeBannerCenterHalo}>
+                <TouchableOpacity activeOpacity={0.9} onPress={() => openBannerLink(activeBanners[activeHeroIndex] || activeBanners[0])} style={[styles.homeBanner, styles.homeBannerCenter]}>
+                  <ImageBackground source={bannerImageSource(activeBanners[activeHeroIndex] || activeBanners[0])} style={styles.full} imageStyle={styles.homeBannerImage}>
+                    {Boolean(toText((activeBanners[activeHeroIndex] || activeBanners[0])?.title) || toText((activeBanners[activeHeroIndex] || activeBanners[0])?.description)) ? (
                       <View style={styles.homeBannerTextWrap}>
-                        <Text style={styles.homeBannerTitle} numberOfLines={2}>{banner.title}</Text>
-                        <Text style={styles.homeBannerText} numberOfLines={3}>{banner.description}</Text>
+                        {toText((activeBanners[activeHeroIndex] || activeBanners[0])?.title) ? <Text style={styles.homeBannerTitle} numberOfLines={2}>{(activeBanners[activeHeroIndex] || activeBanners[0])?.title}</Text> : null}
+                        {toText((activeBanners[activeHeroIndex] || activeBanners[0])?.description) ? <Text style={styles.homeBannerText} numberOfLines={3}>{(activeBanners[activeHeroIndex] || activeBanners[0])?.description}</Text> : null}
                       </View>
-                    </ImageBackground>
-                  </TouchableOpacity>
-                </View>
-              )}
-            />
+                    ) : null}
+                  </ImageBackground>
+                </TouchableOpacity>
+              </View>
+
+              {activeBanners.length > 1 ? (
+                <TouchableOpacity activeOpacity={0.78} onPress={showNextBanner} style={[styles.homeBanner, styles.homeBannerPreview, styles.homeBannerPreviewRight]}>
+                  <ImageBackground source={bannerImageSource(activeBanners[positiveModulo(activeHeroIndex + 1, activeBanners.length)])} style={styles.full} imageStyle={styles.homeBannerImage} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
             {activeBanners.length > 1 ? (
               <View style={styles.bannerDots}>
                 {activeBanners.map((banner, index) => (
-                  <View key={banner.id} style={[styles.bannerDot, activeHeroIndex === index && styles.bannerDotActive]} />
+                  <TouchableOpacity key={banner.id} activeOpacity={0.82} onPress={() => setActiveHeroIndex(index)} style={[styles.bannerDot, activeHeroIndex === index && styles.bannerDotActive]} />
                 ))}
               </View>
             ) : null}
@@ -716,8 +820,11 @@ function HomeScreen({
         {visibleTips.length > 0 ? (
           <View style={styles.homeSection}>
             <View style={styles.homeSectionHeader}>
+              <View style={styles.homeSectionHeaderSide} />
               <Text style={styles.homeSectionTitle}>{payload.home.sectionTitles?.tips || 'Советы'}</Text>
-              <Text style={styles.homeSectionLink}>Открыть</Text>
+              <TouchableOpacity activeOpacity={0.78} onPress={onOpenTips} style={styles.homeSectionAllButton}>
+                <Text style={styles.homeSectionLink}>Все</Text>
+              </TouchableOpacity>
             </View>
             {visibleTips.map((tip) => (
               <TouchableOpacity key={tip.id} activeOpacity={0.78} onPress={() => setSelectedTip(tip)} style={styles.tipRow}>
@@ -1440,12 +1547,56 @@ function ContactsScreen({ support }: { support: SupportContentStore }) {
 }
 
 
-function AuthSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+function TipsScreen({ tips, onBack }: { tips: GuideTip[]; onBack: () => void }) {
+  const [selectedTip, setSelectedTip] = useState<GuideTip | null>(null);
+  return (
+    <ScrollView style={[styles.content, styles.categoryContent]} contentContainerStyle={styles.categoryContentInner} showsVerticalScrollIndicator={false}>
+      <View style={styles.categoryToolbar}>
+        <TouchableOpacity activeOpacity={0.82} onPress={onBack} style={styles.categoryBackButton}>
+          <Text style={styles.categoryBackGlyph}>‹</Text>
+        </TouchableOpacity>
+        <Text style={styles.categoryToolbarTitle}>Советы</Text>
+      </View>
+      <View style={styles.tipsListScreen}>
+        {tips.length === 0 ? <EmptyState title="Советов пока нет" text="Добавь советы в CMS, и они появятся здесь." /> : null}
+        {tips.map((tip) => (
+          <TouchableOpacity key={tip.id} activeOpacity={0.78} onPress={() => setSelectedTip(tip)} style={styles.tipRow}>
+            <Image source={heroBackground} style={styles.tipThumb} />
+            <View style={styles.flex}>
+              <Text style={styles.tipTitle} numberOfLines={1}>{tip.title}</Text>
+              <Text style={styles.tipText} numberOfLines={2}>{tip.text}</Text>
+            </View>
+            <Text style={styles.tipChevron}>›</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <Modal visible={Boolean(selectedTip)} transparent animationType="fade" onRequestClose={() => setSelectedTip(null)}>
+        <View style={styles.tipModalBackdrop}>
+          <TouchableOpacity style={styles.modalBackdropTouch} activeOpacity={1} onPress={() => setSelectedTip(null)} />
+          <View style={styles.tipModalCard}>
+            <View style={styles.tipModalHandle} />
+            <Text style={styles.tipModalEyebrow}>Совет</Text>
+            <Text style={styles.tipModalTitle}>{selectedTip?.title}</Text>
+            <Text style={styles.tipModalText}>{selectedTip?.text}</Text>
+            <TouchableOpacity activeOpacity={0.86} onPress={() => setSelectedTip(null)} style={styles.tipModalButton}>
+              <Text style={styles.tipModalButtonText}>Понятно</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </ScrollView>
+  );
+}
+
+function AuthSheet({ visible, user, onClose, onLogout }: { visible: boolean; user: Record<string, unknown> | null; onClose: () => void; onLogout: () => void }) {
   const authReturnTo = 'danangguide://auth';
+  const displayName = toText(user?.displayName || user?.username || user?.email, 'Пользователь');
+  const userEmail = toText(user?.email);
+
   const openProvider = (provider: 'google' | 'apple' | 'telegram') => {
     if (!API_BASE_URL) return;
     const path = provider === 'telegram'
-      ? `/api/auth/telegram/start?returnTo=${encodeURIComponent(authReturnTo)}`
+      ? `/api/auth/telegram/start?returnTo=${encodeURIComponent(authReturnTo)}&mode=native`
       : `/api/auth/${provider}/start?returnTo=${encodeURIComponent(authReturnTo)}`;
     onClose();
     void openExternalUrl(`${API_BASE_URL}${path}`);
@@ -1459,39 +1610,55 @@ function AuthSheet({ visible, onClose }: { visible: boolean; onClose: () => void
           <View style={styles.tipModalHandle} />
           <View style={styles.authSheetHeader}>
             <View>
-              <Text style={styles.authSheetTitle}>Профиль и вход</Text>
-              <Text style={styles.authSheetText}>Авторизация нужна для избранного, объявлений и личных функций.</Text>
+              <Text style={styles.authSheetTitle}>{user ? 'Профиль' : 'Профиль и вход'}</Text>
+              <Text style={styles.authSheetText}>{user ? 'Вы уже авторизованы в приложении.' : 'Авторизация нужна для избранного, объявлений и личных функций.'}</Text>
             </View>
             <TouchableOpacity style={styles.authCloseButton} onPress={onClose}>
               <Text style={styles.authCloseText}>×</Text>
             </TouchableOpacity>
           </View>
-          {!API_BASE_URL ? (
-            <View style={styles.authNotice}>
-              <Text style={styles.authNoticeText}>Для входа нужно указать EXPO_PUBLIC_API_BASE_URL в mobile/.env.</Text>
+
+          {user ? (
+            <View style={styles.profileBlock}>
+              <View style={styles.profileAvatar}><Text style={styles.profileAvatarText}>{displayName.slice(0, 1).toUpperCase()}</Text></View>
+              <View style={styles.flex}>
+                <Text style={styles.profileName}>{displayName}</Text>
+                {userEmail ? <Text style={styles.profileEmail}>{userEmail}</Text> : null}
+              </View>
+              <TouchableOpacity activeOpacity={0.84} onPress={onLogout} style={styles.profileLogoutButton}>
+                <Text style={styles.profileLogoutText}>Выйти</Text>
+              </TouchableOpacity>
             </View>
-          ) : null}
-          <TouchableOpacity activeOpacity={0.86} onPress={() => openProvider('google')} style={styles.authProviderButton}>
-            <Text style={styles.authProviderBrand}>G</Text>
-            <View style={styles.flex}>
-              <Text style={styles.authProviderTitle}>Войти через Google</Text>
-              <Text style={styles.authProviderSub}>Откроется безопасная страница входа</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.86} onPress={() => openProvider('apple')} style={styles.authProviderButton}>
-            <Text style={styles.authProviderBrand}></Text>
-            <View style={styles.flex}>
-              <Text style={styles.authProviderTitle}>Войти через Apple</Text>
-              <Text style={styles.authProviderSub}>Если провайдер настроен на сервере</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.86} onPress={() => openProvider('telegram')} style={styles.authProviderButton}>
-            <Text style={styles.authProviderBrand}>T</Text>
-            <View style={styles.flex}>
-              <Text style={styles.authProviderTitle}>Войти через Telegram</Text>
-              <Text style={styles.authProviderSub}>Откроется страница Telegram Login</Text>
-            </View>
-          </TouchableOpacity>
+          ) : (
+            <>
+              {!API_BASE_URL ? (
+                <View style={styles.authNotice}>
+                  <Text style={styles.authNoticeText}>Для входа нужно указать EXPO_PUBLIC_API_BASE_URL в mobile/.env.</Text>
+                </View>
+              ) : null}
+              <TouchableOpacity activeOpacity={0.86} onPress={() => openProvider('google')} style={styles.authProviderButton}>
+                <Text style={styles.authProviderBrand}>G</Text>
+                <View style={styles.flex}>
+                  <Text style={styles.authProviderTitle}>Войти через Google</Text>
+                  <Text style={styles.authProviderSub}>После входа приложение откроется обратно</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.86} onPress={() => openProvider('apple')} style={styles.authProviderButton}>
+                <Text style={styles.authProviderBrand}></Text>
+                <View style={styles.flex}>
+                  <Text style={styles.authProviderTitle}>Войти через Apple</Text>
+                  <Text style={styles.authProviderSub}>Если провайдер настроен на сервере</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.86} onPress={() => openProvider('telegram')} style={styles.authProviderButton}>
+                <Text style={styles.authProviderBrand}>T</Text>
+                <View style={styles.flex}>
+                  <Text style={styles.authProviderTitle}>Войти через Telegram</Text>
+                  <Text style={styles.authProviderSub}>Откроется Telegram-авторизация и возврат в приложение</Text>
+                </View>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     </Modal>
@@ -1507,67 +1674,73 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
   const categoryLabel = toText(category?.title || place.kind || place.categoryId, 'Раздел');
   const phone = toText(place.phoneNumber || place.phone);
   const website = toText(place.websiteUrl || place.website);
+  const address = toText(place.address || place.location, 'Не указан');
+  const hours = toText(place.hours, 'Не указано');
+  const price = toText(place.priceLabel);
+  const cuisine = toText(place.cuisine);
+  const district = toText(place.district);
   const hasMapPoint = Boolean(placeCoordinate(place));
 
   return (
-    <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} showsVerticalScrollIndicator={false}>
-      <View style={styles.screenGap}>
-        {gallery[0] ? <Image source={{ uri: gallery[0] }} style={styles.detailImage} /> : <View style={[styles.detailImage, styles.detailImageFallback]} />}
-        <View style={styles.detailCard}>
-          <View style={styles.detailTitleRow}>
-            <View style={styles.flex}>
-              <Text style={styles.detailTitle}>{title}</Text>
-              <Text style={styles.detailSubtitle}>{categoryLabel}</Text>
-            </View>
-            <TouchableOpacity activeOpacity={0.8} onPress={onToggleFavorite} style={styles.detailFavorite}>
-              <Text style={styles.detailFavoriteText}>{isFavorite ? '★' : '☆'}</Text>
-            </TouchableOpacity>
+    <ScrollView style={styles.content} contentContainerStyle={styles.detailContentInner} showsVerticalScrollIndicator={false}>
+      {gallery[0] ? <Image source={{ uri: gallery[0] }} style={styles.detailImage} /> : <View style={[styles.detailImage, styles.detailImageFallback]} />}
+
+      <View style={styles.detailPlainHeader}>
+        <View style={styles.detailTitleRow}>
+          <View style={styles.flex}>
+            <Text style={styles.detailSubtitle}>{categoryLabel}</Text>
+            <Text style={styles.detailTitle}>{title}</Text>
           </View>
-          <Text style={styles.detailText}>{description}</Text>
-          <View style={styles.detailPillsRow}>
-            <Pill label={toText(place.priceLabel)} />
-            <Pill label={toText(place.cuisine)} />
-            <Pill label={toText(place.district)} />
-            {place.breakfast ? <Pill label="Завтрак" /> : null}
-            {place.vegan ? <Pill label="Vegan" /> : null}
-            {place.pets || place.petFriendly ? <Pill label="Pet-friendly" /> : null}
-            {place.childPrograms || place.childFriendly ? <Pill label="Для детей" /> : null}
-          </View>
+          <TouchableOpacity activeOpacity={0.8} onPress={onToggleFavorite} style={styles.detailFavorite}>
+            <Text style={styles.detailFavoriteText}>{isFavorite ? '★' : '☆'}</Text>
+          </TouchableOpacity>
         </View>
-
-        {hasMapPoint ? (
-          <View style={styles.detailCard}>
-            <SectionTitle title="Карта" />
-            <GuideMap places={[place]} height={230} />
-          </View>
-        ) : null}
-
-        <InfoBlock title="Адрес" value={toText(place.address || place.location, 'Не указан')} />
-        <InfoBlock title="Время работы" value={toText(place.hours, 'Не указано')} />
-        <InfoBlock title="Телефон" value={phone || 'Не указан'} />
-
-        <View style={styles.actionsGrid}>
-          <AppButton label="Маршрут" onPress={() => void openExternalUrl(directionsUrl(place))} />
-          <AppButton label="Google Maps" variant="ghost" onPress={() => void openExternalUrl(googleMapsUrl(place))} />
-          {Platform.OS === 'ios' ? <AppButton label="Apple Maps" variant="ghost" onPress={() => void openExternalUrl(appleMapsUrl(place))} /> : null}
-          {phone ? <AppButton label="Позвонить" variant="ghost" onPress={() => void openExternalUrl(`tel:${phone}`)} /> : null}
-          {website ? <AppButton label="Сайт" variant="ghost" onPress={() => void openExternalUrl(website)} /> : null}
+        <Text style={styles.detailText}>{description}</Text>
+        <View style={styles.detailPillsRow}>
+          <Pill label={price} />
+          <Pill label={cuisine} />
+          <Pill label={district} />
+          {place.breakfast ? <Pill label="Завтрак" /> : null}
+          {place.vegan ? <Pill label="Vegan" /> : null}
+          {place.pets || place.petFriendly ? <Pill label="Pet-friendly" /> : null}
+          {place.childPrograms || place.childFriendly ? <Pill label="Для детей" /> : null}
         </View>
-
-        {tags.length > 0 ? (
-          <View style={styles.detailCard}>
-            <SectionTitle title="Теги" />
-            <View style={styles.detailPillsRow}>{tags.map((tag) => <Pill key={tag} label={tag} />)}</View>
-          </View>
-        ) : null}
-
-        {details.length > 0 ? (
-          <View style={styles.detailCard}>
-            <SectionTitle title="Дополнительно" />
-            {details.map((item) => <Text key={item} style={styles.bulletText}>• {item}</Text>)}
-          </View>
-        ) : null}
       </View>
+
+      <View style={styles.detailInfoList}>
+        <InfoBlock title="Адрес" value={address} />
+        <InfoBlock title="Время работы" value={hours} />
+        <InfoBlock title="Телефон" value={phone || 'Не указан'} />
+      </View>
+
+      <View style={styles.actionsGrid}>
+        <AppButton label="Маршрут" onPress={() => void openExternalUrl(directionsUrl(place))} />
+        <AppButton label="Google Maps" variant="ghost" onPress={() => void openExternalUrl(googleMapsUrl(place))} />
+        {Platform.OS === 'ios' ? <AppButton label="Apple Maps" variant="ghost" onPress={() => void openExternalUrl(appleMapsUrl(place))} /> : null}
+        {phone ? <AppButton label="Позвонить" variant="ghost" onPress={() => void openExternalUrl(`tel:${phone}`)} /> : null}
+        {website ? <AppButton label="Сайт" variant="ghost" onPress={() => void openExternalUrl(website)} /> : null}
+      </View>
+
+      {tags.length > 0 ? (
+        <View style={styles.detailPlainSection}>
+          <SectionTitle title="Теги" />
+          <View style={styles.detailPillsRow}>{tags.map((tag) => <Pill key={tag} label={tag} />)}</View>
+        </View>
+      ) : null}
+
+      {details.length > 0 ? (
+        <View style={styles.detailPlainSection}>
+          <SectionTitle title="Дополнительно" />
+          {details.map((item) => <Text key={item} style={styles.bulletText}>• {item}</Text>)}
+        </View>
+      ) : null}
+
+      {hasMapPoint ? (
+        <View style={styles.detailMapSection}>
+          <SectionTitle title="Карта" />
+          <GuideMap places={[place]} height={245} />
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -1644,13 +1817,19 @@ const styles = StyleSheet.create({
   heroAuthIcon: { color: '#ffffff', fontSize: 20, lineHeight: 23, fontWeight: '900' },
   heroLogoImage: { width: 304, height: 88, marginTop: 4 },
   homeBody: { width: '100%', minWidth: '100%', alignSelf: 'stretch', marginTop: -18, paddingHorizontal: 0, paddingLeft: 0, paddingRight: 0, gap: 14, backgroundColor: '#ffffff' },
-  bannerStack: { width: '100%', minWidth: '100%', height: 154, justifyContent: 'center', overflow: 'visible' },
-  homeBanner: { height: 124, borderRadius: 18, overflow: 'hidden', backgroundColor: '#173f82', shadowColor: '#0b1d40', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.16, shadowRadius: 18, elevation: 6 },
-  homeBannerImage: { borderRadius: 18 },
-  bannerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(9, 19, 38, 0.58)' },
-  homeBannerTextWrap: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 16, paddingBottom: 16, paddingTop: 14 },
-  homeBannerTitle: { color: '#ffffff', fontSize: 13.5, lineHeight: 17, fontWeight: '900' },
-  homeBannerText: { color: '#ffffff', fontSize: 10.5, lineHeight: 14, marginTop: 5, opacity: 0.96, fontWeight: '700' },
+  bannerStack: { width: '100%', minWidth: '100%', height: 168, justifyContent: 'center', overflow: 'hidden' },
+  bannerCarousel: { height: 136, width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  homeBanner: { height: 126, borderRadius: 20, overflow: 'hidden', backgroundColor: '#173f82' },
+  homeBannerCenterHalo: { width: '78%', height: 134, borderRadius: 24, padding: 4, backgroundColor: 'rgba(255,255,255,0.86)', shadowColor: '#ffffff', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 20, elevation: 12, zIndex: 4 },
+  homeBannerCenter: { width: '100%', height: '100%', zIndex: 5, borderRadius: 20 },
+  homeBannerPreview: { position: 'absolute', width: '30%', height: 108, opacity: 0.72, zIndex: 1 },
+  homeBannerPreviewLeft: { left: -8 },
+  homeBannerPreviewRight: { right: -8 },
+  homeBannerImage: { borderRadius: 20 },
+  bannerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'transparent' },
+  homeBannerTextWrap: { position: 'absolute', left: 18, right: 18, bottom: 16, paddingHorizontal: 0, paddingVertical: 0 },
+  homeBannerTitle: { color: '#ffffff', fontSize: 15, lineHeight: 19, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.72)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
+  homeBannerText: { color: '#ffffff', fontSize: 11.5, lineHeight: 15, marginTop: 5, opacity: 0.98, fontWeight: '800', textShadowColor: 'rgba(0,0,0,0.72)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
   bannerPeek: { position: 'absolute', top: 6, width: 94, height: 106, borderRadius: 14, overflow: 'hidden', backgroundColor: '#cbd8e6' },
   bannerPeekLeft: { left: -48 },
   bannerPeekRight: { right: -48 },
@@ -1672,9 +1851,11 @@ const styles = StyleSheet.create({
   programChipText: { color: '#ffffff', fontSize: 11, fontWeight: '900' },
   programAction: { width: '100%', minHeight: 38, paddingTop: 11, borderRadius: 14, overflow: 'hidden', backgroundColor: '#ffffff', color: '#1f4f98', fontSize: 11, fontWeight: '900', marginTop: 14, textAlign: 'center' },
   homeSection: { gap: 0, paddingHorizontal: 14 },
-  homeSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  homeSectionTitle: { color: '#102a43', fontSize: 20, fontWeight: '900' },
-  homeSectionLink: { color: '#3764a8', fontSize: 13, fontWeight: '800' },
+  homeSectionHeader: { minHeight: 36, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  homeSectionHeaderSide: { width: 44, height: 32 },
+  homeSectionTitle: { flex: 1, color: '#102a43', fontSize: 20, fontWeight: '900', textAlign: 'center' },
+  homeSectionAllButton: { width: 44, minHeight: 32, alignItems: 'flex-end', justifyContent: 'center' },
+  homeSectionLink: { color: '#3764a8', fontSize: 13, fontWeight: '900' },
   tipRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingHorizontal: 0, borderRadius: 0, backgroundColor: 'transparent', borderBottomWidth: 1, borderBottomColor: 'rgba(23, 37, 64, 0.08)' },
   tipThumb: { width: 52, height: 52, borderRadius: 14 },
   tipTitle: { color: '#102a43', fontSize: 14, fontWeight: '900' },
@@ -1700,17 +1881,22 @@ const styles = StyleSheet.create({
   contactCardText: { color: '#62748b', fontSize: 14, lineHeight: 20, marginTop: 5, fontWeight: '700' },
   contactValue: { color: '#155ea6', fontSize: 16, fontWeight: '900', marginTop: 10 },
 
-  detailImage: { width: '100%', height: 250, borderRadius: 28, backgroundColor: '#dce8f4' },
+  detailContentInner: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 92, backgroundColor: '#ffffff', gap: 14 },
+  detailImage: { width: '100%', height: 270, borderRadius: 28, backgroundColor: '#dce8f4' },
   detailImageFallback: { backgroundColor: '#d7e6f5' },
-  detailCard: { padding: 18, borderRadius: 26, backgroundColor: '#fff', borderWidth: 1, borderColor: '#d8e0ea', gap: 10, shadowColor: '#263856', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.06, shadowRadius: 14, elevation: 2 },
+  detailCard: { padding: 18, borderRadius: 26, backgroundColor: '#fff', borderWidth: 1, borderColor: '#d8e0ea', gap: 10 },
+  detailPlainHeader: { gap: 12, paddingHorizontal: 2, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
+  detailPlainSection: { gap: 10, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
+  detailMapSection: { gap: 10, paddingTop: 2, paddingBottom: 4 },
+  detailInfoList: { borderTopWidth: 1, borderTopColor: 'rgba(214, 223, 235, 0.92)' },
   detailTitleRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  detailTitle: { color: '#102a43', fontSize: 29, lineHeight: 34, fontWeight: '900' },
+  detailTitle: { color: '#102a43', fontSize: 29, lineHeight: 34, fontWeight: '900', marginTop: 5 },
   detailSubtitle: { color: '#53739b', fontSize: 15, fontWeight: '800', marginTop: 6 },
   detailFavorite: { width: 48, height: 48, borderRadius: 18, backgroundColor: '#f1f5fa', alignItems: 'center', justifyContent: 'center' },
   detailFavoriteText: { color: '#2f78d6', fontSize: 24, lineHeight: 26, fontWeight: '900' },
   detailPillsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   detailText: { color: '#486581', fontSize: 16, lineHeight: 24 },
-  infoBlock: { padding: 16, borderRadius: 22, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', gap: 4, shadowColor: '#263856', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 1 },
+  infoBlock: { paddingVertical: 13, paddingHorizontal: 2, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)', gap: 4 },
   infoLabel: { color: '#53739b', fontSize: 13, fontWeight: '900', textTransform: 'uppercase' },
   infoValue: { color: '#102a43', fontSize: 16, lineHeight: 22, fontWeight: '700' },
   actionsGrid: { gap: 10 },
@@ -1862,6 +2048,13 @@ const styles = StyleSheet.create({
   authProviderBrand: { width: 38, height: 38, borderRadius: 14, overflow: 'hidden', backgroundColor: '#edf4ff', color: '#1f63c7', textAlign: 'center', textAlignVertical: 'center', fontSize: 17, lineHeight: 38, fontWeight: '900' },
   authProviderTitle: { color: '#102a43', fontSize: 14.5, lineHeight: 18, fontWeight: '900' },
   authProviderSub: { color: '#718096', fontSize: 11.5, lineHeight: 15, fontWeight: '700', marginTop: 2 },
+  profileBlock: { minHeight: 76, borderRadius: 22, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e0e8f2', flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
+  profileAvatar: { width: 46, height: 46, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7' },
+  profileAvatarText: { color: '#ffffff', fontSize: 18, lineHeight: 22, fontWeight: '900' },
+  profileName: { color: '#102a43', fontSize: 15, lineHeight: 19, fontWeight: '900' },
+  profileEmail: { color: '#718096', fontSize: 11.5, lineHeight: 15, fontWeight: '700', marginTop: 2 },
+  profileLogoutButton: { minHeight: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5fa', paddingHorizontal: 12 },
+  profileLogoutText: { color: '#1f63c7', fontSize: 12, lineHeight: 15, fontWeight: '900' },
 
   bottomTabs: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 6, paddingBottom: Platform.OS === 'ios' ? 16 : 6, backgroundColor: 'rgba(250,252,255,0.97)', borderTopWidth: 1, borderTopColor: 'rgba(211, 221, 234, 0.92)', shadowColor: '#293d5d', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.10, shadowRadius: 24, elevation: 14 },
   bottomTabsInner: { minHeight: 60, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, borderRadius: 0, backgroundColor: 'transparent', borderWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', shadowOpacity: 0, elevation: 0 },

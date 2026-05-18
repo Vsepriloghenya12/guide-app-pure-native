@@ -208,11 +208,11 @@ export function OwnerBannerManager({ home, collections }: OwnerBannerManagerProp
             </label>
 
             <label className="field">
-              <span>Ссылка перехода</span>
+              <span>Ссылка перехода при нажатии</span>
               <input
                 value={draft.linkPath}
                 onChange={(event) => updateDraftField('linkPath', event.target.value)}
-                placeholder="/programs или /section/restaurants"
+                placeholder="https://site.com, /programs, /routes, /section/restaurants или /place/slug"
               />
             </label>
 

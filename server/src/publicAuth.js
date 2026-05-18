@@ -758,6 +758,16 @@ function registerPublicAuthRoutes(app) {
       assertProviderAvailable('telegram');
       const botUsername = String(providerStatus.telegramBotUsername || '').replace(/^@/g, '').trim();
       const authUrl = `${getRequestOrigin(req)}/api/auth/telegram/callback?returnTo=${encodeURIComponent(returnTo)}`;
+      const botId = String(process.env.TELEGRAM_BOT_TOKEN || '').split(':')[0].trim();
+      if (/^\d+$/.test(botId)) {
+        const telegramOAuthUrl = new URL('https://oauth.telegram.org/auth');
+        telegramOAuthUrl.searchParams.set('bot_id', botId);
+        telegramOAuthUrl.searchParams.set('origin', getRequestOrigin(req));
+        telegramOAuthUrl.searchParams.set('return_to', authUrl);
+        telegramOAuthUrl.searchParams.set('request_access', 'write');
+        res.redirect(telegramOAuthUrl.toString());
+        return;
+      }
       res.type('html').send(`<!doctype html>
 <html lang="ru">
 <head>

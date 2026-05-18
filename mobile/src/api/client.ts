@@ -75,3 +75,12 @@ export async function fetchAuthSession() {
     return { ok: false, authenticated: false, user: null, providers: {} };
   }
 }
+
+export async function logoutAuthSession() {
+  if (!API_BASE_URL) return;
+  try {
+    await requestJson('/api/auth/logout', { method: 'POST', body: JSON.stringify({}) });
+  } catch {
+    // Logout must never block local token cleanup.
+  }
+}

@@ -1,25 +1,33 @@
 {
-  "name": "ai-futures-market-scanner-runtime",
-  "version": "1.0.0",
+  "name": "guide-app-native-connected",
+  "version": "1.0.8",
   "private": true,
-  "description": "Русский сканер ликвидных крипто-фьючерсов с paper trading и бэктестом.",
   "workspaces": [
     "server",
     "webapp"
   ],
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail --names web,api \"npm run dev --workspace webapp\" \"npm run dev --workspace server\"",
+    "dev:server": "npm run dev --workspace server",
+    "dev:web": "npm run dev --workspace webapp",
+    "build": "npm run build --workspace webapp && npm run build --workspace server",
+    "build:server": "npm run build --workspace server",
+    "start": "npm run start --workspace server",
+    "mobile:start": "cd mobile && npm run start",
+    "mobile:android": "cd mobile && npm run android",
+    "mobile:ios": "cd mobile && npm run ios",
+    "mobile:prebuild": "cd mobile && npm run prebuild",
+    "mobile:doctor": "cd mobile && npm run doctor",
+    "apk:configure": "cd mobile && eas init",
+    "apk:build": "cd mobile && eas build -p android --profile preview",
+    "android:apk": "cd mobile && eas build -p android --profile preview --clear-cache",
+    "ios:preview": "cd mobile && eas build -p ios --profile preview --clear-cache",
+    "mobile:install": "cd mobile && npm install"
+  },
   "engines": {
     "node": ">=20.19.0"
   },
-  "scripts": {
-    "build": "npm run build --workspace server && npm run build --workspace webapp",
-    "lint": "npm run lint --workspace server && npm run lint --workspace webapp",
-    "start": "node server/dist/index.js",
-    "generate:vapid": "node scripts/generate-vapid-keys.cjs"
-  },
-  "dependencies": {
-    "axios": "^1.16.1",
-    "cors": "^2.8.5",
-    "express": "^5.1.0",
-    "openai": "^6.34.0"
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   }
 }

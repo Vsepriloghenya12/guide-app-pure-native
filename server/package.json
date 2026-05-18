@@ -1,25 +1,17 @@
 {
-  "name": "server",
-  "version": "1.0.0",
+  "name": "guide-app-server",
+  "version": "0.1.0",
   "private": true,
-  "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
-    "lint": "tsc --noEmit -p tsconfig.json"
+    "dev": "nodemon src/index.js",
+    "build": "node ./scripts/build-info.js",
+    "start": "node src/index.js"
   },
   "dependencies": {
-    "axios": "^1.16.1",
-    "cors": "^2.8.5",
-    "express": "^5.1.0",
-    "openai": "^6.34.0"
+    "express": "^4.21.2",
+    "postgres": "^3.4.8"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.18",
-    "@types/express": "^5.0.3",
-    "@types/node": "^24.3.0",
-    "tsx": "^4.20.5",
-    "typescript": "^5.9.2"
+    "nodemon": "^3.1.7"
   }
 }
