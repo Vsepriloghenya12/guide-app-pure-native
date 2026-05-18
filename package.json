@@ -1,11 +1,10 @@
 {
   "name": "guide-app-native-connected",
-  "version": "0.3.0-full-backend-owner-mobile",
+  "version": "0.3.1-railway-workspace-fix",
   "private": true,
   "workspaces": [
     "server",
-    "webapp",
-    "mobile"
+    "webapp"
   ],
   "scripts": {
     "dev": "concurrently --kill-others-on-fail --names web,api \"npm run dev --workspace webapp\" \"npm run dev --workspace server\"",
@@ -14,11 +13,11 @@
     "build": "npm run build --workspace webapp && npm run build --workspace server",
     "build:server": "npm run build --workspace server",
     "start": "npm run start --workspace server",
-    "mobile:start": "npm run start --workspace mobile",
-    "mobile:android": "npm run android --workspace mobile",
-    "mobile:ios": "npm run ios --workspace mobile",
-    "mobile:prebuild": "npm run prebuild --workspace mobile",
-    "mobile:doctor": "npm run doctor --workspace mobile",
+    "mobile:start": "cd mobile && npm run start",
+    "mobile:android": "cd mobile && npm run android",
+    "mobile:ios": "cd mobile && npm run ios",
+    "mobile:prebuild": "cd mobile && npm run prebuild",
+    "mobile:doctor": "cd mobile && npm run doctor",
     "apk:configure": "cd mobile && eas init",
     "apk:build": "cd mobile && eas build -p android --profile preview"
   },
