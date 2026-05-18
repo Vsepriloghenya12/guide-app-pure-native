@@ -330,7 +330,19 @@ function redirectToReturnTo(res, returnTo, query = {}) {
   res.redirect(appendQueryToReturnTo(returnTo, query));
 }
 
+
+function getTelegramBotId() {
+  const explicitBotId = String(process.env.TELEGRAM_BOT_ID || '').trim();
+  if (/^\d+$/.test(explicitBotId)) return explicitBotId;
+
+  const tokenBotId = String(process.env.TELEGRAM_BOT_TOKEN || '').split(':')[0].trim();
+  if (/^\d+$/.test(tokenBotId)) return tokenBotId;
+
+  return '';
+}
+
 function getProviderStatus() {
+  const telegramBotId = getTelegramBotId();
   return {
     google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     apple: Boolean(
@@ -340,7 +352,8 @@ function getProviderStatus() {
       process.env.APPLE_PRIVATE_KEY
     ),
     telegram: Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_BOT_USERNAME),
-    telegramBotUsername: String(process.env.TELEGRAM_BOT_USERNAME || '').trim()
+    telegramBotUsername: String(process.env.TELEGRAM_BOT_USERNAME || '').trim(),
+    telegramBotId
   };
 }
 
@@ -758,7 +771,8 @@ function registerPublicAuthRoutes(app) {
       assertProviderAvailable('telegram');
       const botUsername = String(providerStatus.telegramBotUsername || '').replace(/^@/g, '').trim();
       const authUrl = `${getRequestOrigin(req)}/api/auth/telegram/callback?returnTo=${encodeURIComponent(returnTo)}`;
-      const botId = String(process.env.TELEGRAM_BOT_TOKEN || '').split(':')[0].trim();
+      const botId = String(providerStatus.telegramBotId || '').trim();
+      const preferOAuth = String(req.query.prefer || '').toLowerCase() === 'oauth' || String(req.query.mode || '').toLowerCase() === 'native';
       if (/^\d+$/.test(botId)) {
         const telegramOAuthUrl = new URL('https://oauth.telegram.org/auth');
         telegramOAuthUrl.searchParams.set('bot_id', botId);
@@ -767,6 +781,10 @@ function registerPublicAuthRoutes(app) {
         telegramOAuthUrl.searchParams.set('request_access', 'write');
         res.redirect(telegramOAuthUrl.toString());
         return;
+      }
+
+      if (preferOAuth) {
+        throw new Error('Для native-входа Telegram добавь на Railway TELEGRAM_BOT_ID — это цифры до двоеточия в TELEGRAM_BOT_TOKEN. Также проверь TELEGRAM_BOT_TOKEN и TELEGRAM_BOT_USERNAME.');
       }
       res.type('html').send(`<!doctype html>
 <html lang="ru">

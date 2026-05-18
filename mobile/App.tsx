@@ -24,7 +24,7 @@ import { fetchBootstrap, fetchSupportContent, fetchAuthSession, logoutAuthSessio
 import { appleMapsUrl, directionsUrl, googleMapsUrl, openExternalUrl } from './src/utils/links';
 import { estimateTravelTime, formatDistance, hasCoordinates, haversineDistanceKm } from './src/utils/geo';
 import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
-import { clearAuthToken, saveAuthToken } from './src/utils/auth';
+import { clearAuthToken, getCachedAuthUser, readUserFromAuthToken, saveAuthToken } from './src/utils/auth';
 import { EmptyState, AppButton, CategoryCard, ListingCard, LoadingState, Pill } from './src/components/ui';
 import { normalizeImageUrl } from './src/utils/normalizers';
 import { categoryIcons, defaultCategoryIcon, heroBackground, heroLogo } from './src/assets';
@@ -458,16 +458,21 @@ function AppContent() {
   const [authUser, setAuthUser] = useState<Record<string, unknown> | null>(null);
 
   const loadApp = useCallback(async () => {
-    const [nextPayload, nextSupport, savedFavorites, authSession] = await Promise.all([
+    const [nextPayload, nextSupport, savedFavorites, authSession, cachedAuthUser] = await Promise.all([
       fetchBootstrap(),
       fetchSupportContent(),
       loadFavoriteSlugs(),
-      fetchAuthSession()
+      fetchAuthSession(),
+      getCachedAuthUser()
     ]);
     setPayload(nextPayload);
     setSupport(nextSupport);
     setFavoriteSlugs(savedFavorites);
-    setAuthUser(authSession.authenticated && authSession.user && typeof authSession.user === 'object' ? authSession.user as Record<string, unknown> : null);
+    setAuthUser(
+      authSession.authenticated && authSession.user && typeof authSession.user === 'object'
+        ? authSession.user as Record<string, unknown>
+        : cachedAuthUser
+    );
   }, []);
 
   useEffect(() => {
@@ -479,6 +484,10 @@ function AppContent() {
     const params = parseDeepLinkParams(url);
     if (params.auth === 'success' && params.sessionToken) {
       await saveAuthToken(params.sessionToken);
+      const userFromToken = readUserFromAuthToken(params.sessionToken);
+      if (userFromToken) {
+        setAuthUser(userFromToken);
+      }
       setAuthSheetOpen(false);
       await loadApp();
     }
@@ -1596,7 +1605,7 @@ function AuthSheet({ visible, user, onClose, onLogout }: { visible: boolean; use
   const openProvider = (provider: 'google' | 'apple' | 'telegram') => {
     if (!API_BASE_URL) return;
     const path = provider === 'telegram'
-      ? `/api/auth/telegram/start?returnTo=${encodeURIComponent(authReturnTo)}&mode=native`
+      ? `/api/auth/telegram/start?returnTo=${encodeURIComponent(authReturnTo)}&mode=native&prefer=oauth`
       : `/api/auth/${provider}/start?returnTo=${encodeURIComponent(authReturnTo)}`;
     onClose();
     void openExternalUrl(`${API_BASE_URL}${path}`);
