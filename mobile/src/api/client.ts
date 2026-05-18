@@ -1,5 +1,6 @@
 import type { BootstrapPayload, SupportContentStore } from '../types';
 import { normalizeBootstrap, normalizeSupportContent } from '../utils/normalizers';
+import { getAuthToken } from '../utils/auth';
 
 const rawApiBaseUrl = String(process.env.EXPO_PUBLIC_API_BASE_URL || '').replace(/\/+$/g, '');
 export const API_BASE_URL = rawApiBaseUrl.includes('your-app.up.railway.app') || rawApiBaseUrl.includes('your-railway-backend') ? '' : rawApiBaseUrl;
@@ -9,10 +10,12 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error('EXPO_PUBLIC_API_BASE_URL is not configured.');
   }
 
+  const authToken = await getAuthToken();
   const response = await fetch(`${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...(init?.headers || {})
     }
   });
@@ -61,5 +64,14 @@ export async function sendAnalytics(kind: string, label: string, path: string, e
     });
   } catch {
     // Analytics must never block the native app.
+  }
+}
+
+export async function fetchAuthSession() {
+  if (!API_BASE_URL) return { ok: false, authenticated: false, user: null, providers: {} };
+  try {
+    return await requestJson<{ ok: boolean; authenticated: boolean; user: unknown; providers: Record<string, unknown> }>('/api/auth/session');
+  } catch {
+    return { ok: false, authenticated: false, user: null, providers: {} };
   }
 }

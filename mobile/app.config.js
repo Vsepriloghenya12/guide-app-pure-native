@@ -5,10 +5,10 @@ module.exports = {
     name: 'Da Nang Guide',
     slug: 'danang-guide-native',
     scheme: 'danangguide',
-    version: '1.0.2',
+    version: '1.0.4',
     orientation: 'portrait',
     userInterfaceStyle: 'light',
-    assetBundlePatterns: ['assets/*'],
+    assetBundlePatterns: ['assets/**/*'],
     ios: {
       bundleIdentifier: 'com.danangguide.app',
       supportsTablet: true,
@@ -38,6 +38,11 @@ module.exports = {
       resizeMode: 'contain',
       backgroundColor: '#ffffff'
     },
-    backgroundColor: '#ffffff'
+    backgroundColor: '#ffffff',
+    extra: {
+      eas: {
+        projectId: 'd8adecca-0de4-4ec4-8746-3e7317f732c5'
+      }
+    }
   }
 };

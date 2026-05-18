@@ -153,8 +153,24 @@ function getRequestOrigin(req) {
   return `${protocol}://${host}`;
 }
 
+const ALLOWED_NATIVE_RETURN_SCHEMES = new Set(['danangguide']);
+
+function isNativeReturnTo(value) {
+  const candidate = String(value || '').trim();
+  try {
+    const parsed = new URL(candidate);
+    return ALLOWED_NATIVE_RETURN_SCHEMES.has(parsed.protocol.replace(/:$/g, ''));
+  } catch {
+    return false;
+  }
+}
+
 function normalizeReturnTo(value) {
   const candidate = String(value || '/').trim();
+  if (isNativeReturnTo(candidate)) {
+    return candidate;
+  }
+
   if (!candidate.startsWith('/') || candidate.startsWith('//')) {
     return '/';
   }
@@ -203,9 +219,22 @@ function clearUserSessionCookie(res) {
   clearCookie(res, USER_SESSION_COOKIE_NAME, { sameSite: USER_COOKIE_SAME_SITE });
 }
 
-function readUserSession(req) {
+function readSessionPayload(req) {
+  const authorizationHeader = String(req.headers.authorization || '').trim();
+  const bearerMatch = /^Bearer\s+(.+)$/i.exec(authorizationHeader);
+  if (bearerMatch?.[1]) {
+    const bearerPayload = readSignedToken(bearerMatch[1]);
+    if (bearerPayload?.user && bearerPayload?.exp) {
+      return bearerPayload;
+    }
+  }
+
   const cookies = parseCookies(req.headers.cookie || '');
-  const payload = readSignedToken(cookies[USER_SESSION_COOKIE_NAME]);
+  return readSignedToken(cookies[USER_SESSION_COOKIE_NAME]);
+}
+
+function readUserSession(req) {
+  const payload = readSessionPayload(req);
   if (!payload?.user || !payload?.exp) {
     return null;
   }
@@ -216,6 +245,18 @@ function readUserSession(req) {
   }
 
   return createUserProfile(payload.user);
+}
+
+function createNativeSessionToken(profile) {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const payload = {
+    aud: 'danang-guide-native',
+    iat: nowSeconds,
+    exp: nowSeconds + USER_SESSION_TTL_SECONDS,
+    user: createUserProfile(profile)
+  };
+
+  return createSignedToken(payload);
 }
 
 async function persistAuthenticatedProfile(profile) {
@@ -266,18 +307,27 @@ function clearAuthStateCookie(res) {
   clearCookie(res, AUTH_STATE_COOKIE_NAME, { sameSite: USER_COOKIE_SAME_SITE === 'None' ? 'None' : 'Lax' });
 }
 
-function appendQueryToPath(pathname, query) {
-  const url = new URL(normalizeReturnTo(pathname), 'http://local');
+function appendQueryToReturnTo(returnTo, query) {
+  const normalizedReturnTo = normalizeReturnTo(returnTo);
+  const url = isNativeReturnTo(normalizedReturnTo)
+    ? new URL(normalizedReturnTo)
+    : new URL(normalizedReturnTo, 'http://local');
+
   Object.entries(query).forEach(([key, value]) => {
     if (value) {
       url.searchParams.set(key, String(value));
     }
   });
+
+  if (isNativeReturnTo(normalizedReturnTo)) {
+    return url.toString();
+  }
+
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
 function redirectToReturnTo(res, returnTo, query = {}) {
-  res.redirect(appendQueryToPath(returnTo, query));
+  res.redirect(appendQueryToReturnTo(returnTo, query));
 }
 
 function getProviderStatus() {
@@ -572,18 +622,24 @@ function ensureStateCookie(req, res, provider, returnTo) {
 }
 
 function getAuthErrorRedirectPath(returnTo, provider, error) {
-  return appendQueryToPath(returnTo, {
+  return appendQueryToReturnTo(returnTo, {
     auth: 'error',
     provider,
     message: error instanceof Error ? error.message : String(error || 'Ошибка авторизации')
   });
 }
 
-function getAuthSuccessRedirectPath(returnTo, provider) {
-  return appendQueryToPath(returnTo, {
+function getAuthSuccessRedirectPath(returnTo, provider, user) {
+  const query = {
     auth: 'success',
     provider
-  });
+  };
+
+  if (isNativeReturnTo(returnTo) && user) {
+    query.sessionToken = createNativeSessionToken(user);
+  }
+
+  return appendQueryToReturnTo(returnTo, query);
 }
 
 function getStateOrThrow(req, provider, incomingState) {
@@ -639,7 +695,7 @@ function registerPublicAuthRoutes(app) {
       const user = await persistAuthenticatedProfile(profile);
       clearAuthStateCookie(res);
       setUserSessionCookie(res, user);
-      res.redirect(getAuthSuccessRedirectPath(returnTo, 'google'));
+      res.redirect(getAuthSuccessRedirectPath(returnTo, 'google', user));
     } catch (error) {
       clearAuthStateCookie(res);
       res.redirect(getAuthErrorRedirectPath(returnTo, 'google', error));
@@ -688,10 +744,47 @@ function registerPublicAuthRoutes(app) {
       const user = await persistAuthenticatedProfile(profile);
       clearAuthStateCookie(res);
       setUserSessionCookie(res, user);
-      res.redirect(getAuthSuccessRedirectPath(returnTo, 'apple'));
+      res.redirect(getAuthSuccessRedirectPath(returnTo, 'apple', user));
     } catch (error) {
       clearAuthStateCookie(res);
       res.redirect(getAuthErrorRedirectPath(returnTo, 'apple', error));
+    }
+  });
+
+  app.get('/api/auth/telegram/start', (req, res) => {
+    const returnTo = normalizeReturnTo(req.query.returnTo);
+    try {
+      const providerStatus = getProviderStatus();
+      assertProviderAvailable('telegram');
+      const botUsername = String(providerStatus.telegramBotUsername || '').replace(/^@/g, '').trim();
+      const authUrl = `${getRequestOrigin(req)}/api/auth/telegram/callback?returnTo=${encodeURIComponent(returnTo)}`;
+      res.type('html').send(`<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Вход через Telegram</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f7ff; color: #102a43; }
+    .card { width: min(420px, calc(100vw - 32px)); padding: 28px; border-radius: 24px; background: #fff; box-shadow: 0 18px 50px rgba(16, 42, 67, .14); text-align: center; }
+    h1 { margin: 0 0 10px; font-size: 24px; }
+    p { margin: 0 0 22px; color: #62748b; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Вход через Telegram</h1>
+    <p>Подтверди вход, после этого приложение откроется обратно автоматически.</p>
+    <script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="${botUsername}" data-size="large" data-auth-url="${authUrl}" data-request-access="write"></script>
+  </main>
+</body>
+</html>`);
+    } catch (error) {
+      redirectToReturnTo(res, returnTo, {
+        auth: 'error',
+        provider: 'telegram',
+        message: error instanceof Error ? error.message : 'Telegram вход пока недоступен.'
+      });
     }
   });
 
@@ -701,7 +794,7 @@ function registerPublicAuthRoutes(app) {
       const profile = verifyTelegramPayload(req.query);
       const user = await persistAuthenticatedProfile(profile);
       setUserSessionCookie(res, user);
-      res.redirect(getAuthSuccessRedirectPath(returnTo, 'telegram'));
+      res.redirect(getAuthSuccessRedirectPath(returnTo, 'telegram', user));
     } catch (error) {
       res.redirect(getAuthErrorRedirectPath(returnTo, 'telegram', error));
     }

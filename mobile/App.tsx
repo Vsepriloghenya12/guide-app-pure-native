@@ -3,6 +3,7 @@ import {
   FlatList,
   Image,
   ImageBackground,
+  Linking,
   Modal,
   Platform,
   RefreshControl,
@@ -22,6 +23,7 @@ import { fetchBootstrap, fetchSupportContent, API_BASE_URL, sendAnalytics } from
 import { appleMapsUrl, directionsUrl, googleMapsUrl, openExternalUrl } from './src/utils/links';
 import { estimateTravelTime, formatDistance, hasCoordinates, haversineDistanceKm } from './src/utils/geo';
 import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
+import { saveAuthToken } from './src/utils/auth';
 import { EmptyState, AppButton, CategoryCard, ListingCard, LoadingState, Pill, uiStyles } from './src/components/ui';
 import { normalizeImageUrl } from './src/utils/normalizers';
 import { categoryIcons, defaultCategoryIcon, heroBackground, heroLogo } from './src/assets';
@@ -86,6 +88,44 @@ const filterTextMap: Record<string, string> = {
   resort: 'Курорт',
   beach: 'Пляж'
 };
+
+const rawGoogleMapsApiKey = String(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '').trim();
+const hasGoogleMapsApiKey =
+  rawGoogleMapsApiKey.length > 12 &&
+  !rawGoogleMapsApiKey.includes('your_google_maps') &&
+  !rawGoogleMapsApiKey.includes('твой_google') &&
+  rawGoogleMapsApiKey !== 'AIza...';
+
+
+function parseDeepLinkParams(url: string) {
+  const queryPart = String(url || '').split('?')[1] || '';
+  const [query] = queryPart.split('#');
+  return query
+    .split('&')
+    .filter(Boolean)
+    .reduce<Record<string, string>>((accumulator, part) => {
+      const [rawKey, rawValue = ''] = part.split('=');
+      const key = decodeURIComponent(rawKey || '').trim();
+      if (key) {
+        accumulator[key] = decodeURIComponent(rawValue.replace(/\+/g, ' '));
+      }
+      return accumulator;
+    }, {});
+}
+
+function isValidLatitude(value: number) {
+  return Number.isFinite(value) && value >= -90 && value <= 90;
+}
+
+function isValidLongitude(value: number) {
+  return Number.isFinite(value) && value >= -180 && value <= 180;
+}
+
+function mapUnavailableText() {
+  return hasGoogleMapsApiKey
+    ? 'Карту временно не удалось открыть на этом устройстве. Можно открыть точку во внешнем Google Maps.'
+    : 'Для встроенной карты в APK нужен Google Maps Android API key. Пока можно открыть маршрут во внешнем Google Maps.';
+}
 
 function normalizeToken(value: string) {
   return value.toLowerCase().trim().replace(/\s+/g, ' ');
@@ -163,9 +203,20 @@ function getPrimaryImageUrl(place: GuidePlace) {
 }
 
 function placeCoordinate(place: GuidePlace) {
-  const lat = typeof place.lat === 'number' ? place.lat : Number(place.lat);
-  const lng = typeof place.lng === 'number' ? place.lng : Number(place.lng);
+  let lat = typeof place.lat === 'number' ? place.lat : Number(place.lat);
+  let lng = typeof place.lng === 'number' ? place.lng : Number(place.lng);
+
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  // Иногда координаты из CMS вводят наоборот: lng в поле lat, lat в поле lng.
+  // Для Android-карты это может дать пустой синий экран или ошибку рендера.
+  if (!isValidLatitude(lat) && isValidLatitude(lng) && isValidLongitude(lat)) {
+    const previousLat = lat;
+    lat = lng;
+    lng = previousLat;
+  }
+
+  if (!isValidLatitude(lat) || !isValidLongitude(lng)) return null;
   return { latitude: lat, longitude: lng };
 }
 
@@ -307,6 +358,18 @@ function googleRouteUrl(route: NativeRoute) {
   return `https://www.google.com/maps/dir/?${params.join('&')}`;
 }
 
+function googleRoutePointsUrl(points: NativeRoutePoint[]) {
+  if (points.length === 0) return '';
+  if (points.length === 1) return `https://www.google.com/maps/search/?api=1&query=${points[0].lat},${points[0].lng}`;
+
+  const origin = points[0];
+  const destination = points[points.length - 1];
+  const waypoints = points.slice(1, -1).map((point) => `${point.lat},${point.lng}`).join('|');
+  const params = [`api=1`, `travelmode=walking`, `origin=${origin.lat},${origin.lng}`, `destination=${destination.lat},${destination.lng}`];
+  if (waypoints) params.push(`waypoints=${encodeURIComponent(waypoints)}`);
+  return `https://www.google.com/maps/dir/?${params.join('&')}`;
+}
+
 function dedupeHomeCategories(categories: GuideCategory[]) {
   const seenIds = new Set<string>();
   const seenLabels = new Set<string>();
@@ -326,7 +389,42 @@ function dedupeHomeCategories(categories: GuideCategory[]) {
   });
 }
 
+type AppErrorBoundaryState = { hasError: boolean; message: string };
+
+class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, AppErrorBoundaryState> {
+  state: AppErrorBoundaryState = { hasError: false, message: '' };
+
+  static getDerivedStateFromError(error: unknown): AppErrorBoundaryState {
+    const message = error instanceof Error ? error.message : 'Неизвестная ошибка';
+    return { hasError: true, message };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={styles.errorScreen}>
+          <Text style={styles.errorTitle}>Не удалось открыть экран</Text>
+          <Text style={styles.errorText}>{this.state.message}</Text>
+          <TouchableOpacity activeOpacity={0.86} onPress={() => this.setState({ hasError: false, message: '' })} style={styles.errorButton}>
+            <Text style={styles.errorButtonText}>Вернуться</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 export default function App() {
+  return (
+    <AppErrorBoundary>
+      <AppContent />
+    </AppErrorBoundary>
+  );
+}
+
+function AppContent() {
   const [route, setRoute] = useState<Route>({ name: 'tabs', tab: 'home' });
   const [payload, setPayload] = useState<BootstrapPayload | null>(null);
   const [support, setSupport] = useState<SupportContentStore | null>(null);
@@ -348,6 +446,24 @@ export default function App() {
   useEffect(() => {
     void loadApp();
   }, [loadApp]);
+
+  const handleAuthDeepLink = useCallback(async (url: string | null) => {
+    if (!url || !url.startsWith('danangguide://auth')) return;
+    const params = parseDeepLinkParams(url);
+    if (params.auth === 'success' && params.sessionToken) {
+      await saveAuthToken(params.sessionToken);
+      setAuthSheetOpen(false);
+      await loadApp();
+    }
+  }, [loadApp]);
+
+  useEffect(() => {
+    void Linking.getInitialURL().then(handleAuthDeepLink);
+    const subscription = Linking.addEventListener('url', (event) => {
+      void handleAuthDeepLink(event.url);
+    });
+    return () => subscription.remove();
+  }, [handleAuthDeepLink]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -908,7 +1024,8 @@ function CategoryListingCard({
   onToggleFavorite: () => void;
 }) {
   const imageUrl = getPrimaryImageUrl(place);
-  const checkLabel = place.priceLabel || (place.avgCheck ? `${place.avgCheck.toLocaleString('ru-RU')} ₫` : 'Не указан');
+  const avgCheckValue = Number(place.avgCheck);
+  const checkLabel = place.priceLabel || (Number.isFinite(avgCheckValue) && avgCheckValue > 0 ? `${avgCheckValue.toLocaleString('ru-RU')} ₫` : 'Не указан');
   const hoursLabel = place.hours || 'Не указано';
   const cuisineLabel = place.cuisine || place.kind || place.district || 'Не указано';
 
@@ -968,27 +1085,58 @@ function GuideMap({
     .map((place) => ({ place, coordinate: placeCoordinate(place) }))
     .filter((item): item is { place: GuidePlace; coordinate: { latitude: number; longitude: number } } => Boolean(item.coordinate));
   const routeCoordinates = routePoints
-    .map((point) => ({ latitude: Number(point.lat), longitude: Number(point.lng) }))
-    .filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude));
+    .map((point) => {
+      let latitude = Number(point.lat);
+      let longitude = Number(point.lng);
+      if (!isValidLatitude(latitude) && isValidLatitude(longitude) && isValidLongitude(latitude)) {
+        const previousLatitude = latitude;
+        latitude = longitude;
+        longitude = previousLatitude;
+      }
+      return { latitude, longitude };
+    })
+    .filter((point) => isValidLatitude(point.latitude) && isValidLongitude(point.longitude));
   const allCoordinates = [...routeCoordinates, ...placeMarkers.map((item) => item.coordinate)];
 
   if (allCoordinates.length === 0) {
     return (
-      <View style={[styles.nativeMapCard, { height }]}>
+      <View style={[styles.nativeMapCard, { height }]}> 
         <Text style={styles.nativeMapEmptyTitle}>Карта пока пустая</Text>
         <Text style={styles.nativeMapEmptyText}>Добавь координаты lat/lng в карточки, и точки появятся на карте.</Text>
       </View>
     );
   }
 
+  if (!hasGoogleMapsApiKey) {
+    const externalUrl = routePoints.length > 0 ? googleRoutePointsUrl(routePoints) : placeMarkers[0] ? googleMapsUrl(placeMarkers[0].place) : '';
+    return (
+      <View style={[styles.nativeMapCard, styles.nativeMapFallbackCard, { height }]}> 
+        <Text style={styles.nativeMapEmptyTitle}>Карта подключается отдельно</Text>
+        <Text style={styles.nativeMapEmptyText}>{mapUnavailableText()}</Text>
+        {externalUrl ? (
+          <TouchableOpacity activeOpacity={0.86} onPress={() => void openExternalUrl(externalUrl)} style={styles.nativeMapFallbackButton}>
+            <Text style={styles.nativeMapFallbackButtonText}>Открыть во внешнем Google Maps</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.nativeMapCard, { height }]}>
+    <View style={[styles.nativeMapCard, { height }]}> 
       <MapView
-        provider={PROVIDER_GOOGLE}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         style={styles.nativeMap}
         initialRegion={buildMapRegion(allCoordinates)}
-        showsUserLocation
-        showsMyLocationButton
+        mapType="standard"
+        loadingEnabled
+        loadingIndicatorColor="#1f63c7"
+        loadingBackgroundColor="#eef5ff"
+        toolbarEnabled={false}
+        showsCompass
+        showsScale={false}
+        showsUserLocation={false}
+        showsMyLocationButton={false}
       >
         {routeCoordinates.length > 1 ? (
           <Polyline coordinates={routeCoordinates} strokeColor="#1f63c7" strokeWidth={5} />
@@ -997,8 +1145,8 @@ function GuideMap({
           <Marker
             key={`route-${index}`}
             coordinate={coordinate}
-            title={`${index + 1}. ${routePoints[index]?.title || 'Точка маршрута'}`}
-            description={routePoints[index]?.text || ''}
+            title={`${index + 1}. ${toText(routePoints[index]?.title, 'Точка маршрута')}`}
+            description={toText(routePoints[index]?.text)}
             pinColor={index === 0 ? '#22a06b' : index === routeCoordinates.length - 1 ? '#e05a3f' : '#1f63c7'}
           />
         ))}
@@ -1006,8 +1154,8 @@ function GuideMap({
           <Marker
             key={place.id}
             coordinate={coordinate}
-            title={place.title}
-            description={place.address || place.district || place.kind || ''}
+            title={toText(place.title, 'Место')}
+            description={toText(place.address || place.district || place.kind)}
             onCalloutPress={() => onOpenPlace?.(place)}
           />
         ))}
@@ -1293,12 +1441,13 @@ function ContactsScreen({ support }: { support: SupportContentStore }) {
 
 
 function AuthSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const authReturnTo = API_BASE_URL || 'danangguide://auth';
+  const authReturnTo = 'danangguide://auth';
   const openProvider = (provider: 'google' | 'apple' | 'telegram') => {
     if (!API_BASE_URL) return;
     const path = provider === 'telegram'
-      ? `/api/auth/telegram/callback?returnTo=${encodeURIComponent(authReturnTo)}`
+      ? `/api/auth/telegram/start?returnTo=${encodeURIComponent(authReturnTo)}`
       : `/api/auth/${provider}/start?returnTo=${encodeURIComponent(authReturnTo)}`;
+    onClose();
     void openExternalUrl(`${API_BASE_URL}${path}`);
   };
 
@@ -1340,7 +1489,7 @@ function AuthSheet({ visible, onClose }: { visible: boolean; onClose: () => void
             <Text style={styles.authProviderBrand}>T</Text>
             <View style={styles.flex}>
               <Text style={styles.authProviderTitle}>Войти через Telegram</Text>
-              <Text style={styles.authProviderSub}>Через Telegram login callback</Text>
+              <Text style={styles.authProviderSub}>Откроется страница Telegram Login</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -1480,6 +1629,11 @@ const styles = StyleSheet.create({
   screenGap: { gap: 12 },
   flex: { flex: 1 },
   full: { width: '100%', height: '100%' },
+  errorScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, backgroundColor: '#ffffff' },
+  errorTitle: { color: '#102a43', fontSize: 22, lineHeight: 27, fontWeight: '900', textAlign: 'center' },
+  errorText: { color: '#60718a', fontSize: 14, lineHeight: 20, fontWeight: '700', textAlign: 'center', marginTop: 10 },
+  errorButton: { minHeight: 46, borderRadius: 16, backgroundColor: '#1f63c7', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18, marginTop: 18 },
+  errorButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
 
   homeRoot: { flex: 1, width: '100%', alignSelf: 'center', backgroundColor: '#ffffff' },
   homeHero: { width: '100%', minWidth: '100%', alignSelf: 'stretch', height: 118, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', backgroundColor: '#1c65a0' },
@@ -1566,6 +1720,9 @@ const styles = StyleSheet.create({
   nativeMap: { ...StyleSheet.absoluteFillObject },
   nativeMapEmptyTitle: { color: '#162640', fontSize: 17, fontWeight: '900', textAlign: 'center' },
   nativeMapEmptyText: { color: '#60718a', fontSize: 13, lineHeight: 18, fontWeight: '700', textAlign: 'center', marginTop: 6, paddingHorizontal: 18 },
+  nativeMapFallbackCard: { alignItems: 'center', paddingHorizontal: 18 },
+  nativeMapFallbackButton: { minHeight: 42, borderRadius: 14, backgroundColor: '#1f63c7', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, marginTop: 14 },
+  nativeMapFallbackButtonText: { color: '#ffffff', fontSize: 12, lineHeight: 15, fontWeight: '900', textAlign: 'center' },
 
   categoryContent: { flex: 1, backgroundColor: '#ffffff' },
   categoryContentInner: { paddingHorizontal: 14, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 14 : 16, paddingBottom: 92, gap: 10, backgroundColor: '#ffffff' },
