@@ -11,13 +11,15 @@
       },
       "ios": {
         "simulator": false
-      }
+      },
+      "environment": "preview"
     },
     "production": {
       "android": {
         "buildType": "app-bundle"
       },
-      "ios": {}
+      "ios": {},
+      "environment": "production"
     }
   }
 }

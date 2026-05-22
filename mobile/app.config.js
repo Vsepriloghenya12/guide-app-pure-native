@@ -1,11 +1,9 @@
-const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-
 module.exports = {
   expo: {
     name: 'Da Nang Guide',
     slug: 'danang-guide-native',
     scheme: 'danangguide',
-    version: '1.0.9',
+    version: '1.0.10',
     orientation: 'portrait',
     userInterfaceStyle: 'light',
     assetBundlePatterns: ['assets/**/*'],
@@ -23,12 +21,7 @@ module.exports = {
         foregroundImage: './assets/icon.png',
         backgroundColor: '#ffffff'
       },
-      config: {
-        googleMaps: {
-          apiKey: googleMapsApiKey
-        }
-      },
-      edgeToEdgeEnabled: true,
+      edgeToEdgeEnabled: false,
       softwareKeyboardLayoutMode: 'pan'
     },
     plugins: ['expo-location'],
@@ -40,9 +33,10 @@ module.exports = {
     },
     backgroundColor: '#ffffff',
     extra: {
-      eas: {
-        projectId: 'd697fc4e-d6c5-4af0-b7c9-fd9b76bccc18'
-      }
+eas: {
+    projectId: "5566a5ae-23eb-4008-8d48-df36560e9489"
+  }
+      
     }
   }
 };

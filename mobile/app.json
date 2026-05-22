@@ -3,11 +3,11 @@
     "name": "Da Nang Guide",
     "slug": "danang-guide-native",
     "scheme": "danangguide",
-    "version": "1.0.2",
+    "version": "1.0.10",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "assetBundlePatterns": [
-      "assets/*"
+      "assets/**/*"
     ],
     "ios": {
       "bundleIdentifier": "com.danangguide.app",
@@ -26,7 +26,7 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
       "softwareKeyboardLayoutMode": "pan"
     },
     "plugins": [
@@ -38,6 +38,11 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "backgroundColor": "#ffffff"
+    "backgroundColor": "#ffffff",
+    "extra": {
+      "eas": {
+        "projectId": "5566a5ae-23eb-4008-8d48-df36560e9489"
+      }
+    }
   }
 }
