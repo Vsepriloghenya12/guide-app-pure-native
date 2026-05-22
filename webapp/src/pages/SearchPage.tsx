@@ -102,7 +102,12 @@ export function SearchPage() {
         <div className="client-search-bar-row">
           <label className="travel-search-input travel-search-input--page">
             <span className="travel-search-input__icon" aria-hidden="true">⌕</span>
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Найти место, кухню или тег..." />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              aria-label="Поиск по местам, кухне или тегам"
+              placeholder="Найти место, кухню или тег…"
+            />
           </label>
 
           <Link className="client-inline-icon-action" to="/map" aria-label="Открыть карту">

@@ -340,12 +340,42 @@ export function AppMap({ places, selectedPlaceId, userLocation, emptyMessage, on
     setZoom(DANANG_PUBLIC_MAP_ZOOM);
   };
 
+  const handleCanvasKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const panStep = event.shiftKey ? 120 : 60;
+
+    if (event.key === '+' || event.key === '=') {
+      event.preventDefault();
+      changeZoom(1);
+      return;
+    }
+
+    if (event.key === '-' || event.key === '_') {
+      event.preventDefault();
+      changeZoom(-1);
+      return;
+    }
+
+    if (event.key === 'Home') {
+      event.preventDefault();
+      resetMap();
+      return;
+    }
+
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      const deltaX = event.key === 'ArrowLeft' ? panStep : event.key === 'ArrowRight' ? -panStep : 0;
+      const deltaY = event.key === 'ArrowUp' ? panStep : event.key === 'ArrowDown' ? -panStep : 0;
+      applyPan(deltaX, deltaY);
+    }
+  };
+
   return (
     <section className={`app-map-shell app-map-shell--osm${selectedPlace ? ' has-selected-place' : ''}`} aria-label="Карта приложения">
       <div
         ref={canvasRef}
         className="app-map-canvas app-map-canvas--osm"
         role="application"
+        tabIndex={0}
         aria-label="Интерактивная карта Дананга с отмеченными местами"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -353,6 +383,7 @@ export function AppMap({ places, selectedPlaceId, userLocation, emptyMessage, on
         onPointerCancel={handlePointerUp}
         onLostPointerCapture={handlePointerUp}
         onWheel={handleWheel}
+        onKeyDown={handleCanvasKeyDown}
       >
         <div className="app-map-tile-layer" aria-hidden="true">
           {tiles.map((tile) => (

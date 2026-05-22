@@ -1042,41 +1042,37 @@ function CategoryScreen({
   const [selectedQuickTokens, setSelectedQuickTokens] = useState<string[]>([]);
   const [isFilterOpen, setFilterOpen] = useState(false);
   const quickFilters = (category.id === 'restaurants' ? restaurantQuickFilters : category.filterSchema?.quickFilters || []).slice(0, 3);
-  const publishedListings = listings.filter((item) => item.status !== 'hidden' && item.status !== 'draft');
-  const filteredListings = selectedQuickTokens.length
-    ? publishedListings.filter((place) => selectedQuickTokens.every((token) => matchesQuickToken(place, token)))
-    : publishedListings;
+  const publishedListings = useMemo(
+    () => listings.filter((item) => item.status !== 'hidden' && item.status !== 'draft'),
+    [listings]
+  );
+  const filteredListings = useMemo(
+    () => selectedQuickTokens.length
+      ? publishedListings.filter((place) => selectedQuickTokens.every((token) => matchesQuickToken(place, token)))
+      : publishedListings,
+    [publishedListings, selectedQuickTokens]
+  );
 
-  const toggleQuickFilter = (token: string) => {
+  const toggleQuickFilter = useCallback((token: string) => {
     setSelectedQuickTokens((current) => {
       if (category.id === 'restaurants') {
         return current.includes(token) ? [] : [token];
       }
       return current.includes(token) ? current.filter((item) => item !== token) : [...current, token];
     });
-  };
+  }, [category.id]);
 
-  if (category.id === 'bulletin-board') {
-    return (
-      <BulletinBoardScreen
-        listings={publishedListings}
-        favoriteSet={favoriteSet}
-        toggleFavorite={toggleFavorite}
-        openDetail={openDetail}
-        refreshing={refreshing}
-        refresh={refresh}
-        onBack={onBack}
-      />
-    );
-  }
+  const renderListing = useCallback(({ item }: { item: GuidePlace }) => (
+    <CategoryListingCard
+      place={item}
+      isFavorite={favoriteSet.has(item.slug || item.id)}
+      onPress={() => openDetail(item)}
+      onToggleFavorite={() => toggleFavorite(item.slug || item.id)}
+    />
+  ), [favoriteSet, openDetail, toggleFavorite]);
 
-  return (
-    <ScrollView
-      style={[styles.content, styles.categoryContent]}
-      contentContainerStyle={styles.categoryContentInner}
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
-    >
+  const listHeader = (
+    <>
       <View style={styles.categoryToolbar}>
         <TouchableOpacity activeOpacity={0.82} onPress={onBack} style={styles.categoryBackButton}>
           <Text style={styles.categoryBackGlyph}>‹</Text>
@@ -1097,6 +1093,42 @@ function CategoryScreen({
         </ScrollView>
       </View>
 
+      {category.id !== 'restaurants' ? (
+        <View style={styles.categoryTitleBlock}>
+          <Text style={styles.categoryTitleText}>{category.title}</Text>
+          {category.description ? <Text style={styles.categoryDescriptionText}>{category.description}</Text> : null}
+        </View>
+      ) : null}
+    </>
+  );
+
+  if (category.id === 'bulletin-board') {
+    return (
+      <BulletinBoardScreen
+        listings={publishedListings}
+        favoriteSet={favoriteSet}
+        toggleFavorite={toggleFavorite}
+        openDetail={openDetail}
+        refreshing={refreshing}
+        refresh={refresh}
+        onBack={onBack}
+      />
+    );
+  }
+
+  return (
+    <>
+      <FlatList
+        data={filteredListings}
+        keyExtractor={(item) => item.id}
+        renderItem={renderListing}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={<EmptyState title="Пока пусто" text="В этом разделе нет опубликованных карточек." />}
+        style={[styles.content, styles.categoryContent]}
+        contentContainerStyle={styles.categoryContentInner}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+      />
       <Modal visible={isFilterOpen} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)}>
         <View style={styles.modalBackdrop}>
           <TouchableOpacity style={styles.modalBackdropTouch} activeOpacity={1} onPress={() => setFilterOpen(false)} />
@@ -1126,30 +1158,9 @@ function CategoryScreen({
           </View>
         </View>
       </Modal>
-
-      {category.id !== 'restaurants' ? (
-        <View style={styles.categoryTitleBlock}>
-          <Text style={styles.categoryTitleText}>{category.title}</Text>
-          {category.description ? <Text style={styles.categoryDescriptionText}>{category.description}</Text> : null}
-        </View>
-      ) : null}
-
-      <View style={styles.restaurantListNative}>
-        {filteredListings.length === 0 ? <EmptyState title="Пока пусто" text="В этом разделе нет опубликованных карточек." /> : null}
-        {filteredListings.map((place) => (
-          <CategoryListingCard
-            key={place.id}
-            place={place}
-            isFavorite={favoriteSet.has(place.slug || place.id)}
-            onPress={() => openDetail(place)}
-            onToggleFavorite={() => toggleFavorite(place.slug || place.id)}
-          />
-        ))}
-      </View>
-    </ScrollView>
+    </>
   );
 }
-
 
 function BulletinBoardScreen({
   listings,

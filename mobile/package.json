@@ -19,7 +19,7 @@
     "react-native-maps": "1.20.1"
   },
   "devDependencies": {
-    "@types/react": "latest",
+    "@types/react": "~19.1.10",
     "typescript": "latest"
   }
 }
