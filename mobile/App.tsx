@@ -121,14 +121,46 @@ function fallbackBackRoute(route: Route): Route | null {
   return null;
 }
 
+function isAuthDeepLink(url: string | null) {
+  const value = String(url || '').trim();
+  if (!value) return false;
+
+  try {
+    const parsed = new URL(value);
+    const protocol = parsed.protocol.replace(/:$/g, '').toLowerCase();
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname.replace(/^\/+/, '').toLowerCase();
+    return protocol === 'danangguide' && (host === 'auth' || path === 'auth');
+  } catch {
+    return /^danangguide:\/\/\/?auth/i.test(value);
+  }
+}
+
 function parseDeepLinkParams(url: string) {
-  const queryPart = String(url || '').split('?')[1] || '';
-  const [query] = queryPart.split('#');
-  return query
+  const value = String(url || '');
+  const queryParts: string[] = [];
+  const questionIndex = value.indexOf('?');
+  const hashIndex = value.indexOf('#');
+
+  if (questionIndex >= 0) {
+    const queryEnd = hashIndex >= 0 && hashIndex > questionIndex ? hashIndex : value.length;
+    queryParts.push(value.slice(questionIndex + 1, queryEnd));
+  }
+
+  if (hashIndex >= 0) {
+    const hashValue = value.slice(hashIndex + 1);
+    const hashQuestionIndex = hashValue.indexOf('?');
+    queryParts.push(hashQuestionIndex >= 0 ? hashValue.slice(hashQuestionIndex + 1) : hashValue);
+  }
+
+  return queryParts
+    .join('&')
     .split('&')
     .filter(Boolean)
     .reduce<Record<string, string>>((accumulator, part) => {
-      const [rawKey, rawValue = ''] = part.split('=');
+      const separatorIndex = part.indexOf('=');
+      const rawKey = separatorIndex >= 0 ? part.slice(0, separatorIndex) : part;
+      const rawValue = separatorIndex >= 0 ? part.slice(separatorIndex + 1) : '';
       const key = decodeURIComponent(rawKey || '').trim();
       if (key) {
         accumulator[key] = decodeURIComponent(rawValue.replace(/\+/g, ' '));
@@ -552,16 +584,27 @@ function AppContent() {
   }, [loadApp]);
 
   const handleAuthDeepLink = useCallback(async (url: string | null) => {
-    if (!url || !url.startsWith('danangguide://auth')) return;
-    const params = parseDeepLinkParams(url);
+    if (!isAuthDeepLink(url)) return;
+    const params = parseDeepLinkParams(String(url || ''));
+
     if (params.auth === 'success' && params.sessionToken) {
       await saveAuthToken(params.sessionToken);
       const userFromToken = readUserFromAuthToken(params.sessionToken);
-      if (userFromToken) {
+      const authSession = await fetchAuthSession();
+
+      if (authSession.authenticated && authSession.user && typeof authSession.user === 'object') {
+        setAuthUser(authSession.user as Record<string, unknown>);
+      } else if (userFromToken) {
         setAuthUser(userFromToken);
       }
+
       setAuthSheetOpen(false);
       await loadApp();
+      return;
+    }
+
+    if (params.auth === 'error') {
+      setAuthSheetOpen(true);
     }
   }, [loadApp]);
 
@@ -773,14 +816,6 @@ function HomeScreen({
     bannerScrollRef.current?.scrollTo({ x: nextIndex * bannerStep, animated: true });
   }, [activeBanners.length, bannerStep]);
 
-  const showPreviousBanner = useCallback(() => {
-    scrollToBanner(activeHeroIndex - 1);
-  }, [activeHeroIndex, scrollToBanner]);
-
-  const showNextBanner = useCallback(() => {
-    scrollToBanner(activeHeroIndex + 1);
-  }, [activeHeroIndex, scrollToBanner]);
-
   const handleBannerMomentumEnd = useCallback((event: { nativeEvent: { contentOffset: { x: number } } }) => {
     if (activeBanners.length < 2) return;
     const nextIndex = Math.max(0, Math.min(activeBanners.length - 1, Math.round(event.nativeEvent.contentOffset.x / bannerStep)));
@@ -879,19 +914,11 @@ function HomeScreen({
               ))}
             </ScrollView>
             {activeBanners.length > 1 ? (
-              <>
-                <TouchableOpacity activeOpacity={0.74} onPress={showPreviousBanner} style={[styles.bannerArrow, styles.bannerArrowLeft]}>
-                  <Text style={styles.bannerArrowText}>‹</Text>
-                </TouchableOpacity>
-                <TouchableOpacity activeOpacity={0.74} onPress={showNextBanner} style={[styles.bannerArrow, styles.bannerArrowRight]}>
-                  <Text style={styles.bannerArrowText}>›</Text>
-                </TouchableOpacity>
-                <View style={styles.bannerDots}>
-                  {activeBanners.map((banner, index) => (
-                    <TouchableOpacity key={banner.id} activeOpacity={0.82} onPress={() => scrollToBanner(index)} style={[styles.bannerDot, activeHeroIndex === index && styles.bannerDotActive]} />
-                  ))}
-                </View>
-              </>
+              <View style={styles.bannerDots}>
+                {activeBanners.map((banner, index) => (
+                  <TouchableOpacity key={banner.id} activeOpacity={0.82} onPress={() => scrollToBanner(index)} style={[styles.bannerDot, activeHeroIndex === index && styles.bannerDotActive]} />
+                ))}
+              </View>
             ) : null}
           </View>
         ) : null}
@@ -1254,9 +1281,9 @@ function CategoryListingCard({
         <Text style={styles.restaurantCardTitle} numberOfLines={2}>{place.title}</Text>
         <Text style={styles.restaurantCardSubtitle} numberOfLines={1}>{place.shortDescription || place.description || place.district || place.kind}</Text>
         <View style={styles.restaurantFacts}>
-          <RestaurantFact tone="hours" icon="◷" value={hoursLabel} />
-          <RestaurantFact tone="cuisine" icon="👨‍🍳" value={cuisineLabel} />
-          <RestaurantFact tone="price" icon="$" value={checkLabel} />
+          <RestaurantFact tone="hours" value={hoursLabel} />
+          <RestaurantFact tone="cuisine" value={cuisineLabel} />
+          <RestaurantFact tone="price" value={checkLabel} />
         </View>
       </View>
     </TouchableOpacity>
@@ -1264,15 +1291,37 @@ function CategoryListingCard({
 }
 
 
-function RestaurantFact({ icon, value, tone }: { icon: string; value: string; tone: 'hours' | 'cuisine' | 'price' }) {
+function RestaurantFact({ value, tone }: { value: string; tone: 'hours' | 'cuisine' | 'price' }) {
   return (
     <View style={styles.restaurantFactRow}>
-      <View style={styles.restaurantFactIconWrap}>
-        <Text style={[styles.restaurantFactIcon, tone === 'hours' && styles.restaurantFactIconHours, tone === 'cuisine' && styles.restaurantFactIconCuisine, tone === 'price' && styles.restaurantFactIconPrice]}>{icon}</Text>
-      </View>
+      <RestaurantFactIcon tone={tone} />
       <Text style={styles.restaurantFactText} numberOfLines={1}>{value}</Text>
     </View>
   );
+}
+
+function RestaurantFactIcon({ tone }: { tone: 'hours' | 'cuisine' | 'price' }) {
+  if (tone === 'hours') {
+    return (
+      <View style={styles.restaurantClockIcon}>
+        <View style={styles.restaurantClockHourHand} />
+        <View style={styles.restaurantClockMinuteHand} />
+      </View>
+    );
+  }
+
+  if (tone === 'cuisine') {
+    return (
+      <View style={styles.restaurantChefIcon}>
+        <View style={[styles.restaurantChefPuff, styles.restaurantChefPuffLeft]} />
+        <View style={[styles.restaurantChefPuff, styles.restaurantChefPuffCenter]} />
+        <View style={[styles.restaurantChefPuff, styles.restaurantChefPuffRight]} />
+        <View style={styles.restaurantChefBand} />
+      </View>
+    );
+  }
+
+  return <Text style={styles.restaurantDollarIcon}>$</Text>;
 }
 
 
@@ -1697,7 +1746,7 @@ function AuthSheet({ visible, user, onClose, onLogout }: { visible: boolean; use
     if (!API_BASE_URL) return;
     const path = provider === 'telegram'
       ? `/api/auth/telegram/start?returnTo=${encodeURIComponent(authReturnTo)}&mode=native&prefer=oauth`
-      : `/api/auth/${provider}/start?returnTo=${encodeURIComponent(authReturnTo)}`;
+      : `/api/auth/${provider}/start?returnTo=${encodeURIComponent(authReturnTo)}&mode=native`;
     onClose();
     void openExternalUrl(`${API_BASE_URL}${path}`);
   };
@@ -1938,10 +1987,6 @@ const styles = StyleSheet.create({
   bannerPeekRight: { right: -48 },
   bannerPeekImage: { borderRadius: 14 },
   bannerDots: { position: 'absolute', left: 0, right: 0, bottom: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
-  bannerArrow: { position: 'absolute', top: 54, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.86)', borderWidth: 1, borderColor: 'rgba(211,221,234,0.8)', zIndex: 8 },
-  bannerArrowLeft: { left: 12 },
-  bannerArrowRight: { right: 12 },
-  bannerArrowText: { color: '#1f63c7', fontSize: 24, lineHeight: 27, fontWeight: '800' },
   bannerDot: { width: 18, height: 3, borderRadius: 999, backgroundColor: 'rgba(31, 99, 199, 0.18)' },
   bannerDotActive: { backgroundColor: '#1f63c7', width: 30 },
   quickGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 18, marginTop: 2, paddingHorizontal: 14 },
@@ -2047,14 +2092,19 @@ const styles = StyleSheet.create({
   restaurantCardBody: { flex: 1, minWidth: 0, maxWidth: '100%', justifyContent: 'center', gap: 4, paddingTop: 0, paddingRight: 2, overflow: 'hidden' },
   restaurantCardTitle: { color: '#162640', fontSize: 14.2, lineHeight: 17, fontWeight: '900', letterSpacing: -0.2 },
   restaurantCardSubtitle: { color: '#60718a', fontSize: 11.8, lineHeight: 15, fontWeight: '500' },
-  restaurantFacts: { gap: 3, marginTop: 2 },
-  restaurantFactRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  restaurantFactIconWrap: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#edf4ff', flexShrink: 0 },
-  restaurantFactIcon: { color: '#4770a8', fontSize: 12, lineHeight: 17, fontWeight: '900', textAlign: 'center' },
-  restaurantFactIconHours: { color: '#2b78dd' },
-  restaurantFactIconCuisine: { color: '#ef8b32' },
-  restaurantFactIconPrice: { color: '#22a06b' },
-  restaurantFactText: { flex: 1, minWidth: 0, color: '#24364f', fontSize: 11.4, lineHeight: 15, fontWeight: '700' },
+  restaurantFacts: { gap: 4, marginTop: 3 },
+  restaurantFactRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  restaurantFactText: { flex: 1, minWidth: 0, color: '#24364f', fontSize: 11.6, lineHeight: 16, fontWeight: '800' },
+  restaurantClockIcon: { width: 17, height: 17, borderRadius: 8.5, borderWidth: 1.8, borderColor: '#2b78dd', flexShrink: 0, position: 'relative' },
+  restaurantClockHourHand: { position: 'absolute', left: 7.2, top: 3.6, width: 1.8, height: 5.4, borderRadius: 1, backgroundColor: '#2b78dd' },
+  restaurantClockMinuteHand: { position: 'absolute', left: 7.2, top: 7.1, width: 5.5, height: 1.8, borderRadius: 1, backgroundColor: '#2b78dd' },
+  restaurantChefIcon: { width: 20, height: 18, flexShrink: 0, position: 'relative' },
+  restaurantChefPuff: { position: 'absolute', top: 1, width: 10, height: 10, borderRadius: 6, borderWidth: 1.7, borderColor: '#ef8b32', backgroundColor: 'transparent' },
+  restaurantChefPuffLeft: { left: 0 },
+  restaurantChefPuffCenter: { left: 5, top: 0, width: 11, height: 11 },
+  restaurantChefPuffRight: { right: 0 },
+  restaurantChefBand: { position: 'absolute', left: 3, right: 3, bottom: 1, height: 7, borderWidth: 1.7, borderTopWidth: 0, borderColor: '#ef8b32', borderBottomLeftRadius: 3, borderBottomRightRadius: 3 },
+  restaurantDollarIcon: { width: 18, color: '#22a06b', fontSize: 18, lineHeight: 19, fontWeight: '900', textAlign: 'center', flexShrink: 0 },
 
   bulletinContentInner: { paddingTop: 16 },
   bulletinToolbar: { alignItems: 'center' },

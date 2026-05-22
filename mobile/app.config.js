@@ -33,10 +33,9 @@ module.exports = {
     },
     backgroundColor: '#ffffff',
     extra: {
-eas: {
-    projectId: "5566a5ae-23eb-4008-8d48-df36560e9489"
-  }
-      
+      eas: {
+        projectId: '5566a5ae-23eb-4008-8d48-df36560e9489'
+      }
     }
   }
 };

@@ -326,8 +326,75 @@ function appendQueryToReturnTo(returnTo, query) {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeScriptString(value) {
+  return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r/g, '').replace(/\n/g, '');
+}
+
+function sendNativeAuthPage(res, targetUrl, query = {}) {
+  const isSuccess = String(query.auth || '') === 'success';
+  const provider = String(query.provider || '').trim();
+  const title = isSuccess ? 'Вход выполнен' : 'Не удалось войти';
+  const text = isSuccess
+    ? 'Возвращаем вас в приложение. Если оно не открылось автоматически, нажмите кнопку ниже.'
+    : String(query.message || 'Попробуйте войти ещё раз из приложения.');
+  const buttonLabel = isSuccess ? 'Открыть приложение' : 'Вернуться в приложение';
+
+  res.type('html').send(`<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f7ff; color: #102a43; }
+    .card { width: min(430px, calc(100vw - 32px)); padding: 28px; border-radius: 24px; background: #fff; box-shadow: 0 18px 50px rgba(16, 42, 67, .14); text-align: center; }
+    .badge { width: 56px; height: 56px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; border-radius: 18px; background: ${isSuccess ? '#e8f8ef' : '#fff0f0'}; color: ${isSuccess ? '#14834f' : '#b42318'}; font-size: 28px; font-weight: 900; }
+    h1 { margin: 0 0 10px; font-size: 24px; line-height: 1.2; }
+    p { margin: 0 0 22px; color: #62748b; line-height: 1.5; }
+    a { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: 16px; background: #1f63c7; color: #fff; font-weight: 800; text-decoration: none; }
+    small { display: block; margin-top: 14px; color: #8a98aa; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="badge">${isSuccess ? '✓' : '!'}</div>
+    <h1>${escapeHtml(title)}</h1>
+    <p>${escapeHtml(text)}</p>
+    <a id="openApp" href="${escapeHtml(targetUrl)}">${escapeHtml(buttonLabel)}</a>
+    ${provider ? `<small>${escapeHtml(provider)}</small>` : ''}
+  </main>
+  <script>
+    (function () {
+      var target = '${escapeScriptString(targetUrl)}';
+      function openApp() { window.location.href = target; }
+      document.getElementById('openApp').addEventListener('click', function (event) {
+        event.preventDefault();
+        openApp();
+      });
+      setTimeout(openApp, 150);
+      setTimeout(openApp, 900);
+    })();
+  </script>
+</body>
+</html>`);
+}
+
 function redirectToReturnTo(res, returnTo, query = {}) {
-  res.redirect(appendQueryToReturnTo(returnTo, query));
+  const targetUrl = appendQueryToReturnTo(returnTo, query);
+  if (isNativeReturnTo(returnTo)) {
+    sendNativeAuthPage(res, targetUrl, query);
+    return;
+  }
+  res.redirect(targetUrl);
 }
 
 
@@ -708,10 +775,18 @@ function registerPublicAuthRoutes(app) {
       const user = await persistAuthenticatedProfile(profile);
       clearAuthStateCookie(res);
       setUserSessionCookie(res, user);
-      res.redirect(getAuthSuccessRedirectPath(returnTo, 'google', user));
+      redirectToReturnTo(res, returnTo, {
+        auth: 'success',
+        provider: 'google',
+        sessionToken: isNativeReturnTo(returnTo) ? createNativeSessionToken(user) : ''
+      });
     } catch (error) {
       clearAuthStateCookie(res);
-      res.redirect(getAuthErrorRedirectPath(returnTo, 'google', error));
+      redirectToReturnTo(res, returnTo, {
+        auth: 'error',
+        provider: 'google',
+        message: error instanceof Error ? error.message : 'Google вход пока недоступен.'
+      });
     }
   });
 
@@ -757,10 +832,18 @@ function registerPublicAuthRoutes(app) {
       const user = await persistAuthenticatedProfile(profile);
       clearAuthStateCookie(res);
       setUserSessionCookie(res, user);
-      res.redirect(getAuthSuccessRedirectPath(returnTo, 'apple', user));
+      redirectToReturnTo(res, returnTo, {
+        auth: 'success',
+        provider: 'apple',
+        sessionToken: isNativeReturnTo(returnTo) ? createNativeSessionToken(user) : ''
+      });
     } catch (error) {
       clearAuthStateCookie(res);
-      res.redirect(getAuthErrorRedirectPath(returnTo, 'apple', error));
+      redirectToReturnTo(res, returnTo, {
+        auth: 'error',
+        provider: 'apple',
+        message: error instanceof Error ? error.message : 'Apple вход пока недоступен.'
+      });
     }
   });
 
@@ -822,9 +905,17 @@ function registerPublicAuthRoutes(app) {
       const profile = verifyTelegramPayload(req.query);
       const user = await persistAuthenticatedProfile(profile);
       setUserSessionCookie(res, user);
-      res.redirect(getAuthSuccessRedirectPath(returnTo, 'telegram', user));
+      redirectToReturnTo(res, returnTo, {
+        auth: 'success',
+        provider: 'telegram',
+        sessionToken: isNativeReturnTo(returnTo) ? createNativeSessionToken(user) : ''
+      });
     } catch (error) {
-      res.redirect(getAuthErrorRedirectPath(returnTo, 'telegram', error));
+      redirectToReturnTo(res, returnTo, {
+        auth: 'error',
+        provider: 'telegram',
+        message: error instanceof Error ? error.message : 'Telegram вход пока недоступен.'
+      });
     }
   });
 }
