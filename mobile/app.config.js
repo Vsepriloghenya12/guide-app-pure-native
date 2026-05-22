@@ -28,7 +28,7 @@ module.exports = {
           apiKey: googleMapsApiKey
         }
       },
-      edgeToEdgeEnabled: false,
+      edgeToEdgeEnabled: true,
       softwareKeyboardLayoutMode: 'pan'
     },
     plugins: ['expo-location'],
@@ -41,7 +41,7 @@ module.exports = {
     backgroundColor: '#ffffff',
     extra: {
       eas: {
-        projectId: 'd8adecca-0de4-4ec4-8746-3e7317f732c5'
+        projectId: 'd697fc4e-d6c5-4af0-b7c9-fd9b76bccc18'
       }
     }
   }
