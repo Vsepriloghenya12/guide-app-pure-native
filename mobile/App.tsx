@@ -98,6 +98,28 @@ const hasGoogleMapsApiKey =
   !rawGoogleMapsApiKey.includes('твой_google') &&
   rawGoogleMapsApiKey !== 'AIza...';
 
+const ANDROID_STATUS_BAR_INSET = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0;
+const ANDROID_NAVIGATION_BAR_INSET = Platform.OS === 'android' ? 34 : 0;
+const BOTTOM_TABS_VISIBLE_HEIGHT = 66 + ANDROID_NAVIGATION_BAR_INSET;
+
+function routeKey(route: Route) {
+  if (route.name === 'tabs') return `tabs:${route.tab}`;
+  if (route.name === 'category') return `category:${route.categoryId}`;
+  if (route.name === 'routeDetail') return `routeDetail:${route.routeId}`;
+  if (route.name === 'detail') return `detail:${route.slug}`;
+  return route.name;
+}
+
+function fallbackBackRoute(route: Route): Route | null {
+  if (route.name === 'routeDetail') return { name: 'routes' };
+  if (route.name === 'category' || route.name === 'routes' || route.name === 'programs' || route.name === 'tips' || route.name === 'detail') {
+    return { name: 'tabs', tab: 'home' };
+  }
+  if (route.name === 'tabs' && route.tab !== 'home') {
+    return { name: 'tabs', tab: 'home' };
+  }
+  return null;
+}
 
 function parseDeepLinkParams(url: string) {
   const queryPart = String(url || '').split('?')[1] || '';
@@ -449,13 +471,63 @@ export default function App() {
 }
 
 function AppContent() {
-  const [route, setRoute] = useState<Route>({ name: 'tabs', tab: 'home' });
+  const [route, setRouteState] = useState<Route>({ name: 'tabs', tab: 'home' });
+  const routeRef = useRef<Route>(route);
+  const routeHistoryRef = useRef<Route[]>([]);
+  const [hasBackRoute, setHasBackRoute] = useState(false);
   const [payload, setPayload] = useState<BootstrapPayload | null>(null);
   const [support, setSupport] = useState<SupportContentStore | null>(null);
   const [favoriteSlugs, setFavoriteSlugs] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [isAuthSheetOpen, setAuthSheetOpen] = useState(false);
   const [authUser, setAuthUser] = useState<Record<string, unknown> | null>(null);
+
+  useEffect(() => {
+    routeRef.current = route;
+  }, [route]);
+
+  const setRoute = useCallback((nextRoute: Route, options?: { replace?: boolean }) => {
+    const currentRoute = routeRef.current;
+    if (!options?.replace && routeKey(currentRoute) !== routeKey(nextRoute)) {
+      routeHistoryRef.current = [...routeHistoryRef.current, currentRoute].slice(-24);
+      setHasBackRoute(routeHistoryRef.current.length > 0);
+    }
+    routeRef.current = nextRoute;
+    setRouteState(nextRoute);
+  }, []);
+
+  const goBack = useCallback(() => {
+    const previousRoute = routeHistoryRef.current.pop();
+    setHasBackRoute(routeHistoryRef.current.length > 0);
+
+    if (previousRoute) {
+      routeRef.current = previousRoute;
+      setRouteState(previousRoute);
+      return;
+    }
+
+    const fallbackRoute = fallbackBackRoute(routeRef.current);
+    if (fallbackRoute) {
+      routeRef.current = fallbackRoute;
+      setRouteState(fallbackRoute);
+    }
+  }, []);
+
+  const canGoBack = hasBackRoute || Boolean(fallbackBackRoute(route));
+
+  const backSwipeResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gesture) => (
+      canGoBack &&
+      gesture.x0 <= 36 &&
+      gesture.dx > 22 &&
+      Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.45
+    ),
+    onPanResponderRelease: (_, gesture) => {
+      if (gesture.dx > 72 || gesture.vx > 0.65) {
+        goBack();
+      }
+    }
+  }), [canGoBack, goBack]);
 
   const loadApp = useCallback(async () => {
     const [nextPayload, nextSupport, savedFavorites, authSession, cachedAuthUser] = await Promise.all([
@@ -558,7 +630,7 @@ function AppContent() {
   const hideTopHeader = isHomeRoot || route.name === 'category' || route.name === 'routes' || route.name === 'routeDetail' || route.name === 'programs' || route.name === 'tips';
 
   return (
-    <View style={styles.safeArea}>
+    <View style={styles.safeArea} {...backSwipeResponder.panHandlers}>
       <StatusBar translucent barStyle="dark-content" backgroundColor="transparent" />
       {!hideTopHeader ? (
         <View style={styles.appHeader}>
@@ -567,7 +639,7 @@ function AppContent() {
             <Text style={styles.logoSubtext}>{API_BASE_URL ? 'native app · Railway API' : 'native app · offline seed'}</Text>
           </View>
           {route.name !== 'tabs' ? (
-            <TouchableOpacity activeOpacity={0.8} onPress={() => setRoute({ name: 'tabs', tab: 'home' })} style={styles.headerBackButton}>
+            <TouchableOpacity activeOpacity={0.8} onPress={goBack} style={styles.headerBackButton}>
               <Text style={styles.headerBackText}>Назад</Text>
             </TouchableOpacity>
           ) : null}
@@ -584,19 +656,19 @@ function AppContent() {
       ) : route.name === 'routeDetail' ? (
         <RouteDetailScreen
           route={nativeRoutes.find((item) => item.id === route.routeId) || nativeRoutes[0]}
-          onBack={() => setRoute({ name: 'routes' })}
+          onBack={goBack}
         />
       ) : route.name === 'routes' ? (
         <RoutesScreen
-          onBack={() => setRoute({ name: 'tabs', tab: 'home' })}
+          onBack={goBack}
           onOpenRoute={(routeId) => setRoute({ name: 'routeDetail', routeId })}
         />
       ) : route.name === 'programs' ? (
-        <ProgramsScreen onBack={() => setRoute({ name: 'tabs', tab: 'home' })} />
+        <ProgramsScreen onBack={goBack} />
       ) : route.name === 'tips' ? (
         <TipsScreen
           tips={payload.tips.filter((tip) => tip.active)}
-          onBack={() => setRoute({ name: 'tabs', tab: 'home' })}
+          onBack={goBack}
         />
       ) : route.name === 'category' && selectedCategory ? (
         <CategoryScreen
@@ -607,7 +679,7 @@ function AppContent() {
           openDetail={openDetail}
           refreshing={refreshing}
           refresh={refresh}
-          onBack={() => setRoute({ name: 'tabs', tab: 'home' })}
+          onBack={goBack}
         />
       ) : (
         <ScrollView
@@ -674,6 +746,7 @@ function HomeScreen({
 }) {
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   const [selectedTip, setSelectedTip] = useState<GuideTip | null>(null);
+  const bannerScrollRef = useRef<ScrollView | null>(null);
   const { width: viewportWidth } = useWindowDimensions();
   const visibleCategories = useMemo(
     () => dedupeHomeCategories(
@@ -683,30 +756,36 @@ function HomeScreen({
   );
   const activeBanners = useMemo(() => payload.collections.filter((collection) => collection.active), [payload.collections]);
   const visibleTips = useMemo(() => payload.tips.filter((tip) => tip.active).slice(0, 3), [payload.tips]);
+  const bannerGap = 12;
+  const bannerCardWidth = Math.max(248, Math.min(viewportWidth - 54, viewportWidth * 0.78));
+  const bannerSideInset = Math.max(18, (viewportWidth - bannerCardWidth) / 2);
+  const bannerStep = bannerCardWidth + bannerGap;
 
   useEffect(() => {
     setActiveHeroIndex(0);
+    requestAnimationFrame(() => bannerScrollRef.current?.scrollTo({ x: 0, animated: false }));
   }, [activeBanners.length]);
+
+  const scrollToBanner = useCallback((index: number) => {
+    if (activeBanners.length < 1) return;
+    const nextIndex = positiveModulo(index, activeBanners.length);
+    setActiveHeroIndex(nextIndex);
+    bannerScrollRef.current?.scrollTo({ x: nextIndex * bannerStep, animated: true });
+  }, [activeBanners.length, bannerStep]);
 
   const showPreviousBanner = useCallback(() => {
-    setActiveHeroIndex((current) => positiveModulo(current - 1, activeBanners.length));
-  }, [activeBanners.length]);
+    scrollToBanner(activeHeroIndex - 1);
+  }, [activeHeroIndex, scrollToBanner]);
 
   const showNextBanner = useCallback(() => {
-    setActiveHeroIndex((current) => positiveModulo(current + 1, activeBanners.length));
-  }, [activeBanners.length]);
+    scrollToBanner(activeHeroIndex + 1);
+  }, [activeHeroIndex, scrollToBanner]);
 
-  const bannerPanResponder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15,
-    onPanResponderRelease: (_, gesture) => {
-      if (activeBanners.length < 2) return;
-      if (gesture.dx < -28) {
-        showNextBanner();
-      } else if (gesture.dx > 28) {
-        showPreviousBanner();
-      }
-    }
-  }), [activeBanners.length, showNextBanner, showPreviousBanner]);
+  const handleBannerMomentumEnd = useCallback((event: { nativeEvent: { contentOffset: { x: number } } }) => {
+    if (activeBanners.length < 2) return;
+    const nextIndex = Math.max(0, Math.min(activeBanners.length - 1, Math.round(event.nativeEvent.contentOffset.x / bannerStep)));
+    setActiveHeroIndex(nextIndex);
+  }, [activeBanners.length, bannerStep]);
 
   const openBannerLink = useCallback((banner: GuideCollection) => {
     const link = normalizeBannerLink(banner.linkPath);
@@ -769,38 +848,50 @@ function HomeScreen({
       <View style={[styles.homeBody, { width: viewportWidth }]}> 
         {activeBanners.length > 0 ? (
           <View style={styles.bannerStack}>
-            <View style={styles.bannerCarousel} {...bannerPanResponder.panHandlers}>
-              {activeBanners.length > 1 ? (
-                <TouchableOpacity activeOpacity={0.78} onPress={showPreviousBanner} style={[styles.homeBanner, styles.homeBannerPreview, styles.homeBannerPreviewLeft]}>
-                  <ImageBackground source={bannerImageSource(activeBanners[positiveModulo(activeHeroIndex - 1, activeBanners.length)])} style={styles.full} imageStyle={styles.homeBannerImage} />
-                </TouchableOpacity>
-              ) : null}
-
-              <View style={styles.homeBannerCenterHalo}>
-                <TouchableOpacity activeOpacity={0.9} onPress={() => openBannerLink(activeBanners[activeHeroIndex] || activeBanners[0])} style={[styles.homeBanner, styles.homeBannerCenter]}>
-                  <ImageBackground source={bannerImageSource(activeBanners[activeHeroIndex] || activeBanners[0])} style={styles.full} imageStyle={styles.homeBannerImage}>
-                    {Boolean(toText((activeBanners[activeHeroIndex] || activeBanners[0])?.title) || toText((activeBanners[activeHeroIndex] || activeBanners[0])?.description)) ? (
+            <ScrollView
+              ref={bannerScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={bannerStep}
+              decelerationRate="fast"
+              disableIntervalMomentum
+              bounces={false}
+              scrollEventThrottle={16}
+              onMomentumScrollEnd={handleBannerMomentumEnd}
+              contentContainerStyle={[styles.bannerScrollerContent, { paddingHorizontal: bannerSideInset, gap: bannerGap }]}
+            >
+              {activeBanners.map((banner) => (
+                <TouchableOpacity
+                  key={banner.id}
+                  activeOpacity={0.9}
+                  onPress={() => openBannerLink(banner)}
+                  style={[styles.homeBanner, styles.homeBannerSlide, { width: bannerCardWidth }]}
+                >
+                  <ImageBackground source={bannerImageSource(banner)} style={styles.full} imageStyle={styles.homeBannerImage}>
+                    {Boolean(toText(banner.title) || toText(banner.description)) ? (
                       <View style={styles.homeBannerTextWrap}>
-                        {toText((activeBanners[activeHeroIndex] || activeBanners[0])?.title) ? <Text style={styles.homeBannerTitle} numberOfLines={2}>{(activeBanners[activeHeroIndex] || activeBanners[0])?.title}</Text> : null}
-                        {toText((activeBanners[activeHeroIndex] || activeBanners[0])?.description) ? <Text style={styles.homeBannerText} numberOfLines={3}>{(activeBanners[activeHeroIndex] || activeBanners[0])?.description}</Text> : null}
+                        {toText(banner.title) ? <Text style={styles.homeBannerTitle} numberOfLines={2}>{banner.title}</Text> : null}
+                        {toText(banner.description) ? <Text style={styles.homeBannerText} numberOfLines={3}>{banner.description}</Text> : null}
                       </View>
                     ) : null}
                   </ImageBackground>
                 </TouchableOpacity>
-              </View>
-
-              {activeBanners.length > 1 ? (
-                <TouchableOpacity activeOpacity={0.78} onPress={showNextBanner} style={[styles.homeBanner, styles.homeBannerPreview, styles.homeBannerPreviewRight]}>
-                  <ImageBackground source={bannerImageSource(activeBanners[positiveModulo(activeHeroIndex + 1, activeBanners.length)])} style={styles.full} imageStyle={styles.homeBannerImage} />
-                </TouchableOpacity>
-              ) : null}
-            </View>
+              ))}
+            </ScrollView>
             {activeBanners.length > 1 ? (
-              <View style={styles.bannerDots}>
-                {activeBanners.map((banner, index) => (
-                  <TouchableOpacity key={banner.id} activeOpacity={0.82} onPress={() => setActiveHeroIndex(index)} style={[styles.bannerDot, activeHeroIndex === index && styles.bannerDotActive]} />
-                ))}
-              </View>
+              <>
+                <TouchableOpacity activeOpacity={0.74} onPress={showPreviousBanner} style={[styles.bannerArrow, styles.bannerArrowLeft]}>
+                  <Text style={styles.bannerArrowText}>‹</Text>
+                </TouchableOpacity>
+                <TouchableOpacity activeOpacity={0.74} onPress={showNextBanner} style={[styles.bannerArrow, styles.bannerArrowRight]}>
+                  <Text style={styles.bannerArrowText}>›</Text>
+                </TouchableOpacity>
+                <View style={styles.bannerDots}>
+                  {activeBanners.map((banner, index) => (
+                    <TouchableOpacity key={banner.id} activeOpacity={0.82} onPress={() => scrollToBanner(index)} style={[styles.bannerDot, activeHeroIndex === index && styles.bannerDotActive]} />
+                  ))}
+                </View>
+              </>
             ) : null}
           </View>
         ) : null}
@@ -1163,9 +1254,9 @@ function CategoryListingCard({
         <Text style={styles.restaurantCardTitle} numberOfLines={2}>{place.title}</Text>
         <Text style={styles.restaurantCardSubtitle} numberOfLines={1}>{place.shortDescription || place.description || place.district || place.kind}</Text>
         <View style={styles.restaurantFacts}>
-          <RestaurantFact tone="hours" icon="Время" value={hoursLabel} />
-          <RestaurantFact tone="cuisine" icon="Тип" value={cuisineLabel} />
-          <RestaurantFact tone="price" icon={place.categoryId === 'bulletin-board' && cuisineLabel === 'Работа' ? 'ЗП' : 'Чек'} value={checkLabel} />
+          <RestaurantFact tone="hours" icon="◷" value={hoursLabel} />
+          <RestaurantFact tone="cuisine" icon="👨‍🍳" value={cuisineLabel} />
+          <RestaurantFact tone="price" icon="$" value={checkLabel} />
         </View>
       </View>
     </TouchableOpacity>
@@ -1800,15 +1891,16 @@ function BottomTabs({ active, onChange }: { active: TabKey; onChange: (tab: TabK
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, width: '100%', minWidth: '100%', backgroundColor: '#ffffff', margin: 0, padding: 0, alignSelf: 'stretch' },
-  appHeader: { paddingHorizontal: 14, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 8 : 8, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#e3eaf2', backgroundColor: '#f5f7fb' },
+  appHeader: { paddingHorizontal: 14, paddingTop: Platform.OS === 'android' ? ANDROID_STATUS_BAR_INSET + 10 : 8, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#e3eaf2', backgroundColor: '#f5f7fb' },
   logoText: { color: '#102a43', fontSize: 22, fontWeight: '900' },
   logoSubtext: { color: '#718096', fontSize: 12, marginTop: 2 },
   headerBackButton: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 14, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea' },
   headerBackText: { color: '#102a43', fontWeight: '800' },
   content: { flex: 1, width: '100%', minWidth: '100%', margin: 0, padding: 0, backgroundColor: '#ffffff' },
-  contentInner: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 92, backgroundColor: '#ffffff' },
-  homeContentInner: { flexGrow: 1, width: '100%', minWidth: '100%', padding: 0, paddingTop: 0, paddingBottom: 88, paddingHorizontal: 0, paddingLeft: 0, paddingRight: 0, margin: 0, backgroundColor: '#ffffff' },
+  contentInner: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: BOTTOM_TABS_VISIBLE_HEIGHT + 26, backgroundColor: '#ffffff' },
+  homeContentInner: { flexGrow: 1, width: '100%', minWidth: '100%', padding: 0, paddingTop: 0, paddingBottom: BOTTOM_TABS_VISIBLE_HEIGHT + 22, paddingHorizontal: 0, paddingLeft: 0, paddingRight: 0, margin: 0, backgroundColor: '#ffffff' },
   screenGap: { gap: 12 },
+  tipsListScreen: { gap: 12, paddingBottom: 12 },
   flex: { flex: 1 },
   full: { width: '100%', height: '100%' },
   errorScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, backgroundColor: '#ffffff' },
@@ -1818,17 +1910,19 @@ const styles = StyleSheet.create({
   errorButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
 
   homeRoot: { flex: 1, width: '100%', alignSelf: 'center', backgroundColor: '#ffffff' },
-  homeHero: { width: '100%', minWidth: '100%', alignSelf: 'stretch', height: 118, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', backgroundColor: '#1c65a0' },
+  homeHero: { width: '100%', minWidth: '100%', alignSelf: 'stretch', height: Platform.OS === 'android' ? 118 + ANDROID_STATUS_BAR_INSET : 118, paddingTop: ANDROID_STATUS_BAR_INSET, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', backgroundColor: '#1c65a0' },
   homeHeroImage: { resizeMode: 'cover' },
   homeHeroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5, 18, 38, 0.08)' },
   homeUtilityDot: { position: 'absolute', right: 18, top: 6, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.18)' },
-  heroAuthButton: { position: 'absolute', right: 14, top: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 6 : 12, zIndex: 4, width: 46, height: 46, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(8, 18, 37, 0.36)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
+  heroAuthButton: { position: 'absolute', right: 14, top: Platform.OS === 'android' ? ANDROID_STATUS_BAR_INSET + 10 : 12, zIndex: 4, width: 46, height: 46, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(8, 18, 37, 0.36)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
   heroAuthIcon: { color: '#ffffff', fontSize: 20, lineHeight: 23, fontWeight: '900' },
   heroLogoImage: { width: 304, height: 88, marginTop: 4 },
   homeBody: { width: '100%', minWidth: '100%', alignSelf: 'stretch', marginTop: -18, paddingHorizontal: 0, paddingLeft: 0, paddingRight: 0, gap: 14, backgroundColor: '#ffffff' },
   bannerStack: { width: '100%', minWidth: '100%', height: 168, justifyContent: 'center', overflow: 'hidden' },
   bannerCarousel: { height: 136, width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  bannerScrollerContent: { alignItems: 'center' },
   homeBanner: { height: 126, borderRadius: 20, overflow: 'hidden', backgroundColor: '#173f82' },
+  homeBannerSlide: { height: 134, borderRadius: 22, backgroundColor: '#173f82', shadowColor: '#26436b', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.16, shadowRadius: 18, elevation: 8 },
   homeBannerCenterHalo: { width: '78%', height: 134, borderRadius: 24, padding: 4, backgroundColor: 'rgba(255,255,255,0.86)', shadowColor: '#ffffff', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 20, elevation: 12, zIndex: 4 },
   homeBannerCenter: { width: '100%', height: '100%', zIndex: 5, borderRadius: 20 },
   homeBannerPreview: { position: 'absolute', width: '30%', height: 108, opacity: 0.72, zIndex: 1 },
@@ -1844,6 +1938,10 @@ const styles = StyleSheet.create({
   bannerPeekRight: { right: -48 },
   bannerPeekImage: { borderRadius: 14 },
   bannerDots: { position: 'absolute', left: 0, right: 0, bottom: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  bannerArrow: { position: 'absolute', top: 54, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.86)', borderWidth: 1, borderColor: 'rgba(211,221,234,0.8)', zIndex: 8 },
+  bannerArrowLeft: { left: 12 },
+  bannerArrowRight: { right: 12 },
+  bannerArrowText: { color: '#1f63c7', fontSize: 24, lineHeight: 27, fontWeight: '800' },
   bannerDot: { width: 18, height: 3, borderRadius: 999, backgroundColor: 'rgba(31, 99, 199, 0.18)' },
   bannerDotActive: { backgroundColor: '#1f63c7', width: 30 },
   quickGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 18, marginTop: 2, paddingHorizontal: 14 },
@@ -1890,7 +1988,7 @@ const styles = StyleSheet.create({
   contactCardText: { color: '#62748b', fontSize: 14, lineHeight: 20, marginTop: 5, fontWeight: '700' },
   contactValue: { color: '#155ea6', fontSize: 16, fontWeight: '900', marginTop: 10 },
 
-  detailContentInner: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 92, backgroundColor: '#ffffff', gap: 14 },
+  detailContentInner: { paddingHorizontal: 14, paddingTop: Platform.OS === 'android' ? ANDROID_STATUS_BAR_INSET + 14 : 14, paddingBottom: 28 + ANDROID_NAVIGATION_BAR_INSET, backgroundColor: '#ffffff', gap: 14 },
   detailImage: { width: '100%', height: 270, borderRadius: 28, backgroundColor: '#dce8f4' },
   detailImageFallback: { backgroundColor: '#d7e6f5' },
   detailCard: { padding: 18, borderRadius: 26, backgroundColor: '#fff', borderWidth: 1, borderColor: '#d8e0ea', gap: 10 },
@@ -1950,13 +2048,13 @@ const styles = StyleSheet.create({
   restaurantCardTitle: { color: '#162640', fontSize: 14.2, lineHeight: 17, fontWeight: '900', letterSpacing: -0.2 },
   restaurantCardSubtitle: { color: '#60718a', fontSize: 11.8, lineHeight: 15, fontWeight: '500' },
   restaurantFacts: { gap: 3, marginTop: 2 },
-  restaurantFactRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-  restaurantFactIconWrap: { minWidth: 38, alignItems: 'flex-start', justifyContent: 'center' },
-  restaurantFactIcon: { color: '#4770a8', fontSize: 9.5, lineHeight: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.6 },
+  restaurantFactRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  restaurantFactIconWrap: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#edf4ff', flexShrink: 0 },
+  restaurantFactIcon: { color: '#4770a8', fontSize: 12, lineHeight: 17, fontWeight: '900', textAlign: 'center' },
   restaurantFactIconHours: { color: '#2b78dd' },
   restaurantFactIconCuisine: { color: '#ef8b32' },
   restaurantFactIconPrice: { color: '#22a06b' },
-  restaurantFactText: { flex: 1, minWidth: 0, color: '#24364f', fontSize: 11.2, lineHeight: 15, fontWeight: '700' },
+  restaurantFactText: { flex: 1, minWidth: 0, color: '#24364f', fontSize: 11.4, lineHeight: 15, fontWeight: '700' },
 
   bulletinContentInner: { paddingTop: 16 },
   bulletinToolbar: { alignItems: 'center' },
@@ -2045,7 +2143,7 @@ const styles = StyleSheet.create({
   programCardAction: { color: '#1f63c7', fontSize: 13, fontWeight: '900', marginTop: 12 },
 
   authModalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(9, 19, 38, 0.36)' },
-  authSheet: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 30 : 18, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#f8fbff', gap: 10 },
+  authSheet: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 30 : 18 + ANDROID_NAVIGATION_BAR_INSET, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#f8fbff', gap: 10 },
   authSheetHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 4 },
   authSheetTitle: { color: '#102a43', fontSize: 22, lineHeight: 27, fontWeight: '900' },
   authSheetText: { color: '#5e7088', fontSize: 13, lineHeight: 18, fontWeight: '700', marginTop: 5, maxWidth: 270 },
@@ -2065,7 +2163,7 @@ const styles = StyleSheet.create({
   profileLogoutButton: { minHeight: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5fa', paddingHorizontal: 12 },
   profileLogoutText: { color: '#1f63c7', fontSize: 12, lineHeight: 15, fontWeight: '900' },
 
-  bottomTabs: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 6, paddingBottom: Platform.OS === 'ios' ? 16 : 6, backgroundColor: 'rgba(250,252,255,0.97)', borderTopWidth: 1, borderTopColor: 'rgba(211, 221, 234, 0.92)', shadowColor: '#293d5d', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.10, shadowRadius: 24, elevation: 14 },
+  bottomTabs: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 6, paddingBottom: Platform.OS === 'ios' ? 16 : 8 + ANDROID_NAVIGATION_BAR_INSET, backgroundColor: 'rgba(250,252,255,0.97)', borderTopWidth: 1, borderTopColor: 'rgba(211, 221, 234, 0.92)', shadowColor: '#293d5d', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.10, shadowRadius: 24, elevation: 14 },
   bottomTabsInner: { minHeight: 60, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, borderRadius: 0, backgroundColor: 'transparent', borderWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', shadowOpacity: 0, elevation: 0 },
   tabButton: { flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 4, borderRadius: 18 },
   tabIconWrap: { width: 36, height: 36, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(215, 224, 237, 0.62)' },

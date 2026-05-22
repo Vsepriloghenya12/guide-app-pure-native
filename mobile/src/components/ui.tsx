@@ -100,8 +100,6 @@ export function ListingCard({
   );
 }
 
-export const uiStyles = styles;
-
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   rowBetween: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
@@ -139,3 +137,5 @@ const styles = StyleSheet.create({
   favoriteButton: { width: 42, height: 42, borderRadius: 16, backgroundColor: '#f1f5fa', alignItems: 'center', justifyContent: 'center' },
   favoriteText: { color: '#2f78d6', fontSize: 24, lineHeight: 26 }
 });
+
+export const uiStyles = styles;

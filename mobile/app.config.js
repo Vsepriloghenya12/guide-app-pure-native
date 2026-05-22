@@ -28,7 +28,7 @@ module.exports = {
           apiKey: googleMapsApiKey
         }
       },
-      edgeToEdgeEnabled: true,
+      edgeToEdgeEnabled: false,
       softwareKeyboardLayoutMode: 'pan'
     },
     plugins: ['expo-location'],
