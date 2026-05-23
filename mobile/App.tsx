@@ -39,6 +39,14 @@ type Route =
   | { name: 'programs' }
   | { name: 'detail'; slug: string };
 
+type NativeAuthProviders = {
+  google?: boolean;
+  apple?: boolean;
+  telegram?: boolean;
+  telegramBotUsername?: string;
+  telegramBotId?: string;
+};
+
 const tabItems: Array<{ key: TabKey; label: string; icon: string }> = [
   { key: 'home', label: 'Главная', icon: '⌂' },
   { key: 'search', label: 'Поиск', icon: '⌕' },
@@ -513,6 +521,7 @@ function AppContent() {
   const [refreshing, setRefreshing] = useState(false);
   const [isAuthSheetOpen, setAuthSheetOpen] = useState(false);
   const [authUser, setAuthUser] = useState<Record<string, unknown> | null>(null);
+  const [authProviders, setAuthProviders] = useState<NativeAuthProviders>({});
 
   useEffect(() => {
     routeRef.current = route;
@@ -572,6 +581,7 @@ function AppContent() {
     setPayload(nextPayload);
     setSupport(nextSupport);
     setFavoriteSlugs(savedFavorites);
+    setAuthProviders(authSession.providers || {});
     setAuthUser(
       authSession.authenticated && authSession.user && typeof authSession.user === 'object'
         ? authSession.user as Record<string, unknown>
@@ -591,6 +601,7 @@ function AppContent() {
       await saveAuthToken(params.sessionToken);
       const userFromToken = readUserFromAuthToken(params.sessionToken);
       const authSession = await fetchAuthSession();
+      setAuthProviders(authSession.providers || {});
 
       if (authSession.authenticated && authSession.user && typeof authSession.user === 'object') {
         setAuthUser(authSession.user as Record<string, unknown>);
@@ -763,7 +774,7 @@ function AppContent() {
       {route.name !== 'detail' ? (
         <BottomTabs active={route.name === 'tabs' ? route.tab : 'home'} onChange={(tab) => setRoute({ name: 'tabs', tab })} />
       ) : null}
-      <AuthSheet visible={isAuthSheetOpen} user={authUser} onClose={() => setAuthSheetOpen(false)} onLogout={handleLogout} />
+      <AuthSheet visible={isAuthSheetOpen} user={authUser} providers={authProviders} onClose={() => setAuthSheetOpen(false)} onLogout={handleLogout} />
     </View>
   );
 }
@@ -1671,7 +1682,7 @@ function NearbyScreen({
   return (
     <View style={styles.screenGap}>
       <ScreenHeader title="Карта" text="Наша карта с точками, которые добавлены в гид." />
-      <GuideMap places={placesWithCoordinates} onOpenPlace={openDetail} height={310} />
+      <MapTabFallback placesCount={placesWithCoordinates.length} />
       <AppButton label={position ? 'Обновить геолокацию' : 'Показать места рядом'} onPress={() => void askLocation()} />
       {status ? <Text style={styles.noteText}>{status}</Text> : null}
       {placesWithCoordinates.length === 0 ? <EmptyState title="Нет координат" text="У опубликованных мест пока не заполнены lat/lng." /> : null}
@@ -1688,6 +1699,18 @@ function NearbyScreen({
           </View>
         </View>
       ))}
+    </View>
+  );
+}
+
+function MapTabFallback({ placesCount }: { placesCount: number }) {
+  return (
+    <View style={[styles.nativeMapCard, styles.nativeMapFallbackCard, styles.nearbyMapFallbackCard]}>
+      <Text style={styles.nativeMapEmptyTitle}>Карта временно открывается снаружи</Text>
+      <Text style={styles.nativeMapEmptyText}>
+        Внутренняя карта отключена, чтобы Android-приложение не закрывалось. Точки доступны в списке ниже.
+      </Text>
+      {placesCount > 0 ? <Text style={styles.nearbyMapCount}>{placesCount} мест с координатами</Text> : null}
     </View>
   );
 }
@@ -1762,18 +1785,38 @@ function TipsScreen({ tips, onBack }: { tips: GuideTip[]; onBack: () => void }) 
   );
 }
 
-function AuthSheet({ visible, user, onClose, onLogout }: { visible: boolean; user: Record<string, unknown> | null; onClose: () => void; onLogout: () => void }) {
+function AuthSheet({
+  visible,
+  user,
+  providers,
+  onClose,
+  onLogout
+}: {
+  visible: boolean;
+  user: Record<string, unknown> | null;
+  providers: NativeAuthProviders;
+  onClose: () => void;
+  onLogout: () => void;
+}) {
   const authReturnTo = 'danangguide://auth';
   const displayName = toText(user?.displayName || user?.username || user?.email, 'Пользователь');
   const userEmail = toText(user?.email);
+  const [openingProvider, setOpeningProvider] = useState<'google' | 'apple' | 'telegram' | null>(null);
+  const providerEnabled = useCallback((provider: 'google' | 'apple' | 'telegram') => Boolean(providers?.[provider]), [providers]);
 
-  const openProvider = (provider: 'google' | 'apple' | 'telegram') => {
+  const openProvider = async (provider: 'google' | 'apple' | 'telegram') => {
     if (!API_BASE_URL) return;
+    if (!providerEnabled(provider) || openingProvider) return;
+    setOpeningProvider(provider);
     const path = provider === 'telegram'
-      ? `/api/auth/telegram/start?returnTo=${encodeURIComponent(authReturnTo)}&mode=native&prefer=oauth`
-      : `/api/auth/${provider}/start?returnTo=${encodeURIComponent(authReturnTo)}&mode=native`;
-    onClose();
-    void openExternalUrl(`${API_BASE_URL}${path}`);
+      ? `/api/auth/telegram/start?returnTo=${encodeURIComponent(authReturnTo)}&mode=native&prefer=oauth&source=mobile`
+      : `/api/auth/${provider}/start?returnTo=${encodeURIComponent(authReturnTo)}&mode=native&source=mobile`;
+    try {
+      onClose();
+      await openExternalUrl(`${API_BASE_URL}${path}`);
+    } finally {
+      setOpeningProvider(null);
+    }
   };
 
   return (
@@ -1810,25 +1853,40 @@ function AuthSheet({ visible, user, onClose, onLogout }: { visible: boolean; use
                   <Text style={styles.authNoticeText}>Для входа нужно указать EXPO_PUBLIC_API_BASE_URL в mobile/.env.</Text>
                 </View>
               ) : null}
-              <TouchableOpacity activeOpacity={0.86} onPress={() => openProvider('google')} style={styles.authProviderButton}>
+              <TouchableOpacity
+                activeOpacity={0.86}
+                disabled={!providerEnabled('google') || Boolean(openingProvider)}
+                onPress={() => void openProvider('google')}
+                style={[styles.authProviderButton, (!providerEnabled('google') || openingProvider === 'google') && styles.authProviderButtonDisabled]}
+              >
                 <Text style={styles.authProviderBrand}>G</Text>
                 <View style={styles.flex}>
                   <Text style={styles.authProviderTitle}>Войти через Google</Text>
-                  <Text style={styles.authProviderSub}>После входа приложение откроется обратно</Text>
+                  <Text style={styles.authProviderSub}>{providerEnabled('google') ? 'После входа приложение откроется обратно' : 'Google сейчас не настроен на сервере'}</Text>
                 </View>
               </TouchableOpacity>
-              <TouchableOpacity activeOpacity={0.86} onPress={() => openProvider('apple')} style={styles.authProviderButton}>
+              <TouchableOpacity
+                activeOpacity={0.86}
+                disabled={!providerEnabled('apple') || Boolean(openingProvider)}
+                onPress={() => void openProvider('apple')}
+                style={[styles.authProviderButton, (!providerEnabled('apple') || openingProvider === 'apple') && styles.authProviderButtonDisabled]}
+              >
                 <Text style={styles.authProviderBrand}></Text>
                 <View style={styles.flex}>
                   <Text style={styles.authProviderTitle}>Войти через Apple</Text>
-                  <Text style={styles.authProviderSub}>Если провайдер настроен на сервере</Text>
+                  <Text style={styles.authProviderSub}>{providerEnabled('apple') ? 'После входа приложение откроется обратно' : 'Apple сейчас не настроен на сервере'}</Text>
                 </View>
               </TouchableOpacity>
-              <TouchableOpacity activeOpacity={0.86} onPress={() => openProvider('telegram')} style={styles.authProviderButton}>
+              <TouchableOpacity
+                activeOpacity={0.86}
+                disabled={!providerEnabled('telegram') || Boolean(openingProvider)}
+                onPress={() => void openProvider('telegram')}
+                style={[styles.authProviderButton, (!providerEnabled('telegram') || openingProvider === 'telegram') && styles.authProviderButtonDisabled]}
+              >
                 <Text style={styles.authProviderBrand}>T</Text>
                 <View style={styles.flex}>
                   <Text style={styles.authProviderTitle}>Войти через Telegram</Text>
-                  <Text style={styles.authProviderSub}>Откроется Telegram-авторизация и возврат в приложение</Text>
+                  <Text style={styles.authProviderSub}>{providerEnabled('telegram') ? 'Откроется Telegram-авторизация и возврат в приложение' : 'Telegram сейчас не настроен на сервере'}</Text>
                 </View>
               </TouchableOpacity>
             </>
@@ -2101,6 +2159,8 @@ const styles = StyleSheet.create({
   nativeMapFallbackCard: { alignItems: 'center', paddingHorizontal: 18 },
   nativeMapFallbackButton: { minHeight: 42, borderRadius: 14, backgroundColor: '#1f63c7', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, marginTop: 14 },
   nativeMapFallbackButtonText: { color: '#ffffff', fontSize: 12, lineHeight: 15, fontWeight: '900', textAlign: 'center' },
+  nearbyMapFallbackCard: { minHeight: 178 },
+  nearbyMapCount: { marginTop: 12, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, overflow: 'hidden', backgroundColor: '#e8f1ff', color: '#1f63c7', fontSize: 12, lineHeight: 15, fontWeight: '900' },
 
   categoryContent: { flex: 1, backgroundColor: '#ffffff' },
   categoryContentInner: { paddingHorizontal: 14, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 14 : 16, paddingBottom: 92, gap: 10, backgroundColor: '#ffffff' },
@@ -2242,6 +2302,7 @@ const styles = StyleSheet.create({
   authNotice: { padding: 12, borderRadius: 16, backgroundColor: '#fff8e7', borderWidth: 1, borderColor: '#f0dfb8' },
   authNoticeText: { color: '#80611c', fontSize: 12, lineHeight: 17, fontWeight: '800' },
   authProviderButton: { minHeight: 62, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e0e8f2' },
+  authProviderButtonDisabled: { opacity: 0.48 },
   authProviderBrand: { width: 38, height: 38, borderRadius: 14, overflow: 'hidden', backgroundColor: '#edf4ff', color: '#1f63c7', textAlign: 'center', textAlignVertical: 'center', fontSize: 17, lineHeight: 38, fontWeight: '900' },
   authProviderTitle: { color: '#102a43', fontSize: 14.5, lineHeight: 18, fontWeight: '900' },
   authProviderSub: { color: '#718096', fontSize: 11.5, lineHeight: 15, fontWeight: '700', marginTop: 2 },

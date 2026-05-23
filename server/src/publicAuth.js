@@ -437,7 +437,7 @@ function getTelegramBotId() {
 function getProviderStatus() {
   const telegramBotId = getTelegramBotId();
   return {
-    google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+    google: Boolean(normalizeEnvValue(process.env.GOOGLE_CLIENT_ID) && normalizeEnvValue(process.env.GOOGLE_CLIENT_SECRET)),
     apple: Boolean(
       process.env.APPLE_CLIENT_ID &&
       process.env.APPLE_TEAM_ID &&
@@ -455,6 +455,18 @@ function assertProviderAvailable(provider) {
   if (!providers[provider]) {
     throw new Error('Провайдер авторизации пока не настроен.');
   }
+}
+
+function normalizeEnvValue(value) {
+  const trimmed = String(value || '').trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+
+  return trimmed;
 }
 
 async function fetchJson(url, init) {
@@ -550,19 +562,30 @@ async function verifyJwtWithJwks({ token, jwksUrl, issuer, audience }) {
 
 async function exchangeGoogleCode(req, code) {
   const redirectUri = `${getRequestOrigin(req)}/api/auth/google/callback`;
+  const clientId = normalizeEnvValue(process.env.GOOGLE_CLIENT_ID);
+  const clientSecret = normalizeEnvValue(process.env.GOOGLE_CLIENT_SECRET);
   const body = new URLSearchParams({
     code,
-    client_id: process.env.GOOGLE_CLIENT_ID,
-    client_secret: process.env.GOOGLE_CLIENT_SECRET,
+    client_id: clientId,
+    client_secret: clientSecret,
     redirect_uri: redirectUri,
     grant_type: 'authorization_code'
   });
 
-  const { data } = await fetchJson('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body
-  });
+  let data;
+  try {
+    ({ data } = await fetchJson('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (/client secret/i.test(message) || /invalid_client/i.test(message)) {
+      throw new Error('Google OAuth secret на Railway неверный. Обнови GOOGLE_CLIENT_SECRET из Web OAuth Client в Google Cloud Console.');
+    }
+    throw error;
+  }
 
   if (!data?.id_token) {
     throw new Error('Google не вернул токен пользователя.');
@@ -572,7 +595,7 @@ async function exchangeGoogleCode(req, code) {
     token: data.id_token,
     jwksUrl: 'https://www.googleapis.com/oauth2/v3/certs',
     issuer: ['https://accounts.google.com', 'accounts.google.com'],
-    audience: process.env.GOOGLE_CLIENT_ID
+    audience: clientId
   });
 
   return createUserProfile({
@@ -701,7 +724,7 @@ function buildGoogleAuthUrl(req, state) {
   assertProviderAvailable('google');
   const redirectUri = `${getRequestOrigin(req)}/api/auth/google/callback`;
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-  url.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID);
+  url.searchParams.set('client_id', normalizeEnvValue(process.env.GOOGLE_CLIENT_ID));
   url.searchParams.set('redirect_uri', redirectUri);
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('scope', 'openid email profile');
