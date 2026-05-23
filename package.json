@@ -3,12 +3,14 @@
   "version": "1.0.8",
   "private": true,
   "workspaces": [
-    "server"
+    "server",
+    "webapp"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace server",
+    "dev": "concurrently --kill-others-on-fail --names web,api \"npm run dev --workspace webapp\" \"npm run dev --workspace server\"",
     "dev:server": "npm run dev --workspace server",
-    "build": "npm run build --workspace server",
+    "dev:web": "npm run dev --workspace webapp",
+    "build": "npm run build --workspace webapp && npm run build --workspace server",
     "build:server": "npm run build --workspace server",
     "start": "npm run start --workspace server",
     "mobile:start": "cd mobile && npm run start",
@@ -24,5 +26,8 @@
   },
   "engines": {
     "node": ">=20.19.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   }
 }
