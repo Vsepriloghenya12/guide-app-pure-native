@@ -812,7 +812,12 @@ function registerPublicAuthRoutes(app) {
     const returnTo = normalizeReturnTo(req.query.returnTo);
     try {
       const state = ensureStateCookie(req, res, 'google', returnTo);
-      res.redirect(buildGoogleAuthUrl(req, state.oauthState || state.state));
+      const authUrl = buildGoogleAuthUrl(req, state.oauthState || state.state);
+      if (String(req.query.format || '').toLowerCase() === 'json') {
+        res.json({ ok: true, provider: 'google', url: authUrl });
+        return;
+      }
+      res.redirect(authUrl);
     } catch (error) {
       redirectToReturnTo(res, returnTo, {
         auth: 'error',
@@ -855,7 +860,12 @@ function registerPublicAuthRoutes(app) {
     const returnTo = normalizeReturnTo(req.query.returnTo);
     try {
       const state = ensureStateCookie(req, res, 'apple', returnTo);
-      res.redirect(buildAppleAuthUrl(req, state.oauthState || state.state));
+      const authUrl = buildAppleAuthUrl(req, state.oauthState || state.state);
+      if (String(req.query.format || '').toLowerCase() === 'json') {
+        res.json({ ok: true, provider: 'apple', url: authUrl });
+        return;
+      }
+      res.redirect(authUrl);
     } catch (error) {
       redirectToReturnTo(res, returnTo, {
         auth: 'error',
@@ -923,6 +933,10 @@ function registerPublicAuthRoutes(app) {
         telegramOAuthUrl.searchParams.set('origin', getRequestOrigin(req));
         telegramOAuthUrl.searchParams.set('return_to', authUrl);
         telegramOAuthUrl.searchParams.set('request_access', 'write');
+        if (String(req.query.format || '').toLowerCase() === 'json') {
+          res.json({ ok: true, provider: 'telegram', url: telegramOAuthUrl.toString() });
+          return;
+        }
         res.redirect(telegramOAuthUrl.toString());
         return;
       }

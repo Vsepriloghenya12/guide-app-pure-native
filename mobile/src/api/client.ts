@@ -85,6 +85,32 @@ export async function logoutAuthSession() {
   }
 }
 
+export async function fetchAuthStartUrl(provider: 'google' | 'apple' | 'telegram', returnTo: string, authNonce: string) {
+  if (!API_BASE_URL) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL is not configured.');
+  }
+
+  const searchParams = new URLSearchParams({
+    returnTo,
+    mode: 'native',
+    source: 'mobile',
+    format: 'json',
+    authNonce
+  });
+
+  if (provider === 'telegram') {
+    searchParams.set('prefer', 'oauth');
+  }
+
+  const data = await requestJson<{ ok: boolean; url?: string }>(`/api/auth/${provider}/start?${searchParams.toString()}`);
+  const url = String(data.url || '').trim();
+  if (!url) {
+    throw new Error('Auth provider did not return a start URL.');
+  }
+
+  return url;
+}
+
 export async function submitBulletinListing(payload: Record<string, unknown>) {
   return requestJson<{ ok: boolean; listing?: unknown; message?: string }>('/api/bulletin-submissions', {
     method: 'POST',

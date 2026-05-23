@@ -21,7 +21,7 @@ import {
 import * as Location from 'expo-location';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import type { BootstrapPayload, GuideCategory, GuideCollection, GuidePlace, GuideTip, SupportContentStore } from './src/types';
-import { fetchBootstrap, fetchSupportContent, fetchAuthSession, logoutAuthSession, API_BASE_URL, sendAnalytics, submitBulletinListing } from './src/api/client';
+import { fetchBootstrap, fetchSupportContent, fetchAuthSession, fetchAuthStartUrl, logoutAuthSession, API_BASE_URL, sendAnalytics, submitBulletinListing } from './src/api/client';
 import { appleMapsUrl, directionsUrl, googleMapsUrl, openExternalUrl } from './src/utils/links';
 import { estimateTravelTime, formatDistance, hasCoordinates, haversineDistanceKm } from './src/utils/geo';
 import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
@@ -249,6 +249,10 @@ function toTextArray(value: unknown): string[] {
   const textValue = toText(value);
   if (!textValue) return [];
   return textValue.split(/\n|,/g).map((item) => item.trim()).filter(Boolean);
+}
+
+function getUserAvatarUrl(user: Record<string, unknown> | null) {
+  return toText(user?.avatarUrl || user?.picture || user?.photoUrl || user?.photo_url);
 }
 
 function getPlaceImageUrls(place: GuidePlace) {
@@ -601,13 +605,14 @@ function AppContent() {
     if (params.auth === 'success' && params.sessionToken) {
       await saveAuthToken(params.sessionToken);
       const userFromToken = readUserFromAuthToken(params.sessionToken);
+      if (userFromToken) {
+        setAuthUser(userFromToken);
+      }
       const authSession = await fetchAuthSession();
       setAuthProviders(authSession.providers || {});
 
       if (authSession.authenticated && authSession.user && typeof authSession.user === 'object') {
         setAuthUser(authSession.user as Record<string, unknown>);
-      } else if (userFromToken) {
-        setAuthUser(userFromToken);
       }
 
       setAuthSheetOpen(false);
@@ -1889,7 +1894,7 @@ function AuthSheet({
   const authReturnTo = 'danangguide://auth';
   const displayName = toText(user?.displayName || user?.username || user?.email, 'Пользователь');
   const userEmail = toText(user?.email);
-  const avatarUrl = toText(user?.avatarUrl);
+  const avatarUrl = getUserAvatarUrl(user);
   const [openingProvider, setOpeningProvider] = useState<'google' | 'apple' | 'telegram' | null>(null);
   const providerEnabled = useCallback((provider: 'google' | 'apple' | 'telegram') => Boolean(providers?.[provider]), [providers]);
 
@@ -1898,12 +1903,12 @@ function AuthSheet({
     if (!providerEnabled(provider) || openingProvider) return;
     setOpeningProvider(provider);
     const authNonce = Date.now().toString(36);
-    const path = provider === 'telegram'
-      ? `/api/auth/telegram/start?returnTo=${encodeURIComponent(authReturnTo)}&mode=native&prefer=oauth&source=mobile&authNonce=${authNonce}`
-      : `/api/auth/${provider}/start?returnTo=${encodeURIComponent(authReturnTo)}&mode=native&source=mobile&authNonce=${authNonce}`;
     try {
+      const authUrl = await fetchAuthStartUrl(provider, authReturnTo, authNonce);
       onClose();
-      await openExternalUrl(`${API_BASE_URL}${path}`);
+      await openExternalUrl(authUrl);
+    } catch (error) {
+      Alert.alert('Не удалось открыть вход', error instanceof Error ? error.message : 'Попробуйте ещё раз.');
     } finally {
       setOpeningProvider(null);
     }
