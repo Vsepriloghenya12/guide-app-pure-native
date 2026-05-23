@@ -1,4 +1,3 @@
-import path from 'node:path';
 import express from 'express';
 import cors from 'cors';
 import { apiRouter } from './api/routes';
@@ -20,18 +19,8 @@ export const createApp = () => {
 
   app.use('/api', apiRouter);
 
-  const frontendDistPath = path.resolve(__dirname, '../../webapp/dist');
-  app.use(express.static(frontendDistPath));
-
   app.use((_request, response) => {
-    response.sendFile(path.join(frontendDistPath, 'index.html'), (error) => {
-      if (error) {
-        response.status(404).json({
-          ok: false,
-          message: 'Собранный фронтенд не найден. Сначала выполните `npm run build --workspace webapp`.'
-        });
-      }
-    });
+    response.status(404).json({ ok: false, message: 'Endpoint not found' });
   });
 
   return app;

@@ -6,6 +6,10 @@
   "build": {
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://guide-app-pure-native-production.up.railway.app",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyAv4ztezgR5POLFT0SavouaH6kmEtiM7LE"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -15,6 +19,10 @@
       "environment": "preview"
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://guide-app-pure-native-production.up.railway.app",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyAv4ztezgR5POLFT0SavouaH6kmEtiM7LE"
+      },
       "android": {
         "buildType": "app-bundle"
       },

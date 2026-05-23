@@ -1,7 +1,7 @@
 module.exports = {
   expo: {
     name: 'Da Nang Guide',
-    slug: 'danang-guide-native',
+    slug: 'guide-app-native-connected',
     scheme: 'danangguide',
     version: '1.0.10',
     orientation: 'portrait',
@@ -15,7 +15,7 @@ module.exports = {
       }
     },
     android: {
-      package: 'com.danangguide.app',
+      package: 'com.realone14.guideappnativeconnected',
       permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION'],
       adaptiveIcon: {
         foregroundImage: './assets/icon.png',
@@ -34,7 +34,7 @@ module.exports = {
     backgroundColor: '#ffffff',
     extra: {
       eas: {
-        projectId: '5566a5ae-23eb-4008-8d48-df36560e9489'
+        projectId: '5d3c1adc-6568-443d-9eb1-b1a829d388ec'
       }
     }
   }

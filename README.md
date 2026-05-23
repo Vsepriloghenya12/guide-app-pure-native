@@ -1,10 +1,9 @@
-# Danang Guide — native mobile + Railway backend + owner CMS
+# Danang Guide — native mobile + Railway backend
 
-Проект состоит из трёх частей:
+Проект состоит из двух частей:
 
 - `mobile` — чистое мобильное приложение Expo / React Native.
 - `server` — backend/API для Railway.
-- `webapp` — web-страница владельца/CMS, которая отдаётся backend после сборки.
 
 Главный файл с пошаговым подключением: `CONNECT_AND_TEST.md`.
 
@@ -20,20 +19,6 @@ npm run dev:server
 ```text
 http://localhost:8080/api/bootstrap
 ```
-
-Во втором терминале для страницы владельца:
-
-```bash
-npm run dev:web
-```
-
-Страница владельца локально:
-
-```text
-http://127.0.0.1:5180/owner-login
-```
-
-Локальный пароль по умолчанию: `guide2026`.
 
 ## APK
 

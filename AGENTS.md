@@ -12,9 +12,7 @@ This is Ivan's guide app project.
 
 Main stack:
 
-\- Node.js / Express backend
-
-\- React / Vite / TypeScript web frontend
+\- Node.js / Express backend/API
 
 \- React Native / Expo mobile app
 
@@ -22,13 +20,9 @@ Main stack:
 
 \- File fallback storage when DATABASE\_URL is missing
 
-\- Railway deployment
+\- Railway deployment for backend/API
 
-\- PWA support
-
-\- Owner/CMS area
-
-\- Public guide pages, listings, categories, favorites, map, nearby, contacts, help
+\- Public guide data, listings, categories, favorites, map, nearby, contacts, help consumed by mobile
 
 
 
@@ -52,45 +46,11 @@ Main stack:
 
 \- Do not break PostgreSQL behavior.
 
-\- Do not break mobile app behavior while changing web/backend.
+\- Do not break mobile app behavior while changing backend.
 
 \- Do not add new dependencies unless clearly necessary.
 
 \- Keep code concise and avoid unnecessary comments.
-
-
-
-\## Web frontend rules
-
-
-
-Use React/Vite/TypeScript style already present in the project.
-
-
-
-When editing webapp:
-
-\- preserve existing visual style;
-
-\- keep UI compact and functional;
-
-\- avoid duplicate buttons;
-
-\- avoid unnecessary card wrappers on mobile;
-
-\- keep PWA behavior intact;
-
-\- preserve favorites/login behavior unless the task is about auth.
-
-
-
-Relevant skills:
-
-\- vercel-react-best-practices
-
-\- web-design-guidelines
-
-\- vercel-composition-patterns
 
 
 
@@ -116,6 +76,8 @@ Relevant skill:
 
 \- vercel-react-native-skills
 
+\- expo-eas-build
+
 
 
 \## Backend rules
@@ -134,6 +96,20 @@ When editing server:
 
 \- keep uploads/storage behavior safe.
 
+\- keep auth providers optional; basic API startup must work without external provider keys.
+
+\- keep native auth return scheme compatible with the Expo app.
+
+
+
+Relevant skills:
+
+\- railway-deployment
+
+\- express-postgres-backend
+
+\- telegram-auth
+
 
 
 \## Verification
@@ -147,6 +123,8 @@ After changes, run the relevant available checks:
 \- npm run build
 
 \- cd mobile \&\& npx tsc --noEmit
+
+\- cd mobile \&\& npx expo-doctor
 
 \- backend smoke checks if server changes are made
 

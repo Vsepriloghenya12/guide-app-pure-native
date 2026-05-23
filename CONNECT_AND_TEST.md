@@ -1,12 +1,11 @@
-# Как подключить backend, страницу владельца и APK
+# Как подключить backend и APK
 
 ## Что находится в проекте
 
 - `server` — backend/API для Railway.
-- `webapp` — web-страница владельца и CMS. После деплоя открывается по `/owner-login` и `/owner`.
 - `mobile` — чистое мобильное приложение Expo/React Native для APK.
 
-## 1. Локальный запуск backend и страницы владельца
+## 1. Локальный запуск backend
 
 В корне проекта:
 
@@ -20,20 +19,6 @@ npm run dev:server
 ```text
 http://localhost:8080/api/bootstrap
 ```
-
-Для локальной web-CMS во втором терминале:
-
-```bash
-npm run dev:web
-```
-
-Страница владельца локально:
-
-```text
-http://127.0.0.1:5180/owner-login
-```
-
-Пароль локально по умолчанию: `guide2026`.
 
 ## 2. Railway backend
 
@@ -54,12 +39,6 @@ https://your-real-railway-backend.up.railway.app
 
 ```text
 https://your-real-railway-backend.up.railway.app/api/bootstrap
-```
-
-Страница владельца:
-
-```text
-https://your-real-railway-backend.up.railway.app/owner-login
 ```
 
 ## 3. Обязательные Railway переменные
@@ -104,6 +83,6 @@ eas build -p android --profile preview --clear-cache
 
 ## 6. Как обновлять контент без пересборки APK
 
-Места, категории, советы, объявления и контент меняются через `/owner-login` на Railway. APK подтягивает данные с backend, поэтому APK пересобирать не нужно, если меняется только контент.
+APK подтягивает данные с backend, поэтому APK пересобирать не нужно, если меняется только серверный контент или база.
 
 APK нужно пересобирать, если меняется код приложения, карта, разрешения, иконка, splash screen или native-зависимости.

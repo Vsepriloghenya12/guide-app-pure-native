@@ -1,20 +1,18 @@
 # Railway build fix
 
-This version separates the mobile Expo app from the Railway npm workspaces.
+This version keeps the mobile Expo app separate from the Railway npm workspace.
 
 Railway builds only:
 
-- `webapp` — owner/CMS web interface
 - `server` — API/backend
 
 The mobile app remains in `mobile/`, but it is installed and built separately for APK via Expo/EAS.
 
 Why this was needed:
 
-- The web owner interface uses React 18.
-- Expo SDK 54 mobile uses React 19.
-- When `mobile` was included in the root npm workspaces, npm could hoist React 19 type packages into the root install.
-- Then TypeScript in `webapp` failed on `Route` / `Outlet` with TS2786.
+- Expo SDK 54 mobile uses React 19 and native dependencies.
+- Railway should not install or build the mobile app.
+- The root workspace should stay focused on the backend API.
 
 Use on Railway:
 

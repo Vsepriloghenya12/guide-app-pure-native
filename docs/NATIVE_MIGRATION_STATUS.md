@@ -2,23 +2,23 @@
 
 ## Итог
 
-Проект переведён из web/Capacitor-подхода в отдельную Expo / React Native структуру.
+Проект переведён в отдельную Expo / React Native структуру с backend API.
 
 ## Удалено из рабочей базы
 
-- `webapp/`.
-- Vite-конфигурация.
+- Web frontend directory.
+- Web bundler configuration.
 - React DOM.
 - React Router DOM.
 - Capacitor Android shell.
-- PWA manifest / service worker / offline HTML.
+- Web manifest / offline HTML.
 - Web CSS и CSS-классы.
 - Generated native build artifacts.
 - `.env`, `.git`, логи, `node_modules`, `dist`, build-кэши.
 
 ## Проверки
 
-- В проекте нет строк `Capacitor`, `Vite`, `webapp`, `react-dom`, `react-router-dom`, `window`, `document`, `localStorage`, `className`.
+- В активной кодовой базе нет React DOM / React Router DOM / browser UI dependencies.
 - `server/src/index.js` проходит `node -c`.
 - `server/src/publicAuth.js` проходит `node -c`.
 - Root `npm run build:server` проходит.
@@ -36,7 +36,7 @@
 ## Ограничения первой native-итерации
 
 - Owner CMS не перенесён в mobile UI.
-- Google/Apple/Telegram login flow пока сохранён на backend, но не интегрирован как полноценный native OAuth/deep-link flow.
+- Google/Apple/Telegram login flow сохранён на backend и используется mobile через deep links.
 - Интерактивная карта в приложении заменена на native-переходы в карты. Для встроенной карты можно добавить `react-native-maps` отдельной итерацией.
 
 ## Следующий этап
