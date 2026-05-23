@@ -10,8 +10,8 @@ Symptoms included:
 
 Fix applied:
 
-- Generated a fresh root `package-lock.json` for the `server` workspace.
+- Generated a fresh root `package-lock.json` for only `server` and `webapp` workspaces.
 - Generated a separate `mobile/package-lock.json` for Android/iOS builds.
-- Kept `mobile` outside root workspaces so React Native/Expo dependencies do not install on Railway.
+- Kept `mobile` outside root workspaces so React 18 web dependencies and React Native/Expo dependencies do not conflict on Railway.
 
 Use this version as the GitHub/Railway source. Do not copy old `package-lock.json` files from previous folders.

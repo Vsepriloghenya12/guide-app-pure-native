@@ -9,4 +9,4 @@
 - блок «Готовые программы»;
 - нижняя навигация в стиле исходного приложения.
 
-Это не WebView и не Capacitor: интерфейс собран на React Native/Expo. В проекте нет отдельного browser UI.
+Это не WebView и не Capacitor: интерфейс собран на React Native/Expo. В проекте всё ещё нет webapp, Vite, PWA и service worker.

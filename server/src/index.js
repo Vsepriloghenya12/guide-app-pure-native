@@ -1316,6 +1316,10 @@ app.post('/api/owner/upload', requireOwner, async (req, res) => {
 
 app.use(uploadsPublicBasePath, express.static(uploadsRoot, { maxAge: '7d' }));
 
+if (fs.existsSync(webDistPath)) {
+  app.use(express.static(webDistPath, { maxAge: '1h' }));
+}
+
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) {
     res.status(404).json({ ok: false, message: 'API endpoint not found' });
