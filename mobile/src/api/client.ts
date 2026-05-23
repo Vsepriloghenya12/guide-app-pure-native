@@ -84,3 +84,10 @@ export async function logoutAuthSession() {
     // Logout must never block local token cleanup.
   }
 }
+
+export async function submitBulletinListing(payload: Record<string, unknown>) {
+  return requestJson<{ ok: boolean; listing?: unknown; message?: string }>('/api/bulletin-submissions', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
   Image,
   ImageBackground,
@@ -20,7 +21,7 @@ import {
 import * as Location from 'expo-location';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import type { BootstrapPayload, GuideCategory, GuideCollection, GuidePlace, GuideTip, SupportContentStore } from './src/types';
-import { fetchBootstrap, fetchSupportContent, fetchAuthSession, logoutAuthSession, API_BASE_URL, sendAnalytics } from './src/api/client';
+import { fetchBootstrap, fetchSupportContent, fetchAuthSession, logoutAuthSession, API_BASE_URL, sendAnalytics, submitBulletinListing } from './src/api/client';
 import { appleMapsUrl, directionsUrl, googleMapsUrl, openExternalUrl } from './src/utils/links';
 import { estimateTravelTime, formatDistance, hasCoordinates, haversineDistanceKm } from './src/utils/geo';
 import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
@@ -733,6 +734,8 @@ function AppContent() {
           openDetail={openDetail}
           refreshing={refreshing}
           refresh={refresh}
+          authUser={authUser}
+          onOpenAuth={() => setAuthSheetOpen(true)}
           onBack={goBack}
         />
       ) : (
@@ -1039,6 +1042,8 @@ function CategoryScreen({
   openDetail,
   refreshing,
   refresh,
+  authUser,
+  onOpenAuth,
   onBack
 }: {
   category: GuideCategory;
@@ -1048,6 +1053,8 @@ function CategoryScreen({
   openDetail: (place: GuidePlace) => void;
   refreshing: boolean;
   refresh: () => void;
+  authUser: Record<string, unknown> | null;
+  onOpenAuth: () => void;
   onBack: () => void;
 }) {
   const [selectedQuickTokens, setSelectedQuickTokens] = useState<string[]>([]);
@@ -1122,6 +1129,8 @@ function CategoryScreen({
         openDetail={openDetail}
         refreshing={refreshing}
         refresh={refresh}
+        authUser={authUser}
+        onOpenAuth={onOpenAuth}
         onBack={onBack}
       />
     );
@@ -1180,6 +1189,8 @@ function BulletinBoardScreen({
   openDetail,
   refreshing,
   refresh,
+  authUser,
+  onOpenAuth,
   onBack
 }: {
   listings: GuidePlace[];
@@ -1188,10 +1199,19 @@ function BulletinBoardScreen({
   openDetail: (place: GuidePlace) => void;
   refreshing: boolean;
   refresh: () => void;
+  authUser: Record<string, unknown> | null;
+  onOpenAuth: () => void;
   onBack: () => void;
 }) {
   const [query, setQuery] = useState('');
   const [activeSection, setActiveSection] = useState('Все');
+  const [isPostOpen, setPostOpen] = useState(false);
+  const [postTitle, setPostTitle] = useState('');
+  const [postDescription, setPostDescription] = useState('');
+  const [postSection, setPostSection] = useState('Разное');
+  const [postPhone, setPostPhone] = useState('');
+  const [postLink, setPostLink] = useState('');
+  const [isPosting, setPosting] = useState(false);
   const sections = ['Все', 'Работа', 'Продажи', 'Услуги', 'Разное'];
   const normalizedQuery = query.trim().toLowerCase();
   const filteredListings = listings.filter((place) => {
@@ -1204,67 +1224,147 @@ function BulletinBoardScreen({
       .toLowerCase();
     return matchesSection && (!normalizedQuery || haystack.includes(normalizedQuery));
   });
+  const resetPostForm = useCallback(() => {
+    setPostTitle('');
+    setPostDescription('');
+    setPostSection('Разное');
+    setPostPhone('');
+    setPostLink('');
+  }, []);
+  const openPostForm = useCallback(() => {
+    if (!authUser) {
+      onOpenAuth();
+      return;
+    }
+    setPostOpen(true);
+  }, [authUser, onOpenAuth]);
+  const submitPost = useCallback(async () => {
+    if (!authUser || isPosting) return;
+    const title = postTitle.trim();
+    const description = postDescription.trim();
+    const phone = postPhone.trim();
+    const link = postLink.trim();
+    if (title.length < 3 || description.length < 10 || (!phone && !link)) {
+      Alert.alert('Проверь объявление', 'Заполни название, описание и телефон или ссылку для связи.');
+      return;
+    }
+    setPosting(true);
+    try {
+      const response = await submitBulletinListing({
+        title,
+        description,
+        section: postSection,
+        subcategory: 'Другое',
+        phone,
+        link,
+        contactName: toText(authUser.displayName || authUser.username || authUser.email),
+        district: '',
+        priceLabel: ''
+      });
+      Alert.alert('Объявление отправлено', response.message || 'После модерации оно появится в списке.');
+      resetPostForm();
+      setPostOpen(false);
+      refresh();
+    } catch (error) {
+      Alert.alert('Не удалось отправить', error instanceof Error ? error.message : 'Попробуйте ещё раз.');
+    } finally {
+      setPosting(false);
+    }
+  }, [authUser, isPosting, postDescription, postLink, postPhone, postSection, postTitle, refresh, resetPostForm]);
 
   return (
-    <ScrollView
-      style={[styles.content, styles.categoryContent]}
-      contentContainerStyle={[styles.categoryContentInner, styles.bulletinContentInner]}
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
-    >
-      <View style={[styles.categoryToolbar, styles.bulletinToolbar]}>
-        <TouchableOpacity activeOpacity={0.82} onPress={onBack} style={styles.categoryBackButton}>
-          <Text style={styles.categoryBackGlyph}>‹</Text>
-        </TouchableOpacity>
-        <View style={styles.bulletinSearchBar}>
-          <Text style={styles.bulletinSearchIcon}>⌕</Text>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Повар, байк, ремонт, резюме..."
-            placeholderTextColor="#8a9aae"
-            style={styles.bulletinSearchInput}
-          />
-          {query ? (
-            <TouchableOpacity onPress={() => setQuery('')} style={styles.bulletinClearButton}>
-              <Text style={styles.bulletinClearText}>×</Text>
-            </TouchableOpacity>
-          ) : null}
+    <>
+      <ScrollView
+        style={[styles.content, styles.categoryContent]}
+        contentContainerStyle={[styles.categoryContentInner, styles.bulletinContentInner]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+      >
+        <View style={[styles.categoryToolbar, styles.bulletinToolbar]}>
+          <TouchableOpacity activeOpacity={0.82} onPress={onBack} style={styles.categoryBackButton}>
+            <Text style={styles.categoryBackGlyph}>‹</Text>
+          </TouchableOpacity>
+          <View style={styles.bulletinSearchBar}>
+            <Text style={styles.bulletinSearchIcon}>⌕</Text>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Повар, байк, ремонт, резюме..."
+              placeholderTextColor="#8a9aae"
+              style={styles.bulletinSearchInput}
+            />
+            {query ? (
+              <TouchableOpacity onPress={() => setQuery('')} style={styles.bulletinClearButton}>
+                <Text style={styles.bulletinClearText}>×</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
-      </View>
 
-      <TouchableOpacity activeOpacity={0.88} style={styles.bulletinPostButton}>
-        <Text style={styles.bulletinPostText}>Войти и разместить</Text>
-      </TouchableOpacity>
+        <TouchableOpacity activeOpacity={0.88} onPress={openPostForm} style={styles.bulletinPostButton}>
+          <Text style={styles.bulletinPostText}>{authUser ? 'Разместить объявление' : 'Войти и разместить'}</Text>
+        </TouchableOpacity>
 
-      <View style={styles.bulletinMosaic}>
-        {sections.slice(1).map((item) => {
-          const isActive = activeSection === item;
-          return (
-            <TouchableOpacity key={item} activeOpacity={0.84} onPress={() => setActiveSection(isActive ? 'Все' : item)} style={[styles.bulletinMosaicCard, isActive && styles.bulletinMosaicCardActive]}>
-              <View style={styles.bulletinMosaicOrb} />
-              <Text style={[styles.bulletinMosaicText, isActive && styles.bulletinMosaicTextActive]}>{item}</Text>
+        <View style={styles.bulletinMosaic}>
+          {sections.slice(1).map((item) => {
+            const isActive = activeSection === item;
+            return (
+              <TouchableOpacity key={item} activeOpacity={0.84} onPress={() => setActiveSection(isActive ? 'Все' : item)} style={[styles.bulletinMosaicCard, isActive && styles.bulletinMosaicCardActive]}>
+                <View style={styles.bulletinMosaicOrb} />
+                <Text style={[styles.bulletinMosaicText, isActive && styles.bulletinMosaicTextActive]}>{item}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <View style={styles.bulletinFeedHead}>
+          <Text style={styles.bulletinFeedTitle}>{activeSection === 'Все' ? 'Все объявления' : activeSection}</Text>
+        </View>
+
+        <View style={styles.restaurantListNative}>
+          {filteredListings.map((place) => (
+            <CategoryListingCard
+              key={place.id}
+              place={place}
+              isFavorite={favoriteSet.has(place.slug || place.id)}
+              onPress={() => openDetail(place)}
+              onToggleFavorite={() => toggleFavorite(place.slug || place.id)}
+            />
+          ))}
+        </View>
+      </ScrollView>
+      <Modal visible={isPostOpen} transparent animationType="slide" onRequestClose={() => setPostOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <TouchableOpacity style={styles.modalBackdropTouch} activeOpacity={1} onPress={() => setPostOpen(false)} />
+          <View style={styles.bulletinPostSheet}>
+            <View style={styles.filterSheetHeader}>
+              <View>
+                <Text style={styles.filterSheetTitle}>Новое объявление</Text>
+                <Text style={styles.filterSheetMeta}>После отправки уйдет на модерацию</Text>
+              </View>
+              <TouchableOpacity style={styles.filterCloseButton} onPress={() => setPostOpen(false)}><Text style={styles.filterCloseText}>×</Text></TouchableOpacity>
+            </View>
+            <TextInput value={postTitle} onChangeText={setPostTitle} placeholder="Название" placeholderTextColor="#8a9aae" style={styles.bulletinPostInput} />
+            <TextInput value={postDescription} onChangeText={setPostDescription} placeholder="Описание" placeholderTextColor="#8a9aae" style={[styles.bulletinPostInput, styles.bulletinPostInputMultiline]} multiline textAlignVertical="top" />
+            <View style={styles.bulletinQuickRow}>
+              {sections.slice(1).map((section) => {
+                const active = postSection === section;
+                return (
+                  <TouchableOpacity key={section} activeOpacity={0.82} onPress={() => setPostSection(section)} style={[styles.bulletinQuickButton, active && styles.bulletinQuickButtonActive]}>
+                    <Text style={[styles.bulletinQuickText, active && styles.bulletinQuickTextActive]}>{section}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TextInput value={postPhone} onChangeText={setPostPhone} placeholder="Телефон или Telegram" placeholderTextColor="#8a9aae" style={styles.bulletinPostInput} />
+            <TextInput value={postLink} onChangeText={setPostLink} placeholder="Ссылка, если есть" placeholderTextColor="#8a9aae" style={styles.bulletinPostInput} autoCapitalize="none" />
+            <TouchableOpacity activeOpacity={0.88} disabled={isPosting} onPress={() => void submitPost()} style={[styles.bulletinPostButton, isPosting && styles.authProviderButtonDisabled]}>
+              <Text style={styles.bulletinPostText}>{isPosting ? 'Отправляем...' : 'Отправить объявление'}</Text>
             </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <View style={styles.bulletinFeedHead}>
-        <Text style={styles.bulletinFeedTitle}>{activeSection === 'Все' ? 'Все объявления' : activeSection}</Text>
-      </View>
-
-      <View style={styles.restaurantListNative}>
-        {filteredListings.map((place) => (
-          <CategoryListingCard
-            key={place.id}
-            place={place}
-            isFavorite={favoriteSet.has(place.slug || place.id)}
-            onPress={() => openDetail(place)}
-            onToggleFavorite={() => toggleFavorite(place.slug || place.id)}
-          />
-        ))}
-      </View>
-    </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -1682,7 +1782,7 @@ function NearbyScreen({
   return (
     <View style={styles.screenGap}>
       <ScreenHeader title="Карта" text="Наша карта с точками, которые добавлены в гид." />
-      <MapTabFallback placesCount={placesWithCoordinates.length} />
+      <GuideMap places={placesWithCoordinates} onOpenPlace={openDetail} height={310} />
       <AppButton label={position ? 'Обновить геолокацию' : 'Показать места рядом'} onPress={() => void askLocation()} />
       {status ? <Text style={styles.noteText}>{status}</Text> : null}
       {placesWithCoordinates.length === 0 ? <EmptyState title="Нет координат" text="У опубликованных мест пока не заполнены lat/lng." /> : null}
@@ -1699,18 +1799,6 @@ function NearbyScreen({
           </View>
         </View>
       ))}
-    </View>
-  );
-}
-
-function MapTabFallback({ placesCount }: { placesCount: number }) {
-  return (
-    <View style={[styles.nativeMapCard, styles.nativeMapFallbackCard, styles.nearbyMapFallbackCard]}>
-      <Text style={styles.nativeMapEmptyTitle}>Карта временно открывается снаружи</Text>
-      <Text style={styles.nativeMapEmptyText}>
-        Внутренняя карта отключена, чтобы Android-приложение не закрывалось. Точки доступны в списке ниже.
-      </Text>
-      {placesCount > 0 ? <Text style={styles.nearbyMapCount}>{placesCount} мест с координатами</Text> : null}
     </View>
   );
 }
@@ -1801,6 +1889,7 @@ function AuthSheet({
   const authReturnTo = 'danangguide://auth';
   const displayName = toText(user?.displayName || user?.username || user?.email, 'Пользователь');
   const userEmail = toText(user?.email);
+  const avatarUrl = toText(user?.avatarUrl);
   const [openingProvider, setOpeningProvider] = useState<'google' | 'apple' | 'telegram' | null>(null);
   const providerEnabled = useCallback((provider: 'google' | 'apple' | 'telegram') => Boolean(providers?.[provider]), [providers]);
 
@@ -1808,9 +1897,10 @@ function AuthSheet({
     if (!API_BASE_URL) return;
     if (!providerEnabled(provider) || openingProvider) return;
     setOpeningProvider(provider);
+    const authNonce = Date.now().toString(36);
     const path = provider === 'telegram'
-      ? `/api/auth/telegram/start?returnTo=${encodeURIComponent(authReturnTo)}&mode=native&prefer=oauth&source=mobile`
-      : `/api/auth/${provider}/start?returnTo=${encodeURIComponent(authReturnTo)}&mode=native&source=mobile`;
+      ? `/api/auth/telegram/start?returnTo=${encodeURIComponent(authReturnTo)}&mode=native&prefer=oauth&source=mobile&authNonce=${authNonce}`
+      : `/api/auth/${provider}/start?returnTo=${encodeURIComponent(authReturnTo)}&mode=native&source=mobile&authNonce=${authNonce}`;
     try {
       onClose();
       await openExternalUrl(`${API_BASE_URL}${path}`);
@@ -1837,7 +1927,13 @@ function AuthSheet({
 
           {user ? (
             <View style={styles.profileBlock}>
-              <View style={styles.profileAvatar}><Text style={styles.profileAvatarText}>{displayName.slice(0, 1).toUpperCase()}</Text></View>
+              <View style={styles.profileAvatar}>
+                {avatarUrl ? (
+                  <Image source={{ uri: avatarUrl }} style={styles.profileAvatarImage} />
+                ) : (
+                  <Text style={styles.profileAvatarText}>{displayName.slice(0, 1).toUpperCase()}</Text>
+                )}
+              </View>
               <View style={styles.flex}>
                 <Text style={styles.profileName}>{displayName}</Text>
                 {userEmail ? <Text style={styles.profileEmail}>{userEmail}</Text> : null}
@@ -2206,7 +2302,7 @@ const styles = StyleSheet.create({
   restaurantTypeIconLine: { position: 'absolute', left: 4, right: 4, bottom: 4, height: 1.8, borderRadius: 1, backgroundColor: '#6a7d95' },
   restaurantDollarIcon: { width: 18, color: '#22a06b', fontSize: 18, lineHeight: 19, fontWeight: '900', textAlign: 'center', flexShrink: 0 },
 
-  bulletinContentInner: { paddingTop: 16 },
+  bulletinContentInner: { paddingTop: Platform.OS === 'android' ? ANDROID_STATUS_BAR_INSET + 18 : 18 },
   bulletinToolbar: { alignItems: 'center' },
   bulletinSearchBar: { flex: 1, minHeight: 42, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(214, 223, 235, 0.94)', backgroundColor: '#ffffff', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 8 },
   bulletinSearchIcon: { color: '#6e7f97', fontSize: 16, fontWeight: '900' },
@@ -2228,6 +2324,9 @@ const styles = StyleSheet.create({
   bulletinQuickTextActive: { color: '#ffffff' },
   bulletinFeedHead: { paddingTop: 4, paddingBottom: 2 },
   bulletinFeedTitle: { color: '#162640', fontSize: 20, lineHeight: 24, fontWeight: '900' },
+  bulletinPostSheet: { maxHeight: '82%', paddingHorizontal: 16, paddingTop: 16, paddingBottom: Platform.OS === 'ios' ? 28 : 18 + ANDROID_NAVIGATION_BAR_INSET, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#f8fbff', gap: 10 },
+  bulletinPostInput: { minHeight: 46, borderRadius: 16, borderWidth: 1, borderColor: '#d8e0ea', backgroundColor: '#ffffff', paddingHorizontal: 13, color: '#162640', fontSize: 13.5, lineHeight: 18, fontWeight: '700' },
+  bulletinPostInputMultiline: { minHeight: 104, paddingTop: 12, paddingBottom: 12 },
 
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(9, 19, 38, 0.36)' },
   modalBackdropTouch: { ...StyleSheet.absoluteFillObject },
@@ -2307,7 +2406,8 @@ const styles = StyleSheet.create({
   authProviderTitle: { color: '#102a43', fontSize: 14.5, lineHeight: 18, fontWeight: '900' },
   authProviderSub: { color: '#718096', fontSize: 11.5, lineHeight: 15, fontWeight: '700', marginTop: 2 },
   profileBlock: { minHeight: 76, borderRadius: 22, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e0e8f2', flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
-  profileAvatar: { width: 46, height: 46, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7' },
+  profileAvatar: { width: 46, height: 46, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7', overflow: 'hidden' },
+  profileAvatarImage: { width: 46, height: 46 },
   profileAvatarText: { color: '#ffffff', fontSize: 18, lineHeight: 22, fontWeight: '900' },
   profileName: { color: '#102a43', fontSize: 15, lineHeight: 19, fontWeight: '900' },
   profileEmail: { color: '#718096', fontSize: 11.5, lineHeight: 15, fontWeight: '700', marginTop: 2 },

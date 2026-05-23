@@ -1,3 +1,5 @@
+const googleMapsApiKey = String(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '').trim();
+
 module.exports = {
   expo: {
     name: 'Da Nang Guide',
@@ -17,6 +19,11 @@ module.exports = {
     android: {
       package: 'com.realone14.guideappnativeconnected',
       permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION'],
+      config: googleMapsApiKey ? {
+        googleMaps: {
+          apiKey: googleMapsApiKey
+        }
+      } : undefined,
       adaptiveIcon: {
         foregroundImage: './assets/icon.png',
         backgroundColor: '#ffffff'
