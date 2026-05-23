@@ -154,6 +154,7 @@ function getRequestOrigin(req) {
 }
 
 const ALLOWED_NATIVE_RETURN_SCHEMES = new Set(['danangguide']);
+const NATIVE_ANDROID_PACKAGE = String(process.env.NATIVE_ANDROID_PACKAGE || 'com.realone14.guideappnativeconnected').trim();
 
 function isNativeReturnTo(value) {
   const candidate = String(value || '').trim();
@@ -276,12 +277,13 @@ function createAuthState(res, provider, returnTo) {
     returnTo: normalizeReturnTo(returnTo),
     iat: Date.now()
   };
+  const oauthState = createSignedToken(payload);
 
   setCookie(res, AUTH_STATE_COOKIE_NAME, createSignedToken(payload), {
     maxAgeSeconds: AUTH_STATE_TTL_SECONDS,
     sameSite: USER_COOKIE_SAME_SITE === 'None' ? 'None' : provider === 'apple' ? 'None' : 'Lax'
   });
-  return payload;
+  return { ...payload, oauthState };
 }
 
 function readAuthState(req) {
@@ -339,6 +341,26 @@ function escapeScriptString(value) {
   return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r/g, '').replace(/\n/g, '');
 }
 
+function createAndroidIntentUrl(targetUrl) {
+  if (!NATIVE_ANDROID_PACKAGE) {
+    return targetUrl;
+  }
+
+  try {
+    const parsed = new URL(targetUrl);
+    const scheme = parsed.protocol.replace(/:$/g, '');
+    if (!ALLOWED_NATIVE_RETURN_SCHEMES.has(scheme)) {
+      return targetUrl;
+    }
+
+    const authorityAndPath = `${parsed.host}${parsed.pathname || ''}${parsed.search || ''}${parsed.hash || ''}`;
+    const fallbackUrl = encodeURIComponent(targetUrl);
+    return `intent://${authorityAndPath}#Intent;scheme=${scheme};package=${NATIVE_ANDROID_PACKAGE};S.browser_fallback_url=${fallbackUrl};end`;
+  } catch {
+    return targetUrl;
+  }
+}
+
 function sendNativeAuthPage(res, targetUrl, query = {}) {
   const isSuccess = String(query.auth || '') === 'success';
   const provider = String(query.provider || '').trim();
@@ -347,6 +369,7 @@ function sendNativeAuthPage(res, targetUrl, query = {}) {
     ? 'Возвращаем вас в приложение. Если оно не открылось автоматически, нажмите кнопку ниже.'
     : String(query.message || 'Попробуйте войти ещё раз из приложения.');
   const buttonLabel = isSuccess ? 'Открыть приложение' : 'Вернуться в приложение';
+  const androidIntentUrl = createAndroidIntentUrl(targetUrl);
 
   res.type('html').send(`<!doctype html>
 <html lang="ru">
@@ -375,12 +398,15 @@ function sendNativeAuthPage(res, targetUrl, query = {}) {
   <script>
     (function () {
       var target = '${escapeScriptString(targetUrl)}';
+      var androidTarget = '${escapeScriptString(androidIntentUrl)}';
+      var isAndroid = /Android/i.test(navigator.userAgent || '');
       function openApp() { window.location.href = target; }
+      function openNativeTarget() { window.location.href = isAndroid ? androidTarget : target; }
       document.getElementById('openApp').addEventListener('click', function (event) {
         event.preventDefault();
-        openApp();
+        openNativeTarget();
       });
-      setTimeout(openApp, 150);
+      setTimeout(openNativeTarget, 150);
       setTimeout(openApp, 900);
     })();
   </script>
@@ -723,6 +749,18 @@ function getAuthSuccessRedirectPath(returnTo, provider, user) {
 }
 
 function getStateOrThrow(req, provider, incomingState) {
+  const signedState = readSignedToken(String(incomingState || ''));
+  if (signedState?.state && signedState.provider === provider && signedState.iat) {
+    const ageMs = Date.now() - Number(signedState.iat);
+    if (Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= AUTH_STATE_TTL_SECONDS * 1000) {
+      return {
+        state: String(signedState.state),
+        provider: String(signedState.provider),
+        returnTo: normalizeReturnTo(signedState.returnTo)
+      };
+    }
+  }
+
   const state = readAuthState(req);
   if (!state || state.provider !== provider || state.state !== String(incomingState || '')) {
     throw new Error('Сессия входа устарела. Повторите попытку.');
@@ -751,7 +789,7 @@ function registerPublicAuthRoutes(app) {
     const returnTo = normalizeReturnTo(req.query.returnTo);
     try {
       const state = ensureStateCookie(req, res, 'google', returnTo);
-      res.redirect(buildGoogleAuthUrl(req, state.state));
+      res.redirect(buildGoogleAuthUrl(req, state.oauthState || state.state));
     } catch (error) {
       redirectToReturnTo(res, returnTo, {
         auth: 'error',
@@ -794,7 +832,7 @@ function registerPublicAuthRoutes(app) {
     const returnTo = normalizeReturnTo(req.query.returnTo);
     try {
       const state = ensureStateCookie(req, res, 'apple', returnTo);
-      res.redirect(buildAppleAuthUrl(req, state.state));
+      res.redirect(buildAppleAuthUrl(req, state.oauthState || state.state));
     } catch (error) {
       redirectToReturnTo(res, returnTo, {
         auth: 'error',
