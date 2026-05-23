@@ -1272,7 +1272,8 @@ function CategoryListingCard({
   const avgCheckValue = Number(place.avgCheck);
   const checkLabel = place.priceLabel || (Number.isFinite(avgCheckValue) && avgCheckValue > 0 ? `${avgCheckValue.toLocaleString('ru-RU')} ₫` : 'Не указан');
   const hoursLabel = place.hours || 'Не указано';
-  const cuisineLabel = place.cuisine || place.kind || place.district || 'Не указано';
+  const cuisineLabel = toText(place.cuisine);
+  const typeLabel = cuisineLabel ? '' : toText(place.kind || place.listingType || place.type || place.categoryId);
 
   return (
     <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={styles.restaurantCardNative}>
@@ -1294,6 +1295,7 @@ function CategoryListingCard({
         <View style={styles.restaurantFacts}>
           <RestaurantFact tone="hours" value={hoursLabel} />
           <RestaurantFact tone="cuisine" value={cuisineLabel} />
+          <RestaurantFact tone="type" value={typeLabel} />
           <RestaurantFact tone="price" value={checkLabel} />
         </View>
       </View>
@@ -1301,8 +1303,11 @@ function CategoryListingCard({
   );
 }
 
+type RestaurantFactTone = 'hours' | 'cuisine' | 'type' | 'price';
 
-function RestaurantFact({ value, tone }: { value: string; tone: 'hours' | 'cuisine' | 'price' }) {
+function RestaurantFact({ value, tone }: { value: string; tone: RestaurantFactTone }) {
+  if (!value) return null;
+
   return (
     <View style={styles.restaurantFactRow}>
       <RestaurantFactIcon tone={tone} />
@@ -1311,7 +1316,7 @@ function RestaurantFact({ value, tone }: { value: string; tone: 'hours' | 'cuisi
   );
 }
 
-function RestaurantFactIcon({ tone }: { tone: 'hours' | 'cuisine' | 'price' }) {
+function RestaurantFactIcon({ tone }: { tone: RestaurantFactTone }) {
   if (tone === 'hours') {
     return (
       <View style={styles.restaurantClockIcon}>
@@ -1323,11 +1328,20 @@ function RestaurantFactIcon({ tone }: { tone: 'hours' | 'cuisine' | 'price' }) {
 
   if (tone === 'cuisine') {
     return (
-      <View style={styles.restaurantChefIcon}>
-        <View style={[styles.restaurantChefPuff, styles.restaurantChefPuffLeft]} />
-        <View style={[styles.restaurantChefPuff, styles.restaurantChefPuffCenter]} />
-        <View style={[styles.restaurantChefPuff, styles.restaurantChefPuffRight]} />
-        <View style={styles.restaurantChefBand} />
+      <View style={styles.restaurantCuisineIcon}>
+        <View style={styles.restaurantCuisinePlate} />
+        <View style={styles.restaurantCuisineForkHandle} />
+        <View style={styles.restaurantCuisineForkTine} />
+        <View style={[styles.restaurantCuisineForkTine, styles.restaurantCuisineForkTineRight]} />
+      </View>
+    );
+  }
+
+  if (tone === 'type') {
+    return (
+      <View style={styles.restaurantTypeIcon}>
+        <View style={styles.restaurantTypeIconDot} />
+        <View style={styles.restaurantTypeIconLine} />
       </View>
     );
   }
@@ -1898,10 +1912,22 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
       {hasMapPoint ? (
         <View style={styles.detailMapSection}>
           <SectionTitle title="Карта" />
-          <GuideMap places={[place]} height={245} />
+          <DetailMapFallback place={place} />
         </View>
       ) : null}
     </ScrollView>
+  );
+}
+
+function DetailMapFallback({ place }: { place: GuidePlace }) {
+  return (
+    <View style={[styles.nativeMapCard, styles.nativeMapFallbackCard, styles.detailMapFallbackCard]}>
+      <Text style={styles.nativeMapEmptyTitle}>Точка есть на карте</Text>
+      <Text style={styles.nativeMapEmptyText}>Можно открыть точку и маршрут во внешнем Google Maps.</Text>
+      <TouchableOpacity activeOpacity={0.86} onPress={() => void openExternalUrl(googleMapsUrl(place))} style={styles.nativeMapFallbackButton}>
+        <Text style={styles.nativeMapFallbackButtonText}>Открыть в Google Maps</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -2051,6 +2077,7 @@ const styles = StyleSheet.create({
   detailPlainHeader: { gap: 12, paddingHorizontal: 2, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
   detailPlainSection: { gap: 10, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
   detailMapSection: { gap: 10, paddingTop: 2, paddingBottom: 4 },
+  detailMapFallbackCard: { minHeight: 168 },
   detailInfoList: { borderTopWidth: 1, borderTopColor: 'rgba(214, 223, 235, 0.92)' },
   detailTitleRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   detailTitle: { color: '#102a43', fontSize: 29, lineHeight: 34, fontWeight: '900', marginTop: 5 },
@@ -2109,12 +2136,14 @@ const styles = StyleSheet.create({
   restaurantClockIcon: { width: 17, height: 17, borderRadius: 8.5, borderWidth: 1.8, borderColor: '#2b78dd', flexShrink: 0, position: 'relative' },
   restaurantClockHourHand: { position: 'absolute', left: 7.2, top: 3.6, width: 1.8, height: 5.4, borderRadius: 1, backgroundColor: '#2b78dd' },
   restaurantClockMinuteHand: { position: 'absolute', left: 7.2, top: 7.1, width: 5.5, height: 1.8, borderRadius: 1, backgroundColor: '#2b78dd' },
-  restaurantChefIcon: { width: 20, height: 18, flexShrink: 0, position: 'relative' },
-  restaurantChefPuff: { position: 'absolute', top: 1, width: 10, height: 10, borderRadius: 6, borderWidth: 1.7, borderColor: '#ef8b32', backgroundColor: 'transparent' },
-  restaurantChefPuffLeft: { left: 0 },
-  restaurantChefPuffCenter: { left: 5, top: 0, width: 11, height: 11 },
-  restaurantChefPuffRight: { right: 0 },
-  restaurantChefBand: { position: 'absolute', left: 3, right: 3, bottom: 1, height: 7, borderWidth: 1.7, borderTopWidth: 0, borderColor: '#ef8b32', borderBottomLeftRadius: 3, borderBottomRightRadius: 3 },
+  restaurantCuisineIcon: { width: 20, height: 18, flexShrink: 0, position: 'relative' },
+  restaurantCuisinePlate: { position: 'absolute', left: 2, top: 3, width: 12, height: 12, borderRadius: 6, borderWidth: 1.8, borderColor: '#ef8b32' },
+  restaurantCuisineForkHandle: { position: 'absolute', right: 2, top: 3, width: 1.9, height: 13, borderRadius: 1, backgroundColor: '#ef8b32' },
+  restaurantCuisineForkTine: { position: 'absolute', right: 5, top: 3, width: 1.6, height: 5, borderRadius: 1, backgroundColor: '#ef8b32' },
+  restaurantCuisineForkTineRight: { right: 0.2 },
+  restaurantTypeIcon: { width: 18, height: 18, borderRadius: 7, borderWidth: 1.8, borderColor: '#6a7d95', flexShrink: 0, position: 'relative' },
+  restaurantTypeIconDot: { position: 'absolute', left: 4, top: 4, width: 3.5, height: 3.5, borderRadius: 2, backgroundColor: '#6a7d95' },
+  restaurantTypeIconLine: { position: 'absolute', left: 4, right: 4, bottom: 4, height: 1.8, borderRadius: 1, backgroundColor: '#6a7d95' },
   restaurantDollarIcon: { width: 18, color: '#22a06b', fontSize: 18, lineHeight: 19, fontWeight: '900', textAlign: 'center', flexShrink: 0 },
 
   bulletinContentInner: { paddingTop: 16 },
