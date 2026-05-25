@@ -5,6 +5,13 @@ const AUTH_USER_KEY = 'danang-guide-auth-user';
 
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
 
+function toText(value: unknown, fallback = '') {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string') return value.trim() || fallback;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return fallback;
+}
+
 function decodeUtf8Bytes(bytes: number[]) {
   let result = '';
   let index = 0;
@@ -144,4 +151,8 @@ export async function getCachedAuthUser() {
   } catch {
     return null;
   }
+}
+
+export function getAuthUserAvatarUrl(user: Record<string, unknown> | null) {
+  return toText(user?.avatarUrl || user?.picture || user?.photoUrl || user?.photo_url);
 }

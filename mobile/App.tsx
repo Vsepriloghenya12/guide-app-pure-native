@@ -18,6 +18,7 @@ import {
   View,
   useWindowDimensions
 } from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import type { BootstrapPayload, GuideCategory, GuideCollection, GuidePlace, GuideTip, SupportContentStore } from './src/types';
@@ -25,7 +26,7 @@ import { fetchBootstrap, fetchSupportContent, fetchAuthSession, fetchAuthStartUr
 import { appleMapsUrl, directionsUrl, googleMapsUrl, openExternalUrl } from './src/utils/links';
 import { estimateTravelTime, formatDistance, hasCoordinates, haversineDistanceKm } from './src/utils/geo';
 import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
-import { clearAuthToken, getCachedAuthUser, readUserFromAuthToken, saveAuthToken } from './src/utils/auth';
+import { clearAuthToken, getAuthUserAvatarUrl, getCachedAuthUser, readUserFromAuthToken, saveAuthToken } from './src/utils/auth';
 import { EmptyState, AppButton, CategoryCard, ListingCard, LoadingState, Pill } from './src/components/ui';
 import { normalizeImageUrl } from './src/utils/normalizers';
 import { categoryIcons, defaultCategoryIcon, heroBackground, heroLogo } from './src/assets';
@@ -110,6 +111,14 @@ const hasGoogleMapsApiKey =
 const ANDROID_STATUS_BAR_INSET = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0;
 const ANDROID_NAVIGATION_BAR_INSET = Platform.OS === 'android' ? 34 : 0;
 const BOTTOM_TABS_VISIBLE_HEIGHT = 66 + ANDROID_NAVIGATION_BAR_INSET;
+
+function useMobileInsets() {
+  const insets = useSafeAreaInsets();
+  return {
+    top: Math.max(insets.top, ANDROID_STATUS_BAR_INSET),
+    bottom: Math.max(insets.bottom, ANDROID_NAVIGATION_BAR_INSET)
+  };
+}
 
 function routeKey(route: Route) {
   if (route.name === 'tabs') return `tabs:${route.tab}`;
@@ -249,10 +258,6 @@ function toTextArray(value: unknown): string[] {
   const textValue = toText(value);
   if (!textValue) return [];
   return textValue.split(/\n|,/g).map((item) => item.trim()).filter(Boolean);
-}
-
-function getUserAvatarUrl(user: Record<string, unknown> | null) {
-  return toText(user?.avatarUrl || user?.picture || user?.photoUrl || user?.photo_url);
 }
 
 function getPlaceImageUrls(place: GuidePlace) {
@@ -509,13 +514,16 @@ class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, Ap
 
 export default function App() {
   return (
-    <AppErrorBoundary>
-      <AppContent />
-    </AppErrorBoundary>
+    <SafeAreaProvider>
+      <AppErrorBoundary>
+        <AppContent />
+      </AppErrorBoundary>
+    </SafeAreaProvider>
   );
 }
 
 function AppContent() {
+  const mobileInsets = useMobileInsets();
   const [route, setRouteState] = useState<Route>({ name: 'tabs', tab: 'home' });
   const routeRef = useRef<Route>(route);
   const routeHistoryRef = useRef<Route[]>([]);
@@ -693,7 +701,7 @@ function AppContent() {
     <View style={styles.safeArea} {...backSwipeResponder.panHandlers}>
       <StatusBar translucent barStyle="dark-content" backgroundColor="transparent" />
       {!hideTopHeader ? (
-        <View style={styles.appHeader}>
+        <View style={[styles.appHeader, { paddingTop: mobileInsets.top + 8 }]}>
           <View>
             <Text style={styles.logoText}>Твой гид</Text>
             <Text style={styles.logoSubtext}>{API_BASE_URL ? 'native app · Railway API' : 'native app · offline seed'}</Text>
@@ -746,7 +754,12 @@ function AppContent() {
       ) : (
         <ScrollView
           style={styles.content}
-          contentContainerStyle={[styles.contentInner, isHomeRoot && styles.homeContentInner]}
+          contentContainerStyle={[
+            styles.contentInner,
+            { paddingBottom: 66 + mobileInsets.bottom + 26 },
+            isHomeRoot && styles.homeContentInner,
+            isHomeRoot && { paddingBottom: 66 + mobileInsets.bottom + 22 }
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
         >
@@ -780,7 +793,7 @@ function AppContent() {
         </ScrollView>
       )}
       {route.name !== 'detail' ? (
-        <BottomTabs active={route.name === 'tabs' ? route.tab : 'home'} onChange={(tab) => setRoute({ name: 'tabs', tab })} />
+        <BottomTabs active={route.name === 'tabs' ? route.tab : 'home'} onChange={(tab) => setRoute({ name: 'tabs', tab })} bottomInset={mobileInsets.bottom} />
       ) : null}
       <AuthSheet visible={isAuthSheetOpen} user={authUser} providers={authProviders} onClose={() => setAuthSheetOpen(false)} onLogout={handleLogout} />
     </View>
@@ -1062,6 +1075,7 @@ function CategoryScreen({
   onOpenAuth: () => void;
   onBack: () => void;
 }) {
+  const mobileInsets = useMobileInsets();
   const [selectedQuickTokens, setSelectedQuickTokens] = useState<string[]>([]);
   const [isFilterOpen, setFilterOpen] = useState(false);
   const quickFilters = (category.id === 'restaurants' ? restaurantQuickFilters : category.filterSchema?.quickFilters || []).slice(0, 3);
@@ -1150,7 +1164,10 @@ function CategoryScreen({
         ListHeaderComponent={listHeader}
         ListEmptyComponent={<EmptyState title="Пока пусто" text="В этом разделе нет опубликованных карточек." />}
         style={[styles.content, styles.categoryContent]}
-        contentContainerStyle={styles.categoryContentInner}
+        contentContainerStyle={[
+          styles.categoryContentInner,
+          { paddingTop: mobileInsets.top + 14, paddingBottom: 66 + mobileInsets.bottom + 26 }
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       />
@@ -1208,6 +1225,7 @@ function BulletinBoardScreen({
   onOpenAuth: () => void;
   onBack: () => void;
 }) {
+  const mobileInsets = useMobileInsets();
   const [query, setQuery] = useState('');
   const [activeSection, setActiveSection] = useState('Все');
   const [isPostOpen, setPostOpen] = useState(false);
@@ -1281,7 +1299,11 @@ function BulletinBoardScreen({
     <>
       <ScrollView
         style={[styles.content, styles.categoryContent]}
-        contentContainerStyle={[styles.categoryContentInner, styles.bulletinContentInner]}
+        contentContainerStyle={[
+          styles.categoryContentInner,
+          styles.bulletinContentInner,
+          { paddingTop: mobileInsets.top + 18, paddingBottom: 66 + mobileInsets.bottom + 26 }
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
@@ -1894,7 +1916,7 @@ function AuthSheet({
   const authReturnTo = 'danangguide://auth';
   const displayName = toText(user?.displayName || user?.username || user?.email, 'Пользователь');
   const userEmail = toText(user?.email);
-  const avatarUrl = getUserAvatarUrl(user);
+  const avatarUrl = getAuthUserAvatarUrl(user);
   const [openingProvider, setOpeningProvider] = useState<'google' | 'apple' | 'telegram' | null>(null);
   const providerEnabled = useCallback((provider: 'google' | 'apple' | 'telegram') => Boolean(providers?.[provider]), [providers]);
 
@@ -1999,6 +2021,7 @@ function AuthSheet({
 }
 
 function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place: GuidePlace; category?: GuideCategory; isFavorite: boolean; onToggleFavorite: () => void }) {
+  const mobileInsets = useMobileInsets();
   const gallery = getPlaceImageUrls(place);
   const details = Array.from(new Set([...toTextArray((place as GuidePlace & { extra?: unknown }).extra), ...toTextArray((place as GuidePlace & { services?: unknown }).services)]));
   const tags = toTextArray((place as GuidePlace & { tags?: unknown }).tags);
@@ -2015,7 +2038,14 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
   const hasMapPoint = Boolean(placeCoordinate(place));
 
   return (
-    <ScrollView style={styles.content} contentContainerStyle={styles.detailContentInner} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.content}
+      contentContainerStyle={[
+        styles.detailContentInner,
+        { paddingTop: mobileInsets.top + 14, paddingBottom: 28 + mobileInsets.bottom }
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
       {gallery[0] ? <Image source={{ uri: gallery[0] }} style={styles.detailImage} /> : <View style={[styles.detailImage, styles.detailImageFallback]} />}
 
       <View style={styles.detailPlainHeader}>
@@ -2112,9 +2142,9 @@ function SectionTitle({ title }: { title: string }) {
   return <Text style={styles.sectionTitle}>{title}</Text>;
 }
 
-function BottomTabs({ active, onChange }: { active: TabKey; onChange: (tab: TabKey) => void }) {
+function BottomTabs({ active, onChange, bottomInset }: { active: TabKey; onChange: (tab: TabKey) => void; bottomInset: number }) {
   return (
-    <View style={styles.bottomTabs}>
+    <View style={[styles.bottomTabs, { paddingBottom: bottomInset + 8 }]}>
       <View style={styles.bottomTabsInner}>
         {tabItems.map((item) => (
           <TouchableOpacity
