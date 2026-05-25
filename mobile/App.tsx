@@ -770,6 +770,7 @@ function AppContent() {
               openCategory={openCategory}
               openDetail={openDetail}
               toggleFavorite={toggleFavorite}
+              authUser={authUser}
               onOpenAuth={() => setAuthSheetOpen(true)}
               onOpenPrograms={() => setRoute({ name: 'programs' })}
               onOpenTips={() => setRoute({ name: 'tips' })}
@@ -806,6 +807,7 @@ function HomeScreen({
   openCategory,
   openDetail,
   toggleFavorite,
+  authUser,
   onOpenAuth,
   onOpenPrograms,
   onOpenTips
@@ -815,6 +817,7 @@ function HomeScreen({
   openCategory: (category: GuideCategory) => void;
   openDetail: (place: GuidePlace) => void;
   toggleFavorite: (slug: string) => void;
+  authUser: Record<string, unknown> | null;
   onOpenAuth: () => void;
   onOpenPrograms: () => void;
   onOpenTips: () => void;
@@ -822,6 +825,7 @@ function HomeScreen({
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   const [selectedTip, setSelectedTip] = useState<GuideTip | null>(null);
   const bannerScrollRef = useRef<ScrollView | null>(null);
+  const activeHeroIndexRef = useRef(0);
   const { width: viewportWidth } = useWindowDimensions();
   const visibleCategories = useMemo(
     () => dedupeHomeCategories(
@@ -830,28 +834,71 @@ function HomeScreen({
     [payload.categories]
   );
   const activeBanners = useMemo(() => payload.collections.filter((collection) => collection.active), [payload.collections]);
+  const loopedBanners = useMemo(() => (
+    activeBanners.length > 1
+      ? [activeBanners[activeBanners.length - 1], ...activeBanners, activeBanners[0]]
+      : activeBanners
+  ), [activeBanners]);
   const visibleTips = useMemo(() => payload.tips.filter((tip) => tip.active).slice(0, 3), [payload.tips]);
   const bannerGap = 12;
   const bannerCardWidth = Math.max(248, Math.min(viewportWidth - 54, viewportWidth * 0.78));
   const bannerSideInset = Math.max(18, (viewportWidth - bannerCardWidth) / 2);
   const bannerStep = bannerCardWidth + bannerGap;
+  const firstRealBannerOffset = activeBanners.length > 1 ? bannerStep : 0;
+  const heroAvatarUrl = getAuthUserAvatarUrl(authUser);
 
   useEffect(() => {
     setActiveHeroIndex(0);
-    requestAnimationFrame(() => bannerScrollRef.current?.scrollTo({ x: 0, animated: false }));
-  }, [activeBanners.length]);
+    activeHeroIndexRef.current = 0;
+    requestAnimationFrame(() => bannerScrollRef.current?.scrollTo({ x: firstRealBannerOffset, animated: false }));
+  }, [activeBanners.length, firstRealBannerOffset]);
+
+  useEffect(() => {
+    activeHeroIndexRef.current = activeHeroIndex;
+  }, [activeHeroIndex]);
 
   const scrollToBanner = useCallback((index: number) => {
     if (activeBanners.length < 1) return;
     const nextIndex = positiveModulo(index, activeBanners.length);
     setActiveHeroIndex(nextIndex);
-    bannerScrollRef.current?.scrollTo({ x: nextIndex * bannerStep, animated: true });
+    activeHeroIndexRef.current = nextIndex;
+    bannerScrollRef.current?.scrollTo({ x: (activeBanners.length > 1 ? nextIndex + 1 : nextIndex) * bannerStep, animated: true });
+  }, [activeBanners.length, bannerStep]);
+
+  useEffect(() => {
+    if (activeBanners.length < 2) return undefined;
+    const timer = setInterval(() => {
+      const currentIndex = activeHeroIndexRef.current;
+      const nextIndex = positiveModulo(currentIndex + 1, activeBanners.length);
+      setActiveHeroIndex(nextIndex);
+      activeHeroIndexRef.current = nextIndex;
+      const targetOffset = currentIndex === activeBanners.length - 1
+        ? (activeBanners.length + 1) * bannerStep
+        : (nextIndex + 1) * bannerStep;
+      bannerScrollRef.current?.scrollTo({ x: targetOffset, animated: true });
+    }, 2000);
+    return () => clearInterval(timer);
   }, [activeBanners.length, bannerStep]);
 
   const handleBannerMomentumEnd = useCallback((event: { nativeEvent: { contentOffset: { x: number } } }) => {
     if (activeBanners.length < 2) return;
-    const nextIndex = Math.max(0, Math.min(activeBanners.length - 1, Math.round(event.nativeEvent.contentOffset.x / bannerStep)));
+    const rawIndex = Math.round(event.nativeEvent.contentOffset.x / bannerStep);
+    if (rawIndex <= 0) {
+      const lastIndex = activeBanners.length - 1;
+      setActiveHeroIndex(lastIndex);
+      activeHeroIndexRef.current = lastIndex;
+      requestAnimationFrame(() => bannerScrollRef.current?.scrollTo({ x: activeBanners.length * bannerStep, animated: false }));
+      return;
+    }
+    if (rawIndex >= activeBanners.length + 1) {
+      setActiveHeroIndex(0);
+      activeHeroIndexRef.current = 0;
+      requestAnimationFrame(() => bannerScrollRef.current?.scrollTo({ x: bannerStep, animated: false }));
+      return;
+    }
+    const nextIndex = rawIndex - 1;
     setActiveHeroIndex(nextIndex);
+    activeHeroIndexRef.current = nextIndex;
   }, [activeBanners.length, bannerStep]);
 
   const openBannerLink = useCallback((banner: GuideCollection) => {
@@ -907,7 +954,13 @@ function HomeScreen({
       <ImageBackground source={heroBackground} style={[styles.homeHero, { width: viewportWidth }]} imageStyle={styles.homeHeroImage}>
         <View style={styles.homeHeroOverlay} />
         <TouchableOpacity activeOpacity={0.86} onPress={onOpenAuth} style={styles.heroAuthButton}>
-          <Text style={styles.heroAuthIcon}>👤</Text>
+          {heroAvatarUrl ? (
+            <Image source={{ uri: heroAvatarUrl }} style={styles.heroAuthAvatar} />
+          ) : authUser ? (
+            <Text style={styles.heroAuthIcon}>{toText(authUser.displayName || authUser.username || authUser.email, 'П').slice(0, 1).toUpperCase()}</Text>
+          ) : (
+            <Text style={styles.heroAuthIcon}>👤</Text>
+          )}
         </TouchableOpacity>
         <Image source={heroLogo} resizeMode="contain" style={styles.heroLogoImage} />
       </ImageBackground>
@@ -927,9 +980,9 @@ function HomeScreen({
               onMomentumScrollEnd={handleBannerMomentumEnd}
               contentContainerStyle={[styles.bannerScrollerContent, { paddingHorizontal: bannerSideInset, gap: bannerGap }]}
             >
-              {activeBanners.map((banner) => (
+              {loopedBanners.map((banner, index) => (
                 <TouchableOpacity
-                  key={banner.id}
+                  key={`${banner.id}-${index}`}
                   activeOpacity={0.9}
                   onPress={() => openBannerLink(banner)}
                   style={[styles.homeBanner, styles.homeBannerSlide, { width: bannerCardWidth }]}
@@ -1913,7 +1966,7 @@ function AuthSheet({
   onClose: () => void;
   onLogout: () => void;
 }) {
-  const authReturnTo = 'danangguide://auth';
+  const authReturnTo = 'danangguide:///auth';
   const displayName = toText(user?.displayName || user?.username || user?.email, 'Пользователь');
   const userEmail = toText(user?.email);
   const avatarUrl = getAuthUserAvatarUrl(user);
@@ -2190,6 +2243,7 @@ const styles = StyleSheet.create({
   homeHeroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5, 18, 38, 0.08)' },
   homeUtilityDot: { position: 'absolute', right: 18, top: 6, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.18)' },
   heroAuthButton: { position: 'absolute', right: 14, top: Platform.OS === 'android' ? ANDROID_STATUS_BAR_INSET + 10 : 12, zIndex: 4, width: 46, height: 46, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(8, 18, 37, 0.36)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
+  heroAuthAvatar: { width: 42, height: 42, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.22)' },
   heroAuthIcon: { color: '#ffffff', fontSize: 20, lineHeight: 23, fontWeight: '900' },
   heroLogoImage: { width: 304, height: 88, marginTop: 4 },
   homeBody: { width: '100%', minWidth: '100%', alignSelf: 'stretch', marginTop: -18, paddingHorizontal: 0, paddingLeft: 0, paddingRight: 0, gap: 14, backgroundColor: '#ffffff' },
