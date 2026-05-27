@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import type { GuideCategory, GuidePlace } from '../types';
 import { API_BASE_URL } from '../api/client';
 import { normalizeImageUrl } from '../utils/normalizers';
@@ -74,11 +74,29 @@ export function ListingCard({
   onPress: () => void;
   onToggleFavorite: () => void;
 }) {
-  const imageUrl = normalizeImageUrl(place.coverImageUrl || place.imageSrc || place.imageGallery?.[0], API_BASE_URL);
+  const { width } = useWindowDimensions();
+  const imageWidth = Math.max(280, width - 28);
+  const imageUrls = [
+    place.coverImageUrl,
+    place.imageSrc,
+    ...(Array.isArray(place.imageGallery) ? place.imageGallery : []),
+    ...(Array.isArray(place.imageUrls) ? place.imageUrls : [])
+  ]
+    .map((item) => normalizeImageUrl(item, API_BASE_URL))
+    .filter((item, index, list): item is string => Boolean(item) && list.indexOf(item) === index);
 
   return (
     <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={styles.listingCard}>
-      {imageUrl ? <Image source={{ uri: imageUrl }} style={styles.listingImage} /> : <View style={[styles.listingImage, styles.imageFallback]} />}
+      {imageUrls.length > 0 ? (
+        <View style={styles.listingImageWrap}>
+          <ScrollView horizontal pagingEnabled nestedScrollEnabled showsHorizontalScrollIndicator={false} style={styles.listingImage}>
+            {imageUrls.map((imageUrl, index) => (
+              <Image key={`${imageUrl}-${index}`} source={{ uri: imageUrl }} style={[styles.listingImageSlide, { width: imageWidth }]} />
+            ))}
+          </ScrollView>
+          {imageUrls.length > 1 ? <Text style={styles.listingImageCount}>{imageUrls.length} фото</Text> : null}
+        </View>
+      ) : <View style={[styles.listingImage, styles.imageFallback]} />}
       <View style={styles.listingBody}>
         <View style={styles.rowBetween}>
           <View style={styles.flex}>
@@ -131,7 +149,10 @@ const styles = StyleSheet.create({
   cardMeta: { color: '#53739b', fontSize: 13, marginTop: 4, fontWeight: '700' },
   countText: { color: '#53739b', fontSize: 14, fontWeight: '800' },
   listingCard: { borderRadius: 24, backgroundColor: '#fff', borderWidth: 1, borderColor: '#dfe7f1', overflow: 'hidden' },
+  listingImageWrap: { width: '100%', height: 170, backgroundColor: '#e3f0ec' },
   listingImage: { width: '100%', height: 170, backgroundColor: '#e3f0ec' },
+  listingImageSlide: { width: 360, height: 170, backgroundColor: '#e3f0ec' },
+  listingImageCount: { position: 'absolute', right: 10, bottom: 10, overflow: 'hidden', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: 'rgba(9, 19, 38, 0.62)', color: '#ffffff', fontSize: 11, fontWeight: '900' },
   imageFallback: { alignItems: 'center', justifyContent: 'center' },
   listingBody: { padding: 16 },
   favoriteButton: { width: 42, height: 42, borderRadius: 16, backgroundColor: '#f1f5fa', alignItems: 'center', justifyContent: 'center' },

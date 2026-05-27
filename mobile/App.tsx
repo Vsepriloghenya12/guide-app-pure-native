@@ -4,6 +4,7 @@ import {
   FlatList,
   Image,
   ImageBackground,
+  KeyboardAvoidingView,
   Linking,
   Modal,
   PanResponder,
@@ -20,6 +21,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import type { BootstrapPayload, GuideCategory, GuideCollection, GuidePlace, GuideTip, SupportContentStore } from './src/types';
 import { fetchBootstrap, fetchSupportContent, fetchAuthSession, fetchAuthStartUrl, logoutAuthSession, API_BASE_URL, sendAnalytics, submitBulletinListing } from './src/api/client';
@@ -375,6 +377,12 @@ type NativeRoute = {
   description: string;
   sees: string[];
   points: NativeRoutePoint[];
+};
+
+type BulletinPostImage = {
+  uri: string;
+  dataUrl: string;
+  fileName: string;
 };
 
 const nativeRoutes: NativeRoute[] = [
@@ -988,12 +996,7 @@ function HomeScreen({
                   style={[styles.homeBanner, styles.homeBannerSlide, { width: bannerCardWidth }]}
                 >
                   <ImageBackground source={bannerImageSource(banner)} style={styles.full} imageStyle={styles.homeBannerImage}>
-                    {Boolean(toText(banner.title) || toText(banner.description)) ? (
-                      <View style={styles.homeBannerTextWrap}>
-                        {toText(banner.title) ? <Text style={styles.homeBannerTitle} numberOfLines={2}>{banner.title}</Text> : null}
-                        {toText(banner.description) ? <Text style={styles.homeBannerText} numberOfLines={3}>{banner.description}</Text> : null}
-                      </View>
-                    ) : null}
+                    <View style={styles.bannerOverlay} />
                   </ImageBackground>
                 </TouchableOpacity>
               ))}
@@ -1287,6 +1290,7 @@ function BulletinBoardScreen({
   const [postSection, setPostSection] = useState('Разное');
   const [postPhone, setPostPhone] = useState('');
   const [postLink, setPostLink] = useState('');
+  const [postImages, setPostImages] = useState<BulletinPostImage[]>([]);
   const [isPosting, setPosting] = useState(false);
   const sections = ['Все', 'Работа', 'Продажи', 'Услуги', 'Разное'];
   const normalizedQuery = query.trim().toLowerCase();
@@ -1306,6 +1310,42 @@ function BulletinBoardScreen({
     setPostSection('Разное');
     setPostPhone('');
     setPostLink('');
+    setPostImages([]);
+  }, []);
+  const pickPostImages = useCallback(async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Нет доступа к фото', 'Разреши доступ к галерее в настройках устройства.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      selectionLimit: Math.max(1, 6 - postImages.length),
+      quality: 0.82,
+      base64: true
+    });
+
+    if (result.canceled) return;
+
+    const nextImages = result.assets
+      .map((asset, index) => {
+        if (!asset.base64 || !asset.uri) return null;
+        const mimeType = asset.mimeType || 'image/jpeg';
+        const fileName = asset.fileName || `bulletin-photo-${Date.now()}-${index + 1}.jpg`;
+        return {
+          uri: asset.uri,
+          dataUrl: `data:${mimeType};base64,${asset.base64}`,
+          fileName
+        };
+      })
+      .filter((item): item is BulletinPostImage => Boolean(item));
+
+    setPostImages((current) => [...current, ...nextImages].slice(0, 6));
+  }, [postImages.length]);
+  const removePostImage = useCallback((index: number) => {
+    setPostImages((current) => current.filter((_, itemIndex) => itemIndex !== index));
   }, []);
   const openPostForm = useCallback(() => {
     if (!authUser) {
@@ -1333,6 +1373,7 @@ function BulletinBoardScreen({
         subcategory: 'Другое',
         phone,
         link,
+        images: postImages.map((image) => ({ dataUrl: image.dataUrl, fileName: image.fileName })),
         contactName: toText(authUser.displayName || authUser.username || authUser.email),
         district: '',
         priceLabel: ''
@@ -1346,7 +1387,7 @@ function BulletinBoardScreen({
     } finally {
       setPosting(false);
     }
-  }, [authUser, isPosting, postDescription, postLink, postPhone, postSection, postTitle, refresh, resetPostForm]);
+  }, [authUser, isPosting, postDescription, postImages, postLink, postPhone, postSection, postTitle, refresh, resetPostForm]);
 
   return (
     <>
@@ -1414,9 +1455,18 @@ function BulletinBoardScreen({
         </View>
       </ScrollView>
       <Modal visible={isPostOpen} transparent animationType="slide" onRequestClose={() => setPostOpen(false)}>
-        <View style={styles.modalBackdrop}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+          style={styles.modalBackdrop}
+        >
           <TouchableOpacity style={styles.modalBackdropTouch} activeOpacity={1} onPress={() => setPostOpen(false)} />
-          <View style={styles.bulletinPostSheet}>
+          <ScrollView
+            style={styles.bulletinPostSheet}
+            contentContainerStyle={styles.bulletinPostSheetContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.filterSheetHeader}>
               <View>
                 <Text style={styles.filterSheetTitle}>Новое объявление</Text>
@@ -1438,11 +1488,29 @@ function BulletinBoardScreen({
             </View>
             <TextInput value={postPhone} onChangeText={setPostPhone} placeholder="Телефон или Telegram" placeholderTextColor="#8a9aae" style={styles.bulletinPostInput} />
             <TextInput value={postLink} onChangeText={setPostLink} placeholder="Ссылка, если есть" placeholderTextColor="#8a9aae" style={styles.bulletinPostInput} autoCapitalize="none" />
+            <View style={styles.bulletinPhotoHeader}>
+              <Text style={styles.bulletinPhotoTitle}>Фото</Text>
+              <TouchableOpacity activeOpacity={0.84} disabled={postImages.length >= 6} onPress={() => void pickPostImages()} style={[styles.bulletinAddPhotoButton, postImages.length >= 6 && styles.authProviderButtonDisabled]}>
+                <Text style={styles.bulletinAddPhotoText}>{postImages.length ? 'Добавить ещё' : 'Добавить фото'}</Text>
+              </TouchableOpacity>
+            </View>
+            {postImages.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bulletinPhotoRow}>
+                {postImages.map((image, index) => (
+                  <View key={`${image.uri}-${index}`} style={styles.bulletinPhotoThumbWrap}>
+                    <Image source={{ uri: image.uri }} style={styles.bulletinPhotoThumb} />
+                    <TouchableOpacity activeOpacity={0.82} onPress={() => removePostImage(index)} style={styles.bulletinRemovePhotoButton}>
+                      <Text style={styles.bulletinRemovePhotoText}>×</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            ) : null}
             <TouchableOpacity activeOpacity={0.88} disabled={isPosting} onPress={() => void submitPost()} style={[styles.bulletinPostButton, isPosting && styles.authProviderButtonDisabled]}>
               <Text style={styles.bulletinPostText}>{isPosting ? 'Отправляем...' : 'Отправить объявление'}</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
@@ -1459,7 +1527,7 @@ function CategoryListingCard({
   onPress: () => void;
   onToggleFavorite: () => void;
 }) {
-  const imageUrl = getPrimaryImageUrl(place);
+  const imageUrls = getPlaceImageUrls(place);
   const avgCheckValue = Number(place.avgCheck);
   const checkLabel = place.priceLabel || (Number.isFinite(avgCheckValue) && avgCheckValue > 0 ? `${avgCheckValue.toLocaleString('ru-RU')} ₫` : 'Не указан');
   const hoursLabel = place.hours || 'Не указано';
@@ -1468,12 +1536,25 @@ function CategoryListingCard({
 
   return (
     <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={styles.restaurantCardNative}>
-      {imageUrl ? (
-        <ImageBackground source={{ uri: imageUrl }} style={styles.restaurantCardImage} imageStyle={styles.restaurantCardImageReal}>
-          <View style={styles.restaurantCardImageShade} />
+      {imageUrls.length > 0 ? (
+        <View style={styles.restaurantCardImage}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator={false}
+            style={styles.full}
+          >
+            {imageUrls.map((imageUrl, index) => (
+              <ImageBackground key={`${imageUrl}-${index}`} source={{ uri: imageUrl }} style={styles.restaurantCardImageSlide} imageStyle={styles.restaurantCardImageReal}>
+                <View style={styles.restaurantCardImageShade} />
+              </ImageBackground>
+            ))}
+          </ScrollView>
           <Text style={styles.restaurantCardImageTitle} numberOfLines={2}>{place.title}</Text>
+          {imageUrls.length > 1 ? <Text style={styles.restaurantCardImageCount}>{imageUrls.length} фото</Text> : null}
           {isFavorite ? <Text style={styles.restaurantCardSavedMark}>♥</Text> : null}
-        </ImageBackground>
+        </View>
       ) : (
         <View style={[styles.restaurantCardImage, styles.restaurantCardImageFallback]}>
           <Text style={styles.restaurantCardImageTitle} numberOfLines={2}>{place.title}</Text>
@@ -2075,7 +2156,9 @@ function AuthSheet({
 
 function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place: GuidePlace; category?: GuideCategory; isFavorite: boolean; onToggleFavorite: () => void }) {
   const mobileInsets = useMobileInsets();
+  const { width: viewportWidth } = useWindowDimensions();
   const gallery = getPlaceImageUrls(place);
+  const detailImageWidth = Math.max(280, viewportWidth - 28);
   const details = Array.from(new Set([...toTextArray((place as GuidePlace & { extra?: unknown }).extra), ...toTextArray((place as GuidePlace & { services?: unknown }).services)]));
   const tags = toTextArray((place as GuidePlace & { tags?: unknown }).tags);
   const description = toText(place.description || place.shortDescription, 'Описание пока не заполнено.');
@@ -2099,7 +2182,22 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
       ]}
       showsVerticalScrollIndicator={false}
     >
-      {gallery[0] ? <Image source={{ uri: gallery[0] }} style={styles.detailImage} /> : <View style={[styles.detailImage, styles.detailImageFallback]} />}
+      {gallery.length > 0 ? (
+        <View style={styles.detailGalleryWrap}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator={false}
+            style={styles.detailGallery}
+          >
+            {gallery.map((imageUrl, index) => (
+              <Image key={`${imageUrl}-${index}`} source={{ uri: imageUrl }} style={[styles.detailImage, { width: detailImageWidth }]} />
+            ))}
+          </ScrollView>
+          {gallery.length > 1 ? <Text style={styles.detailImageCount}>{gallery.length} фото</Text> : null}
+        </View>
+      ) : <View style={[styles.detailImage, styles.detailImageFallback]} />}
 
       <View style={styles.detailPlainHeader}>
         <View style={styles.detailTitleRow}>
@@ -2314,7 +2412,10 @@ const styles = StyleSheet.create({
   contactValue: { color: '#155ea6', fontSize: 16, fontWeight: '900', marginTop: 10 },
 
   detailContentInner: { paddingHorizontal: 14, paddingTop: Platform.OS === 'android' ? ANDROID_STATUS_BAR_INSET + 14 : 14, paddingBottom: 28 + ANDROID_NAVIGATION_BAR_INSET, backgroundColor: '#ffffff', gap: 14 },
+  detailGalleryWrap: { width: '100%', height: 270, borderRadius: 28, overflow: 'hidden', backgroundColor: '#dce8f4' },
+  detailGallery: { width: '100%', height: 270 },
   detailImage: { width: '100%', height: 270, borderRadius: 28, backgroundColor: '#dce8f4' },
+  detailImageCount: { position: 'absolute', right: 14, bottom: 14, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: 'rgba(9, 19, 38, 0.62)', color: '#ffffff', fontSize: 12, fontWeight: '900' },
   detailImageFallback: { backgroundColor: '#d7e6f5' },
   detailCard: { padding: 18, borderRadius: 26, backgroundColor: '#fff', borderWidth: 1, borderColor: '#d8e0ea', gap: 10 },
   detailPlainHeader: { gap: 12, paddingHorizontal: 2, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
@@ -2367,10 +2468,12 @@ const styles = StyleSheet.create({
   restaurantListNative: { gap: 0 },
   restaurantCardNative: { minHeight: 116, width: '100%', flexDirection: 'row', gap: 12, paddingVertical: 12, paddingHorizontal: 0, borderRadius: 0, backgroundColor: 'transparent', borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)', shadowOpacity: 0, elevation: 0, overflow: 'hidden' },
   restaurantCardImage: { width: 118, height: 94, borderRadius: 16, backgroundColor: '#dce8f4', overflow: 'hidden', justifyContent: 'flex-end', flexShrink: 0 },
+  restaurantCardImageSlide: { width: 118, height: 94, justifyContent: 'flex-end' },
   restaurantCardImageFallback: { backgroundColor: '#dce8f4' },
   restaurantCardImageReal: { borderRadius: 16 },
   restaurantCardImageShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(7, 17, 34, 0.30)' },
   restaurantCardImageTitle: { position: 'absolute', left: 7, right: 7, bottom: 7, color: '#ffffff', fontSize: 11, lineHeight: 13, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+  restaurantCardImageCount: { position: 'absolute', left: 6, top: 5, overflow: 'hidden', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999, backgroundColor: 'rgba(9, 19, 38, 0.58)', color: '#ffffff', fontSize: 9.5, fontWeight: '900' },
   restaurantCardSavedMark: { position: 'absolute', right: 6, top: 5, color: '#ffffff', fontSize: 13, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
   restaurantCardBody: { flex: 1, minWidth: 0, maxWidth: '100%', justifyContent: 'center', gap: 4, paddingTop: 0, paddingRight: 2, overflow: 'hidden' },
   restaurantCardTitle: { color: '#162640', fontSize: 14.2, lineHeight: 17, fontWeight: '900', letterSpacing: -0.2 },
@@ -2413,9 +2516,19 @@ const styles = StyleSheet.create({
   bulletinQuickTextActive: { color: '#ffffff' },
   bulletinFeedHead: { paddingTop: 4, paddingBottom: 2 },
   bulletinFeedTitle: { color: '#162640', fontSize: 20, lineHeight: 24, fontWeight: '900' },
-  bulletinPostSheet: { maxHeight: '82%', paddingHorizontal: 16, paddingTop: 16, paddingBottom: Platform.OS === 'ios' ? 28 : 18 + ANDROID_NAVIGATION_BAR_INSET, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#f8fbff', gap: 10 },
+  bulletinPostSheet: { maxHeight: '82%', borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#f8fbff' },
+  bulletinPostSheetContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: Platform.OS === 'ios' ? 28 : 18 + ANDROID_NAVIGATION_BAR_INSET, gap: 10 },
   bulletinPostInput: { minHeight: 46, borderRadius: 16, borderWidth: 1, borderColor: '#d8e0ea', backgroundColor: '#ffffff', paddingHorizontal: 13, color: '#162640', fontSize: 13.5, lineHeight: 18, fontWeight: '700' },
   bulletinPostInputMultiline: { minHeight: 104, paddingTop: 12, paddingBottom: 12 },
+  bulletinPhotoHeader: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  bulletinPhotoTitle: { color: '#162640', fontSize: 15, fontWeight: '900' },
+  bulletinAddPhotoButton: { minHeight: 34, borderRadius: 13, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea' },
+  bulletinAddPhotoText: { color: '#1f63c7', fontSize: 12, fontWeight: '900' },
+  bulletinPhotoRow: { gap: 8, paddingRight: 6 },
+  bulletinPhotoThumbWrap: { width: 84, height: 84, borderRadius: 16, overflow: 'hidden', backgroundColor: '#dce8f4' },
+  bulletinPhotoThumb: { width: '100%', height: '100%' },
+  bulletinRemovePhotoButton: { position: 'absolute', right: 5, top: 5, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(9, 19, 38, 0.70)' },
+  bulletinRemovePhotoText: { color: '#ffffff', fontSize: 18, lineHeight: 20, fontWeight: '900' },
 
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(9, 19, 38, 0.36)' },
   modalBackdropTouch: { ...StyleSheet.absoluteFillObject },

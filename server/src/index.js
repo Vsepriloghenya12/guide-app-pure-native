@@ -469,8 +469,13 @@ async function createPublicBulletinPayload(input, publicUser) {
   const phone = normalizePublicText(input?.phone, 80);
   const link = normalizePublicText(input?.link, 220);
   const contactName = normalizePublicText(input?.contactName, 80);
-  const imageDataUrl = typeof input?.imageDataUrl === 'string' ? input.imageDataUrl : '';
-  const imageFileName = normalizePublicText(input?.imageFileName, 120) || 'bulletin-photo';
+  const imageItems = Array.isArray(input?.images)
+    ? input.images
+    : Array.isArray(input?.imageDataUrls)
+      ? input.imageDataUrls.map((dataUrl, index) => ({ dataUrl, fileName: `bulletin-photo-${index + 1}` }))
+      : input?.imageDataUrl
+        ? [{ dataUrl: input.imageDataUrl, fileName: input.imageFileName }]
+        : [];
   const id = `bulletin-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
   const resolvedContactName = contactName || normalizePublicText(publicUser?.displayName, 80);
   const contactDetails = [resolvedContactName ? `Контакт: ${resolvedContactName}` : '', link ? `Ссылка: ${link}` : ''].filter(Boolean);
@@ -484,15 +489,23 @@ async function createPublicBulletinPayload(input, publicUser) {
     return { error: 'Укажи телефон или ссылку для связи.' };
   }
 
-  const uploadedImage = imageDataUrl
-    ? await storeUploadedImage({
-        fileName: imageFileName,
-        dataUrl: imageDataUrl,
-        kind: 'bulletin'
-      })
-    : null;
+  const uploadedImages = [];
+  for (let index = 0; index < Math.min(imageItems.length, 6); index += 1) {
+    const item = imageItems[index];
+    const dataUrl = typeof item?.dataUrl === 'string' ? item.dataUrl : typeof item === 'string' ? item : '';
+    if (!dataUrl) continue;
+    const uploadedImage = await storeUploadedImage({
+      fileName: normalizePublicText(item?.fileName, 120) || `bulletin-photo-${index + 1}`,
+      dataUrl,
+      kind: 'bulletin'
+    });
+    if (uploadedImage?.url) {
+      uploadedImages.push(uploadedImage.url);
+    }
+  }
 
-  const imageUrl = uploadedImage?.url || defaultImageUrl;
+  const imageGallery = uploadedImages.length ? uploadedImages : [defaultImageUrl];
+  const imageUrl = imageGallery[0] || defaultImageUrl;
 
   return {
     listing: {
@@ -525,7 +538,8 @@ async function createPublicBulletinPayload(input, publicUser) {
       sortOrder: 100,
       imageLabel: 'Фото объявления',
       imageSrc: imageUrl,
-      imageGallery: imageUrl ? [imageUrl] : [],
+      imageGallery,
+      imageUrls: imageGallery,
       hotelStars: null,
       hotelPool: false,
       hotelSpa: false,

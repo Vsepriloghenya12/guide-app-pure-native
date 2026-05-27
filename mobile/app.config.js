@@ -31,7 +31,15 @@ module.exports = {
       edgeToEdgeEnabled: false,
       softwareKeyboardLayoutMode: 'pan'
     },
-    plugins: ['expo-location'],
+    plugins: [
+      'expo-location',
+      [
+        'expo-image-picker',
+        {
+          photosPermission: 'Приложение использует доступ к фото, чтобы добавлять изображения к объявлениям.'
+        }
+      ]
+    ],
     icon: './assets/icon.png',
     splash: {
       image: './assets/splash.png',
