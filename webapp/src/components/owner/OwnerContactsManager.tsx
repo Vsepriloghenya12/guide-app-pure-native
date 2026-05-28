@@ -72,11 +72,11 @@ export function OwnerContactsManager() {
     }));
   };
 
-  const handleSave = async () => {
+  const saveNextContent = async (nextContent: SupportContentStore, savingText: string) => {
     setSaving(true);
-    setStatus('Сохраняю контакты...');
+    setStatus(savingText);
     try {
-      const saved = await saveSupportContent(content);
+      const saved = await saveSupportContent(nextContent);
       setContent(saved);
       setStatus('Страница контактов обновлена.');
     } catch (error) {
@@ -84,6 +84,28 @@ export function OwnerContactsManager() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const deleteChannel = (id: string) => {
+    const nextContent = {
+      ...content,
+      contactChannels: content.contactChannels.filter((item) => item.id !== id)
+    };
+    setContent(nextContent);
+    void saveNextContent(nextContent, 'Удаляю контакт...');
+  };
+
+  const deleteEmergency = (id: string) => {
+    const nextContent = {
+      ...content,
+      emergencyContacts: content.emergencyContacts.filter((item) => item.id !== id)
+    };
+    setContent(nextContent);
+    void saveNextContent(nextContent, 'Удаляю контакт...');
+  };
+
+  const handleSave = async () => {
+    await saveNextContent(content, 'Сохраняю контакты...');
   };
 
   return (
@@ -165,7 +187,7 @@ export function OwnerContactsManager() {
                       <input value={channel.href} onChange={(event) => updateChannel(channel.id, { href: event.target.value })} />
                     </label>
                   </div>
-                  <button className="button button--ghost button--danger button--small" type="button" onClick={() => updateField('contactChannels', content.contactChannels.filter((item) => item.id !== channel.id))}>
+                  <button className="button button--ghost button--danger button--small" type="button" onClick={() => deleteChannel(channel.id)} disabled={saving}>
                     Удалить
                   </button>
                 </div>
@@ -212,7 +234,7 @@ export function OwnerContactsManager() {
                       <input value={contact.href} onChange={(event) => updateEmergency(contact.id, { href: event.target.value })} />
                     </label>
                   </div>
-                  <button className="button button--ghost button--danger button--small" type="button" onClick={() => updateField('emergencyContacts', content.emergencyContacts.filter((item) => item.id !== contact.id))}>
+                  <button className="button button--ghost button--danger button--small" type="button" onClick={() => deleteEmergency(contact.id)} disabled={saving}>
                     Удалить
                   </button>
                 </div>

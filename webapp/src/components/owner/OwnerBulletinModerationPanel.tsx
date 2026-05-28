@@ -122,6 +122,12 @@ export function OwnerBulletinModerationPanel({
   const updateItemStatus = useCallback(
     async (item: GuidePlace, nextStatus: ModerationBucket) => {
       setBusyId(item.id);
+      const moderationNote =
+        nextStatus === "hidden"
+          ? window.prompt("Почему объявление не прошло модерацию?", item.moderationNote || "")?.trim() || ""
+          : nextStatus === "published"
+            ? ""
+            : item.moderationNote || "";
       setStatus(
         nextStatus === "published"
           ? "Публикую объявление..."
@@ -136,6 +142,7 @@ export function OwnerBulletinModerationPanel({
             ...(item as Listing),
             categorySlug: item.categorySlug || item.categoryId,
             status: nextStatus,
+            moderationNote,
             title: item.title
           },
           { isNew: false }
@@ -285,6 +292,12 @@ export function OwnerBulletinModerationPanel({
                           <span className="owner-meta-pill">Есть ссылка</span>
                         ) : null}
                       </div>
+
+                      {item.moderationNote ? (
+                        <p className="owner-item-card__description">
+                          Причина: {item.moderationNote}
+                        </p>
+                      ) : null}
 
                       <div className="owner-item-card__actions owner-moderation-card__actions">
                         {normalizedStatus !== "published" ? (

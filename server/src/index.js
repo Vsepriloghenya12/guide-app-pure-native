@@ -602,6 +602,7 @@ function toListing(place) {
     location: place.location || place.address || '',
     type: normalizeLegacyShopsLabel(place.type || place.kind || '', place.categoryId),
     status,
+    moderationNote: String(place.moderationNote || '').trim(),
     sortOrder: Number(place.sortOrder || 0) || 0,
     lat: typeof place.lat === 'number' ? place.lat : null,
     lng: typeof place.lng === 'number' ? place.lng : null,
@@ -1028,6 +1029,18 @@ app.post('/api/bulletin-submissions', requirePublicUser, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to submit bulletin listing' });
+  }
+});
+
+app.get('/api/me/bulletins', requirePublicUser, async (req, res) => {
+  try {
+    const listings = (await getPlaces({ categoryId: 'bulletin-board', includeHidden: true }))
+      .filter((listing) => String(listing.createdByUserId || '').trim() === String(req.publicUser.id || '').trim())
+      .map(toListing);
+
+    res.json({ ok: true, listings });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Не удалось загрузить объявления.' });
   }
 });
 

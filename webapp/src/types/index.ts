@@ -65,6 +65,7 @@ export type GuidePlace = {
   type?: string;
   contactName?: string;
   createdByUserId?: string;
+  moderationNote?: string;
   status?: 'draft' | 'hidden' | 'published';
   sortOrder?: number;
   lat?: number | null;

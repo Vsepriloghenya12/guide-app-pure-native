@@ -513,6 +513,7 @@ function normalizePlace(place, index, fallbackPlace = {}) {
     type: normalizeLegacyShopsLabel(safePlace.type || safePlace.kind || safeFallbackPlace.type || safeFallbackPlace.kind || '', categoryId),
     contactName: String(safePlace.contactName || safeFallbackPlace.contactName || '').trim(),
     createdByUserId: String(safePlace.createdByUserId || safeFallbackPlace.createdByUserId || '').trim(),
+    moderationNote: String(safePlace.moderationNote || safeFallbackPlace.moderationNote || '').trim(),
     status: coerceStatus(safePlace.status || safeFallbackPlace.status),
     sortOrder: Number.isFinite(Number(safePlace.sortOrder)) ? Number(safePlace.sortOrder) : Number.isFinite(Number(safeFallbackPlace.sortOrder)) ? Number(safeFallbackPlace.sortOrder) : index * 10 + 10,
     lat: toNullableNumber(safePlace.lat ?? safeFallbackPlace.lat),
@@ -668,6 +669,7 @@ async function ensureDatabase() {
           district text not null default '',
           contact_name text not null default '',
           created_by_user_id text not null default '',
+          moderation_note text not null default '',
           hotel_stars integer,
           hotel_pool boolean not null default false,
           hotel_spa boolean not null default false,
@@ -684,6 +686,7 @@ async function ensureDatabase() {
       await db.unsafe(`alter table places add column if not exists district text not null default ''`);
       await db.unsafe(`alter table places add column if not exists contact_name text not null default ''`);
       await db.unsafe(`alter table places add column if not exists created_by_user_id text not null default ''`);
+      await db.unsafe(`alter table places add column if not exists moderation_note text not null default ''`);
       await db.unsafe(`alter table places add column if not exists hotel_stars integer`);
       await db.unsafe(`alter table places add column if not exists hotel_pool boolean not null default false`);
       await db.unsafe(`alter table places add column if not exists hotel_spa boolean not null default false`);
@@ -956,11 +959,11 @@ async function replaceStoreContents(store) {
           insert into places (
             id, category_id, slug, title, description, address, phone, website, hours, avg_check, price_label, kind, cuisine,
             services, tags, breakfast, vegan, pets, child_programs, top, image_label, image_src,
-            status, sort_order, lat, lng, map_query, district, contact_name, created_by_user_id, hotel_stars, hotel_pool, hotel_spa, updated_at
+            status, sort_order, lat, lng, map_query, district, contact_name, created_by_user_id, moderation_note, hotel_stars, hotel_pool, hotel_spa, updated_at
           ) values (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
             $14::jsonb, $15::jsonb, $16, $17, $18, $19, $20, $21, $22, $23,
-            $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, now()
+            $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, now()
           )
           on conflict (id) do update set
             category_id = excluded.category_id,
@@ -992,6 +995,7 @@ async function replaceStoreContents(store) {
             district = excluded.district,
             contact_name = excluded.contact_name,
             created_by_user_id = excluded.created_by_user_id,
+            moderation_note = excluded.moderation_note,
             hotel_stars = excluded.hotel_stars,
             hotel_pool = excluded.hotel_pool,
             hotel_spa = excluded.hotel_spa,
@@ -1028,6 +1032,7 @@ async function replaceStoreContents(store) {
           place.district || '',
           place.contactName || '',
           place.createdByUserId || '',
+          place.moderationNote || '',
           place.hotelStars,
           Boolean(place.hotelPool),
           Boolean(place.hotelSpa)
@@ -1152,7 +1157,7 @@ async function readPlaces() {
              avg_check as "avgCheck", price_label as "priceLabel", kind, cuisine, services, tags, breakfast, vegan, pets,
              child_programs as "childPrograms", top, image_label as "imageLabel", image_src as "imageSrc",
              status, sort_order as "sortOrder", lat, lng, map_query as "mapQuery", district,
-             contact_name as "contactName", created_by_user_id as "createdByUserId",
+             contact_name as "contactName", created_by_user_id as "createdByUserId", moderation_note as "moderationNote",
              hotel_stars as "hotelStars", hotel_pool as "hotelPool", hotel_spa as "hotelSpa"
       from places
       order by sort_order asc, title asc
@@ -1721,11 +1726,11 @@ async function upsertPlace(incomingPlace) {
         insert into places (
           id, category_id, slug, title, description, address, phone, website, hours, avg_check, price_label, kind, cuisine,
           services, tags, breakfast, vegan, pets, child_programs, top, image_label, image_src,
-          status, sort_order, lat, lng, map_query, district, contact_name, created_by_user_id, hotel_stars, hotel_pool, hotel_spa, updated_at
+          status, sort_order, lat, lng, map_query, district, contact_name, created_by_user_id, moderation_note, hotel_stars, hotel_pool, hotel_spa, updated_at
         ) values (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
           $14::jsonb, $15::jsonb, $16, $17, $18, $19, $20, $21, $22, $23,
-          $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, now()
+          $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, now()
         )
         on conflict (id) do update set
           category_id = excluded.category_id,
@@ -1757,6 +1762,7 @@ async function upsertPlace(incomingPlace) {
           district = excluded.district,
           contact_name = excluded.contact_name,
           created_by_user_id = excluded.created_by_user_id,
+          moderation_note = excluded.moderation_note,
           hotel_stars = excluded.hotel_stars,
           hotel_pool = excluded.hotel_pool,
           hotel_spa = excluded.hotel_spa,
@@ -1793,6 +1799,7 @@ async function upsertPlace(incomingPlace) {
         normalizedPlace.district || '',
         normalizedPlace.contactName || '',
         normalizedPlace.createdByUserId || '',
+        normalizedPlace.moderationNote || '',
         normalizedPlace.hotelStars,
         Boolean(normalizedPlace.hotelPool),
         Boolean(normalizedPlace.hotelSpa)

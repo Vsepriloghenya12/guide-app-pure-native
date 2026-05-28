@@ -1,5 +1,5 @@
-import React from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import type { GuideCategory, GuidePlace } from '../types';
 import { API_BASE_URL } from '../api/client';
 import { normalizeImageUrl } from '../utils/normalizers';
@@ -75,6 +75,7 @@ export function ListingCard({
   onToggleFavorite: () => void;
 }) {
   const { width } = useWindowDimensions();
+  const [fullscreenImage, setFullscreenImage] = useState('');
   const imageWidth = Math.max(280, width - 28);
   const imageUrls = [
     place.coverImageUrl,
@@ -91,7 +92,9 @@ export function ListingCard({
         <View style={styles.listingImageWrap}>
           <ScrollView horizontal pagingEnabled nestedScrollEnabled showsHorizontalScrollIndicator={false} style={styles.listingImage}>
             {imageUrls.map((imageUrl, index) => (
-              <Image key={`${imageUrl}-${index}`} source={{ uri: imageUrl }} style={[styles.listingImageSlide, { width: imageWidth }]} />
+              <TouchableOpacity key={`${imageUrl}-${index}`} activeOpacity={0.92} onPress={() => setFullscreenImage(imageUrl)}>
+                <Image source={{ uri: imageUrl }} style={[styles.listingImageSlide, { width: imageWidth }]} />
+              </TouchableOpacity>
             ))}
           </ScrollView>
           {imageUrls.length > 1 ? <Text style={styles.listingImageCount}>{imageUrls.length} фото</Text> : null}
@@ -114,7 +117,23 @@ export function ListingCard({
           {place.top ? <Pill label="Топ" /> : null}
         </View>
       </View>
+      <FullscreenImageModal imageUrl={fullscreenImage} onClose={() => setFullscreenImage('')} />
     </TouchableOpacity>
+  );
+}
+
+function FullscreenImageModal({ imageUrl, onClose }: { imageUrl: string; onClose: () => void }) {
+  return (
+    <Modal visible={Boolean(imageUrl)} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.fullscreenImageBackdrop}>
+        <TouchableOpacity activeOpacity={1} onPress={onClose} style={styles.fullscreenImageCloseArea}>
+          {imageUrl ? <Image source={{ uri: imageUrl }} style={styles.fullscreenImage} resizeMode="contain" /> : null}
+          <View style={styles.fullscreenImageCloseButton}>
+            <Text style={styles.fullscreenImageCloseText}>×</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+    </Modal>
   );
 }
 
@@ -154,6 +173,11 @@ const styles = StyleSheet.create({
   listingImageSlide: { width: 360, height: 170, backgroundColor: '#e3f0ec' },
   listingImageCount: { position: 'absolute', right: 10, bottom: 10, overflow: 'hidden', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: 'rgba(9, 19, 38, 0.62)', color: '#ffffff', fontSize: 11, fontWeight: '900' },
   imageFallback: { alignItems: 'center', justifyContent: 'center' },
+  fullscreenImageBackdrop: { flex: 1, backgroundColor: 'rgba(2, 8, 23, 0.94)' },
+  fullscreenImageCloseArea: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
+  fullscreenImage: { width: '100%', height: '86%' },
+  fullscreenImageCloseButton: { position: 'absolute', top: 44, right: 18, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+  fullscreenImageCloseText: { color: '#fff', fontSize: 30, lineHeight: 34, fontWeight: '600' },
   listingBody: { padding: 16 },
   favoriteButton: { width: 42, height: 42, borderRadius: 16, backgroundColor: '#f1f5fa', alignItems: 'center', justifyContent: 'center' },
   favoriteText: { color: '#2f78d6', fontSize: 24, lineHeight: 26 }

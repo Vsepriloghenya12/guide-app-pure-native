@@ -5,7 +5,7 @@ module.exports = {
     name: 'Da Nang Guide',
     slug: 'guide-app-native-connected',
     scheme: 'danangguide',
-    version: '1.0.10',
+    version: '1.0.13',
     orientation: 'portrait',
     userInterfaceStyle: 'light',
     assetBundlePatterns: ['assets/**/*'],
@@ -18,6 +18,7 @@ module.exports = {
     },
     android: {
       package: 'com.realone14.guideappnativeconnected',
+      versionCode: 4,
       permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION'],
       config: googleMapsApiKey ? {
         googleMaps: {

@@ -1,4 +1,4 @@
-import type { BootstrapPayload, SupportContentStore } from '../types';
+import type { BootstrapPayload, GuidePlace, SupportContentStore } from '../types';
 import { normalizeBootstrap, normalizeSupportContent } from '../utils/normalizers';
 import { getAuthToken } from '../utils/auth';
 
@@ -115,5 +115,17 @@ export async function submitBulletinListing(payload: Record<string, unknown>) {
   return requestJson<{ ok: boolean; listing?: unknown; message?: string }>('/api/bulletin-submissions', {
     method: 'POST',
     body: JSON.stringify(payload)
+  });
+}
+
+export async function fetchMyBulletinListings() {
+  if (!API_BASE_URL) return [];
+  const data = await requestJson<{ ok: boolean; listings?: GuidePlace[] }>('/api/me/bulletins');
+  return Array.isArray(data.listings) ? data.listings : [];
+}
+
+export async function deleteMyBulletinListing(id: string) {
+  return requestJson<{ ok: boolean; deletedId?: string }>(`/api/me/bulletins/${encodeURIComponent(id)}`, {
+    method: 'DELETE'
   });
 }

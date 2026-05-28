@@ -24,7 +24,7 @@ import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import type { BootstrapPayload, GuideCategory, GuideCollection, GuidePlace, GuideTip, SupportContentStore } from './src/types';
-import { fetchBootstrap, fetchSupportContent, fetchAuthSession, fetchAuthStartUrl, logoutAuthSession, API_BASE_URL, sendAnalytics, submitBulletinListing } from './src/api/client';
+import { fetchBootstrap, fetchSupportContent, fetchAuthSession, fetchAuthStartUrl, logoutAuthSession, API_BASE_URL, sendAnalytics, submitBulletinListing, fetchMyBulletinListings, deleteMyBulletinListing } from './src/api/client';
 import { appleMapsUrl, directionsUrl, googleMapsUrl, openExternalUrl } from './src/utils/links';
 import { estimateTravelTime, formatDistance, hasCoordinates, haversineDistanceKm } from './src/utils/geo';
 import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
@@ -323,6 +323,12 @@ function normalizeBulletinSection(value: unknown) {
   const normalized = normalizeToken(text);
   if (!normalized || normalized.includes('аренд')) return 'Разное';
   return text;
+}
+
+function bulletinStatusLabel(status?: GuidePlace['status']) {
+  if (status === 'published') return 'Опубликовано';
+  if (status === 'hidden') return 'Не прошло модерацию';
+  return 'На модерации';
 }
 
 function buildRoutesShortcut(): GuideCategory {
@@ -712,7 +718,6 @@ function AppContent() {
         <View style={[styles.appHeader, { paddingTop: mobileInsets.top + 8 }]}>
           <View>
             <Text style={styles.logoText}>Твой гид</Text>
-            <Text style={styles.logoSubtext}>{API_BASE_URL ? 'native app · Railway API' : 'native app · offline seed'}</Text>
           </View>
           {route.name !== 'tabs' ? (
             <TouchableOpacity activeOpacity={0.8} onPress={goBack} style={styles.headerBackButton}>
@@ -1292,6 +1297,8 @@ function BulletinBoardScreen({
   const [postLink, setPostLink] = useState('');
   const [postImages, setPostImages] = useState<BulletinPostImage[]>([]);
   const [isPosting, setPosting] = useState(false);
+  const [myListings, setMyListings] = useState<GuidePlace[]>([]);
+  const [deletingId, setDeletingId] = useState('');
   const sections = ['Все', 'Работа', 'Продажи', 'Услуги', 'Разное'];
   const normalizedQuery = query.trim().toLowerCase();
   const filteredListings = listings.filter((place) => {
@@ -1347,6 +1354,43 @@ function BulletinBoardScreen({
   const removePostImage = useCallback((index: number) => {
     setPostImages((current) => current.filter((_, itemIndex) => itemIndex !== index));
   }, []);
+  const refreshMyListings = useCallback(async () => {
+    if (!authUser) {
+      setMyListings([]);
+      return;
+    }
+    try {
+      setMyListings(await fetchMyBulletinListings());
+    } catch {
+      setMyListings([]);
+    }
+  }, [authUser]);
+
+  useEffect(() => {
+    void refreshMyListings();
+  }, [refreshMyListings]);
+
+  const deleteOwnListing = useCallback((place: GuidePlace) => {
+    Alert.alert('Удалить объявление?', place.title, [
+      { text: 'Отмена', style: 'cancel' },
+      {
+        text: 'Удалить',
+        style: 'destructive',
+        onPress: async () => {
+          setDeletingId(place.id);
+          try {
+            await deleteMyBulletinListing(place.id);
+            setMyListings((current) => current.filter((item) => item.id !== place.id));
+            refresh();
+          } catch (error) {
+            Alert.alert('Не удалось удалить', error instanceof Error ? error.message : 'Попробуйте ещё раз.');
+          } finally {
+            setDeletingId('');
+          }
+        }
+      }
+    ]);
+  }, [refresh]);
   const openPostForm = useCallback(() => {
     if (!authUser) {
       onOpenAuth();
@@ -1381,13 +1425,14 @@ function BulletinBoardScreen({
       Alert.alert('Объявление отправлено', response.message || 'После модерации оно появится в списке.');
       resetPostForm();
       setPostOpen(false);
+      void refreshMyListings();
       refresh();
     } catch (error) {
       Alert.alert('Не удалось отправить', error instanceof Error ? error.message : 'Попробуйте ещё раз.');
     } finally {
       setPosting(false);
     }
-  }, [authUser, isPosting, postDescription, postImages, postLink, postPhone, postSection, postTitle, refresh, resetPostForm]);
+  }, [authUser, isPosting, postDescription, postImages, postLink, postPhone, postSection, postTitle, refresh, refreshMyListings, resetPostForm]);
 
   return (
     <>
@@ -1425,6 +1470,26 @@ function BulletinBoardScreen({
         <TouchableOpacity activeOpacity={0.88} onPress={openPostForm} style={styles.bulletinPostButton}>
           <Text style={styles.bulletinPostText}>{authUser ? 'Разместить объявление' : 'Войти и разместить'}</Text>
         </TouchableOpacity>
+
+        {myListings.length > 0 ? (
+          <View style={styles.myBulletinsBlock}>
+            <Text style={styles.myBulletinsTitle}>Мои объявления</Text>
+            {myListings.map((place) => (
+              <View key={place.id} style={styles.myBulletinCard}>
+                <View style={styles.flex}>
+                  <Text style={styles.myBulletinTitle} numberOfLines={1}>{place.title}</Text>
+                  <Text style={styles.myBulletinStatus}>{bulletinStatusLabel(place.status)}</Text>
+                  {place.status === 'hidden' && place.moderationNote ? (
+                    <Text style={styles.myBulletinNote}>Причина: {place.moderationNote}</Text>
+                  ) : null}
+                </View>
+                <TouchableOpacity activeOpacity={0.84} disabled={deletingId === place.id} onPress={() => deleteOwnListing(place)} style={styles.myBulletinDeleteButton}>
+                  <Text style={styles.myBulletinDeleteText}>{deletingId === place.id ? '...' : 'Удалить'}</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         <View style={styles.bulletinMosaic}>
           {sections.slice(1).map((item) => {
@@ -1528,6 +1593,7 @@ function CategoryListingCard({
   onToggleFavorite: () => void;
 }) {
   const imageUrls = getPlaceImageUrls(place);
+  const [fullscreenImage, setFullscreenImage] = useState('');
   const avgCheckValue = Number(place.avgCheck);
   const checkLabel = place.priceLabel || (Number.isFinite(avgCheckValue) && avgCheckValue > 0 ? `${avgCheckValue.toLocaleString('ru-RU')} ₫` : 'Не указан');
   const hoursLabel = place.hours || 'Не указано';
@@ -1546,9 +1612,11 @@ function CategoryListingCard({
             style={styles.full}
           >
             {imageUrls.map((imageUrl, index) => (
-              <ImageBackground key={`${imageUrl}-${index}`} source={{ uri: imageUrl }} style={styles.restaurantCardImageSlide} imageStyle={styles.restaurantCardImageReal}>
+              <TouchableOpacity key={`${imageUrl}-${index}`} activeOpacity={0.92} onPress={() => setFullscreenImage(imageUrl)}>
+                <ImageBackground source={{ uri: imageUrl }} style={styles.restaurantCardImageSlide} imageStyle={styles.restaurantCardImageReal}>
                 <View style={styles.restaurantCardImageShade} />
-              </ImageBackground>
+                </ImageBackground>
+              </TouchableOpacity>
             ))}
           </ScrollView>
           <Text style={styles.restaurantCardImageTitle} numberOfLines={2}>{place.title}</Text>
@@ -1571,6 +1639,7 @@ function CategoryListingCard({
           <RestaurantFact tone="price" value={checkLabel} />
         </View>
       </View>
+      <FullscreenImageModal imageUrl={fullscreenImage} onClose={() => setFullscreenImage('')} />
     </TouchableOpacity>
   );
 }
@@ -1754,8 +1823,13 @@ function RoutesScreen({ onBack, onOpenRoute }: { onBack: () => void; onOpenRoute
 }
 
 function RouteDetailScreen({ route, onBack }: { route: NativeRoute; onBack: () => void }) {
+  const mobileInsets = useMobileInsets();
   return (
-    <ScrollView style={[styles.content, styles.categoryContent]} contentContainerStyle={styles.categoryContentInner} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={[styles.content, styles.categoryContent]}
+      contentContainerStyle={[styles.categoryContentInner, { paddingBottom: 112 + mobileInsets.bottom }]}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.categoryToolbar}>
         <TouchableOpacity activeOpacity={0.82} onPress={onBack} style={styles.categoryBackButton}>
           <Text style={styles.categoryBackGlyph}>‹</Text>
@@ -1795,7 +1869,7 @@ function RouteDetailScreen({ route, onBack }: { route: NativeRoute; onBack: () =
         <Text style={styles.routeBlockTitle}>Карта маршрута</Text>
         <GuideMap routePoints={route.points} height={270} />
         <TouchableOpacity activeOpacity={0.86} onPress={() => void openExternalUrl(googleRouteUrl(route))} style={styles.routeMapButton}>
-          <Text style={styles.routeMapButtonText}>Открыть маршрут во внешнем Google Maps</Text>
+          <Text style={styles.routeMapButtonText}>Открыть маршрут</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -2158,6 +2232,7 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
   const mobileInsets = useMobileInsets();
   const { width: viewportWidth } = useWindowDimensions();
   const gallery = getPlaceImageUrls(place);
+  const [fullscreenImage, setFullscreenImage] = useState('');
   const detailImageWidth = Math.max(280, viewportWidth - 28);
   const details = Array.from(new Set([...toTextArray((place as GuidePlace & { extra?: unknown }).extra), ...toTextArray((place as GuidePlace & { services?: unknown }).services)]));
   const tags = toTextArray((place as GuidePlace & { tags?: unknown }).tags);
@@ -2192,7 +2267,9 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
             style={styles.detailGallery}
           >
             {gallery.map((imageUrl, index) => (
-              <Image key={`${imageUrl}-${index}`} source={{ uri: imageUrl }} style={[styles.detailImage, { width: detailImageWidth }]} />
+              <TouchableOpacity key={`${imageUrl}-${index}`} activeOpacity={0.92} onPress={() => setFullscreenImage(imageUrl)}>
+                <Image source={{ uri: imageUrl }} style={[styles.detailImage, { width: detailImageWidth }]} />
+              </TouchableOpacity>
             ))}
           </ScrollView>
           {gallery.length > 1 ? <Text style={styles.detailImageCount}>{gallery.length} фото</Text> : null}
@@ -2229,7 +2306,6 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
 
       <View style={styles.actionsGrid}>
         <AppButton label="Маршрут" onPress={() => void openExternalUrl(directionsUrl(place))} />
-        <AppButton label="Google Maps" variant="ghost" onPress={() => void openExternalUrl(googleMapsUrl(place))} />
         {Platform.OS === 'ios' ? <AppButton label="Apple Maps" variant="ghost" onPress={() => void openExternalUrl(appleMapsUrl(place))} /> : null}
         {phone ? <AppButton label="Позвонить" variant="ghost" onPress={() => void openExternalUrl(`tel:${phone}`)} /> : null}
         {website ? <AppButton label="Сайт" variant="ghost" onPress={() => void openExternalUrl(website)} /> : null}
@@ -2252,22 +2328,11 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
       {hasMapPoint ? (
         <View style={styles.detailMapSection}>
           <SectionTitle title="Карта" />
-          <DetailMapFallback place={place} />
+          <GuideMap places={[place]} height={250} />
         </View>
       ) : null}
+      <FullscreenImageModal imageUrl={fullscreenImage} onClose={() => setFullscreenImage('')} />
     </ScrollView>
-  );
-}
-
-function DetailMapFallback({ place }: { place: GuidePlace }) {
-  return (
-    <View style={[styles.nativeMapCard, styles.nativeMapFallbackCard, styles.detailMapFallbackCard]}>
-      <Text style={styles.nativeMapEmptyTitle}>Точка есть на карте</Text>
-      <Text style={styles.nativeMapEmptyText}>Можно открыть точку и маршрут во внешнем Google Maps.</Text>
-      <TouchableOpacity activeOpacity={0.86} onPress={() => void openExternalUrl(googleMapsUrl(place))} style={styles.nativeMapFallbackButton}>
-        <Text style={styles.nativeMapFallbackButtonText}>Открыть в Google Maps</Text>
-      </TouchableOpacity>
-    </View>
   );
 }
 
@@ -2277,6 +2342,21 @@ function InfoBlock({ title, value }: { title: string; value: string }) {
       <Text style={styles.infoLabel}>{title}</Text>
       <Text style={styles.infoValue}>{value}</Text>
     </View>
+  );
+}
+
+function FullscreenImageModal({ imageUrl, onClose }: { imageUrl: string; onClose: () => void }) {
+  return (
+    <Modal visible={Boolean(imageUrl)} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.fullscreenImageBackdrop}>
+        <TouchableOpacity activeOpacity={1} onPress={onClose} style={styles.fullscreenImageCloseArea}>
+          {imageUrl ? <Image source={{ uri: imageUrl }} style={styles.fullscreenImage} resizeMode="contain" /> : null}
+          <View style={styles.fullscreenImageCloseButton}>
+            <Text style={styles.fullscreenImageCloseText}>×</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+    </Modal>
   );
 }
 
@@ -2421,7 +2501,11 @@ const styles = StyleSheet.create({
   detailPlainHeader: { gap: 12, paddingHorizontal: 2, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
   detailPlainSection: { gap: 10, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
   detailMapSection: { gap: 10, paddingTop: 2, paddingBottom: 4 },
-  detailMapFallbackCard: { minHeight: 168 },
+  fullscreenImageBackdrop: { flex: 1, backgroundColor: 'rgba(2, 8, 23, 0.94)' },
+  fullscreenImageCloseArea: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
+  fullscreenImage: { width: '100%', height: '86%' },
+  fullscreenImageCloseButton: { position: 'absolute', top: 44, right: 18, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+  fullscreenImageCloseText: { color: '#fff', fontSize: 30, lineHeight: 34, fontWeight: '600' },
   detailInfoList: { borderTopWidth: 1, borderTopColor: 'rgba(214, 223, 235, 0.92)' },
   detailTitleRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   detailTitle: { color: '#102a43', fontSize: 29, lineHeight: 34, fontWeight: '900', marginTop: 5 },
@@ -2503,6 +2587,14 @@ const styles = StyleSheet.create({
   bulletinClearText: { color: '#50627a', fontSize: 20, lineHeight: 22, fontWeight: '800' },
   bulletinPostButton: { minHeight: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7', marginTop: 2 },
   bulletinPostText: { color: '#ffffff', fontSize: 13, fontWeight: '900' },
+  myBulletinsBlock: { gap: 8, padding: 12, borderRadius: 18, backgroundColor: '#fff', borderWidth: 1, borderColor: '#dfe7f1' },
+  myBulletinsTitle: { color: '#102a43', fontSize: 15, fontWeight: '900' },
+  myBulletinCard: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#edf3fb' },
+  myBulletinTitle: { color: '#102a43', fontSize: 14, fontWeight: '800' },
+  myBulletinStatus: { color: '#53739b', fontSize: 12, fontWeight: '800', marginTop: 2 },
+  myBulletinNote: { color: '#8f1d1d', fontSize: 12, lineHeight: 16, marginTop: 4 },
+  myBulletinDeleteButton: { minHeight: 34, paddingHorizontal: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff1f1', borderWidth: 1, borderColor: '#ffd1d1' },
+  myBulletinDeleteText: { color: '#8f1d1d', fontSize: 12, fontWeight: '900' },
   bulletinMosaic: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2 },
   bulletinMosaicCard: { width: '48.8%', minHeight: 92, overflow: 'hidden', borderRadius: 22, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e9f2', padding: 12, justifyContent: 'space-between' },
   bulletinMosaicCardActive: { backgroundColor: '#1f63c7', borderColor: '#1f63c7' },
