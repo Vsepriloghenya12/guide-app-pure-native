@@ -1709,7 +1709,18 @@ async function updateCollectionItems(collectionIdOrSlug, itemIds) {
 
 async function upsertPlace(incomingPlace) {
   const current = incomingPlace?.id ? await getPlaceById(incomingPlace.id) : null;
-  const normalizedPlace = normalizePlace(incomingPlace, 0, current || undefined);
+  let normalizedPlace = normalizePlace(incomingPlace, 0, current || undefined);
+  const placeWithSameSlug = normalizedPlace.slug ? await getPlaceBySlug(normalizedPlace.slug) : null;
+
+  if (placeWithSameSlug && placeWithSameSlug.id !== normalizedPlace.id) {
+    const baseSlug = slugify(normalizedPlace.slug, normalizedPlace.categoryId || 'place');
+    const suffix = slugify(normalizedPlace.id, crypto.randomUUID().slice(0, 8)).slice(-10);
+    normalizedPlace = {
+      ...normalizedPlace,
+      slug: `${baseSlug}-${suffix}`
+    };
+  }
+
   const db = await getReadyDb();
   if (!db) {
     const store = getMemoryStore();

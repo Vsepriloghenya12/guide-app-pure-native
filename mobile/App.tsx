@@ -271,7 +271,7 @@ function getPlaceImageUrls(place: GuidePlace) {
     ...toTextArray(record.imageUrls)
   ]
     .map((item) => normalizeImageUrl(item, API_BASE_URL))
-    .filter(Boolean) as string[];
+    .filter((item, index, list): item is string => Boolean(item) && list.indexOf(item) === index);
 }
 
 function getPrimaryImageUrl(place: GuidePlace) {
