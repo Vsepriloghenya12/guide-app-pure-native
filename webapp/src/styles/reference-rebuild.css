@@ -4967,6 +4967,54 @@ body:not(.secret-theme-active) .app-shell.reference-shell .travel-list-card__res
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 14px 28px rgba(0, 0, 0, 0.08);
 }
 
+.maplibre-place-map {
+  width: 100%;
+  height: 420px;
+  min-height: 320px;
+  border: 1px solid rgba(151, 166, 188, 0.22);
+  border-radius: 20px;
+  overflow: hidden;
+  background: #eef3f8;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 14px 28px rgba(0, 0, 0, 0.08);
+}
+
+.app-map-shell--maplibre {
+  position: relative;
+}
+
+.app-map-canvas--maplibre {
+  height: min(64vh, 560px);
+}
+
+.maplibre-place-popup {
+  display: grid;
+  gap: 4px;
+  min-width: 160px;
+  max-width: 240px;
+  color: #243858;
+  font-family: inherit;
+}
+
+.maplibre-place-popup strong {
+  font-size: 0.92rem;
+  line-height: 1.25;
+}
+
+.maplibre-place-popup span,
+.maplibre-place-popup small {
+  color: #637491;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.app-map-empty-note--maplibre {
+  z-index: 4;
+}
+
+.travel-detail-map-section {
+  gap: 12px;
+}
+
 .owner-map-picker__canvas:active {
   cursor: grabbing;
 }
@@ -5079,6 +5127,11 @@ body:not(.secret-theme-active) .app-shell.reference-shell .travel-list-card__res
 
   .owner-map-picker__canvas {
     min-height: 300px;
+  }
+
+  .maplibre-place-map {
+    height: 360px;
+    border-radius: 14px;
   }
 }
 

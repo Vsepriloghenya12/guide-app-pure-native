@@ -83,13 +83,6 @@ const OWNER_PASSWORD = process.env.OWNER_PASSWORD || process.env.OWNER_PASSWOR |
 const OWNER_SESSION_SECRET = process.env.OWNER_SESSION_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'dev-guide-owner-secret');
 const OWNER_COOKIE_NAME = 'guide_owner_session';
 const OWNER_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
-const GOOGLE_MAPS_SERVER_API_KEY = String(
-  process.env.GOOGLE_MAPS_API_KEY ||
-  process.env.GOOGLE_GEOCODING_API_KEY ||
-  process.env.PUBLIC_GOOGLE_MAPS_API_KEY ||
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
-  ''
-).trim();
 const DEFAULT_NATIVE_ORIGINS = [
   'exp://localhost:8081',
   'http://localhost:8081',
@@ -780,11 +773,6 @@ function normalizeIncomingListing(incoming, currentListing = null) {
   );
 }
 
-function getGoogleGeocodingBounds() {
-  const bounds = String(process.env.GOOGLE_GEOCODING_BOUNDS || '15.93,108.05|16.19,108.33').trim();
-  return bounds || '15.93,108.05|16.19,108.33';
-}
-
 async function geocodeAddress(query) {
   const address = String(query || '').trim();
   if (!address) {
@@ -802,38 +790,45 @@ async function geocodeAddress(query) {
     };
   }
 
-  if (!GOOGLE_MAPS_SERVER_API_KEY) {
-    throw new Error('На сервере не настроен GOOGLE_MAPS_API_KEY для поиска адресов.');
-  }
-
   const params = new URLSearchParams({
-    address,
-    key: GOOGLE_MAPS_SERVER_API_KEY,
-    language: 'ru',
-    region: 'vn',
-    bounds: getGoogleGeocodingBounds()
+    q: `${address}, Da Nang, Vietnam`,
+    format: 'json',
+    limit: '1',
+    addressdetails: '1',
+    viewbox: '108.05,16.19,108.33,15.93',
+    bounded: '0',
+    countrycodes: 'vn',
+    'accept-language': 'ru,en'
   });
-  const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`);
+  const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+    headers: {
+      'User-Agent': 'guide-app-native-connected/1.0',
+      Referer: process.env.PUBLIC_APP_URL || 'https://guide-app.local'
+    }
+  });
   const data = await response.json().catch(() => null);
 
-  if (!response.ok || !data) {
-    throw new Error('Google Geocoding не ответил. Попробуйте ещё раз.');
+  if (!response.ok || !Array.isArray(data)) {
+    throw new Error('OpenStreetMap Geocoding не ответил. Попробуйте ещё раз.');
   }
 
-  if (data.status !== 'OK' || !Array.isArray(data.results) || !data.results[0]?.geometry?.location) {
-    const status = typeof data.status === 'string' ? data.status : 'UNKNOWN';
-    const googleMessage = typeof data.error_message === 'string' ? data.error_message.trim() : '';
-    throw new Error(status === 'ZERO_RESULTS' ? 'Адрес не найден.' : `Не удалось найти адрес: ${status}${googleMessage ? `. ${googleMessage}` : ''}`);
+  if (!data[0]) {
+    throw new Error('Адрес не найден.');
   }
 
-  const result = data.results[0];
-  const location = result.geometry.location;
+  const result = data[0];
+  const lat = Number(result.lat);
+  const lng = Number(result.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw new Error('Адрес найден без корректных координат.');
+  }
+
   return {
     address,
-    formattedAddress: String(result.formatted_address || address),
-    lat: Number(location.lat),
-    lng: Number(location.lng),
-    provider: 'google'
+    formattedAddress: String(result.display_name || address),
+    lat,
+    lng,
+    provider: 'openstreetmap'
   };
 }
 

@@ -126,7 +126,7 @@ export const api = {
         formattedAddress: string;
         lat: number;
         lng: number;
-        provider: 'google' | 'coordinates';
+        provider: 'openstreetmap' | 'coordinates';
       };
     }>(`/api/owner/geocode?q=${encodeURIComponent(query)}`),
   saveCollectionItems: (slug: string, items: unknown[]) =>

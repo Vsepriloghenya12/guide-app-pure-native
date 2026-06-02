@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { PageHeader } from "../components/layout/PageHeader";
 import { ListingCard } from "../components/listing/ListingCard";
+import { MapLibrePlaceMap } from "../components/map/MapLibrePlaceMap";
 import { useFavorites } from "../hooks/useFavorites";
 import { useGuideContent } from "../hooks/useGuideContent";
 import { usePageMeta } from "../hooks/usePageMeta";
@@ -235,6 +236,7 @@ export function ListingDetailPage() {
         ? "/wellness"
         : category.path;
   const routeUrl = createGoogleDirectionsUrl(listing, userLocation);
+  const listingHasCoordinates = hasCoordinates(listing);
   const websiteLink = listing.websiteUrl || listing.website;
   const phoneLink = listing.phoneNumber || listing.phone;
   const favoriteActive = isFavorite(listing.slug);
@@ -354,17 +356,19 @@ export function ListingDetailPage() {
         ) : null}
 
         <div className="travel-detail-actions travel-detail-actions--icon-grid">
-          <a
-            className="travel-detail-action"
-            href={routeUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <span className="travel-detail-action__icon-wrap travel-detail-action__icon-wrap--primary">
-              <DetailActionIcon name="route" />
-            </span>
-            <span className="travel-detail-action__label">Маршрут</span>
-          </a>
+          {listingHasCoordinates ? (
+            <a
+              className="travel-detail-action"
+              href={routeUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <span className="travel-detail-action__icon-wrap travel-detail-action__icon-wrap--primary">
+                <DetailActionIcon name="route" />
+              </span>
+              <span className="travel-detail-action__label">Открыть маршрут</span>
+            </a>
+          ) : null}
           <button
             className={`travel-detail-action${favoriteActive ? " is-active" : ""}`}
             type="button"
@@ -460,7 +464,7 @@ export function ListingDetailPage() {
                 </span>
               </li>
             ) : null}
-            {hasCoordinates(listing) ? (
+            {listingHasCoordinates ? (
               <li className="travel-detail-info-row">
                 <strong>Карта приложения:</strong>{" "}
                 <Link
@@ -474,6 +478,29 @@ export function ListingDetailPage() {
           </ul>
         ) : null}
       </section>
+
+      {listingHasCoordinates ? (
+        <section className="travel-section travel-detail-map-section">
+          <div className="travel-section__header">
+            <h2>Карта</h2>
+            <a href={routeUrl} target="_blank" rel="noreferrer">
+              Открыть маршрут
+            </a>
+          </div>
+          <MapLibrePlaceMap
+            places={[
+              {
+                id: listing.id,
+                title: listing.title,
+                lat: listing.lat!,
+                lng: listing.lng!,
+                address: listing.address || listing.location,
+                category: category.shortTitle || category.title,
+              },
+            ]}
+          />
+        </section>
+      ) : null}
 
       {similar.length > 0 ? (
         <section className="travel-section">
