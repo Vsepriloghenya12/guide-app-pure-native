@@ -20,6 +20,7 @@ import {
   useWindowDimensions
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
@@ -31,7 +32,7 @@ import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
 import { clearAuthToken, getAuthUserAvatarUrl, getCachedAuthUser, readUserFromAuthToken, saveAuthToken } from './src/utils/auth';
 import { EmptyState, AppButton, CategoryCard, ListingCard, LoadingState, Pill } from './src/components/ui';
 import { normalizeImageUrl } from './src/utils/normalizers';
-import { categoryIcons, defaultCategoryIcon, heroBackground, heroLogo } from './src/assets';
+import { categoryIcons, defaultCategoryIcon, heroBackground, homeHeaderImage, placeVerificationBadge, welcomeBackground, welcomeLogo } from './src/assets';
 
 type TabKey = 'home' | 'sections' | 'search' | 'favorites' | 'nearby' | 'contacts';
 type Route =
@@ -61,6 +62,7 @@ const tabItems: Array<{ key: TabKey; label: string; icon: string }> = [
 
 const hiddenHomeCategoryIds = new Set(['events']);
 const restaurantQuickFilters = ['Морепродукты', 'Вьетнамская', 'Европейская'];
+const welcomeSeenStorageKey = 'guide-app-welcome-seen-v1';
 
 const filterTextMap: Record<string, string> = {
   breakfast: 'Завтраки',
@@ -301,6 +303,10 @@ function buildMapRegion(points: Array<{ latitude: number; longitude: number }>):
     return { latitude: 16.0678, longitude: 108.2208, latitudeDelta: 0.12, longitudeDelta: 0.12 };
   }
 
+  if (points.length === 1) {
+    return { ...points[0], latitudeDelta: 0.012, longitudeDelta: 0.012 };
+  }
+
   const lats = points.map((point) => point.latitude);
   const lngs = points.map((point) => point.longitude);
   const minLat = Math.min(...lats);
@@ -316,6 +322,47 @@ function buildMapRegion(points: Array<{ latitude: number; longitude: number }>):
     latitudeDelta,
     longitudeDelta
   };
+}
+
+function isPhoneValid(phone: string) {
+  return phone.replace(/[^0-9]/g, '').length >= 10;
+}
+
+function isLoginValid({ phone, password }: { phone: string; password: string }) {
+  return isPhoneValid(phone) && password.length >= 6;
+}
+
+function isRegisterValid({
+  phone,
+  firstName,
+  lastName,
+  nickname,
+  password
+}: {
+  phone: string;
+  firstName: string;
+  lastName: string;
+  nickname: string;
+  password: string;
+}) {
+  return (
+    isPhoneValid(phone) &&
+    firstName.trim().length >= 2 &&
+    lastName.trim().length >= 2 &&
+    nickname.trim().length >= 2 &&
+    password.length >= 6
+  );
+}
+
+function contactUrlFromText(value: string) {
+  const contact = value.trim();
+  if (!contact) return '';
+  if (/^https?:\/\//i.test(contact)) return contact;
+  if (/^(t\.me|telegram\.me)\//i.test(contact)) return `https://${contact}`;
+  if (contact.startsWith('@') && contact.length > 1) return `https://t.me/${contact.slice(1)}`;
+
+  const digits = contact.replace(/[^\d+]/g, '');
+  return digits ? `tel:${digits}` : '';
 }
 
 function normalizeBulletinSection(value: unknown) {
@@ -549,6 +596,8 @@ function AppContent() {
   const [isAuthSheetOpen, setAuthSheetOpen] = useState(false);
   const [authUser, setAuthUser] = useState<Record<string, unknown> | null>(null);
   const [authProviders, setAuthProviders] = useState<NativeAuthProviders>({});
+  const [isWelcomeChecked, setWelcomeChecked] = useState(false);
+  const [isWelcomeVisible, setWelcomeVisible] = useState(false);
 
   useEffect(() => {
     routeRef.current = route;
@@ -620,6 +669,22 @@ function AppContent() {
     void loadApp();
   }, [loadApp]);
 
+  useEffect(() => {
+    let mounted = true;
+    void AsyncStorage.getItem(welcomeSeenStorageKey)
+      .then((value) => {
+        if (!mounted) return;
+        setWelcomeVisible(value !== '1');
+      })
+      .finally(() => {
+        if (mounted) setWelcomeChecked(true);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const handleAuthDeepLink = useCallback(async (url: string | null) => {
     if (!isAuthDeepLink(url)) return;
     const params = parseDeepLinkParams(String(url || ''));
@@ -638,6 +703,8 @@ function AppContent() {
       }
 
       setAuthSheetOpen(false);
+      setWelcomeVisible(false);
+      await AsyncStorage.setItem(welcomeSeenStorageKey, '1');
       await loadApp();
       return;
     }
@@ -683,6 +750,12 @@ function AppContent() {
     setAuthSheetOpen(false);
   }, []);
 
+  const handleWelcomeStart = useCallback(async () => {
+    await AsyncStorage.setItem(welcomeSeenStorageKey, '1');
+    setWelcomeVisible(false);
+    setAuthSheetOpen(true);
+  }, []);
+
   const openCategory = useCallback((category: GuideCategory) => {
     if (category.id === 'routes') {
       void sendAnalytics('category-click', category.title, '/routes', category.id, category.id);
@@ -702,8 +775,12 @@ function AppContent() {
     setRoute({ name: 'detail', slug: place.slug || place.id });
   }, []);
 
-  if (!payload) {
+  if (!payload || !isWelcomeChecked) {
     return <LoadingState />;
+  }
+
+  if (isWelcomeVisible) {
+    return <WelcomeScreen onStart={() => void handleWelcomeStart()} />;
   }
 
   const selectedCategory = route.name === 'category' ? categories.find((item) => item.id === route.categoryId) : null;
@@ -964,7 +1041,7 @@ function HomeScreen({
 
   return (
     <View style={[styles.homeRoot, { width: viewportWidth, maxWidth: viewportWidth }]}>
-      <ImageBackground source={heroBackground} style={[styles.homeHero, { width: viewportWidth }]} imageStyle={styles.homeHeroImage}>
+      <ImageBackground source={homeHeaderImage} style={[styles.homeHero, { width: viewportWidth }]} imageStyle={styles.homeHeroImage}>
         <View style={styles.homeHeroOverlay} />
         <TouchableOpacity activeOpacity={0.86} onPress={onOpenAuth} style={styles.heroAuthButton}>
           {heroAvatarUrl ? (
@@ -975,7 +1052,6 @@ function HomeScreen({
             <Text style={styles.heroAuthIcon}>👤</Text>
           )}
         </TouchableOpacity>
-        <Image source={heroLogo} resizeMode="contain" style={styles.heroLogoImage} />
       </ImageBackground>
 
       <View style={[styles.homeBody, { width: viewportWidth }]}> 
@@ -1294,7 +1370,6 @@ function BulletinBoardScreen({
   const [postDescription, setPostDescription] = useState('');
   const [postSection, setPostSection] = useState('Разное');
   const [postPhone, setPostPhone] = useState('');
-  const [postLink, setPostLink] = useState('');
   const [postImages, setPostImages] = useState<BulletinPostImage[]>([]);
   const [isPosting, setPosting] = useState(false);
   const [myListings, setMyListings] = useState<GuidePlace[]>([]);
@@ -1316,7 +1391,6 @@ function BulletinBoardScreen({
     setPostDescription('');
     setPostSection('Разное');
     setPostPhone('');
-    setPostLink('');
     setPostImages([]);
   }, []);
   const pickPostImages = useCallback(async () => {
@@ -1403,9 +1477,8 @@ function BulletinBoardScreen({
     const title = postTitle.trim();
     const description = postDescription.trim();
     const phone = postPhone.trim();
-    const link = postLink.trim();
-    if (title.length < 3 || description.length < 10 || (!phone && !link)) {
-      Alert.alert('Проверь объявление', 'Заполни название, описание и телефон или ссылку для связи.');
+    if (title.length < 3 || description.length < 10 || !phone) {
+      Alert.alert('Проверь объявление', 'Заполни название, описание и телефон или Telegram для связи.');
       return;
     }
     setPosting(true);
@@ -1416,7 +1489,6 @@ function BulletinBoardScreen({
         section: postSection,
         subcategory: 'Другое',
         phone,
-        link,
         images: postImages.map((image) => ({ dataUrl: image.dataUrl, fileName: image.fileName })),
         contactName: toText(authUser.displayName || authUser.username || authUser.email),
         district: '',
@@ -1432,7 +1504,7 @@ function BulletinBoardScreen({
     } finally {
       setPosting(false);
     }
-  }, [authUser, isPosting, postDescription, postImages, postLink, postPhone, postSection, postTitle, refresh, refreshMyListings, resetPostForm]);
+  }, [authUser, isPosting, postDescription, postImages, postPhone, postSection, postTitle, refresh, refreshMyListings, resetPostForm]);
 
   return (
     <>
@@ -1552,7 +1624,6 @@ function BulletinBoardScreen({
               })}
             </View>
             <TextInput value={postPhone} onChangeText={setPostPhone} placeholder="Телефон или Telegram" placeholderTextColor="#8a9aae" style={styles.bulletinPostInput} />
-            <TextInput value={postLink} onChangeText={setPostLink} placeholder="Ссылка, если есть" placeholderTextColor="#8a9aae" style={styles.bulletinPostInput} autoCapitalize="none" />
             <View style={styles.bulletinPhotoHeader}>
               <Text style={styles.bulletinPhotoTitle}>Фото</Text>
               <TouchableOpacity activeOpacity={0.84} disabled={postImages.length >= 6} onPress={() => void pickPostImages()} style={[styles.bulletinAddPhotoButton, postImages.length >= 6 && styles.authProviderButtonDisabled]}>
@@ -2108,6 +2179,31 @@ function TipsScreen({ tips, onBack }: { tips: GuideTip[]; onBack: () => void }) 
   );
 }
 
+function WelcomeScreen({ onStart }: { onStart: () => void }) {
+  const insets = useMobileInsets();
+
+  return (
+    <ImageBackground source={welcomeBackground} style={styles.welcomeScreen} imageStyle={styles.welcomeBackgroundImage}>
+      <StatusBar translucent barStyle="light-content" backgroundColor="transparent" />
+      <View style={[styles.welcomeOverlay, { paddingTop: insets.top + 34, paddingBottom: insets.bottom + 24 }]}>
+        <View style={styles.welcomeCenter}>
+          <Image source={welcomeLogo} resizeMode="contain" style={styles.welcomeLogo} />
+          <Text style={styles.welcomeText}>наше приложение создано туристами для туристов</Text>
+          <TouchableOpacity activeOpacity={0.88} onPress={onStart} style={styles.welcomeButton}>
+            <Text style={styles.welcomeButtonText}>Войти/зарегистрироваться</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.welcomePolicyText}>
+          регистрируясь в приложении вы соглашаетесь с{' '}
+          <Text onPress={() => Alert.alert('Политика пользования', 'Ссылку добавим позже.')} style={styles.welcomePolicyLink}>
+            политикой пользования
+          </Text>
+        </Text>
+      </View>
+    </ImageBackground>
+  );
+}
+
 function AuthSheet({
   visible,
   user,
@@ -2126,7 +2222,17 @@ function AuthSheet({
   const userEmail = toText(user?.email);
   const avatarUrl = getAuthUserAvatarUrl(user);
   const [openingProvider, setOpeningProvider] = useState<'google' | 'apple' | 'telegram' | null>(null);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [showPassword, setShowPassword] = useState(false);
+  const [phone, setPhone] = useState('+7 ');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [nickname, setNickname] = useState('');
   const providerEnabled = useCallback((provider: 'google' | 'apple' | 'telegram') => Boolean(providers?.[provider]), [providers]);
+  const canSubmitAuthForm = authMode === 'login'
+    ? isLoginValid({ phone, password })
+    : isRegisterValid({ phone, firstName, lastName, nickname, password });
 
   const openProvider = async (provider: 'google' | 'apple' | 'telegram') => {
     if (!API_BASE_URL) return;
@@ -2144,11 +2250,21 @@ function AuthSheet({
     }
   };
 
+  const submitAuthForm = () => {
+    if (!canSubmitAuthForm) return;
+    Alert.alert('Скоро добавим', 'Пока вход в приложение работает через Google или Telegram.');
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.authModalBackdrop}>
         <TouchableOpacity style={styles.modalBackdropTouch} activeOpacity={1} onPress={onClose} />
-        <View style={styles.authSheet}>
+        <ScrollView
+          style={styles.authSheet}
+          contentContainerStyle={styles.authSheetContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.tipModalHandle} />
           <View style={styles.authSheetHeader}>
             <View>
@@ -2179,6 +2295,38 @@ function AuthSheet({
             </View>
           ) : (
             <>
+              <View style={styles.authModeTabs}>
+                <TouchableOpacity activeOpacity={0.86} onPress={() => setAuthMode('login')} style={[styles.authModeTab, authMode === 'login' && styles.authModeTabActive]}>
+                  <Text style={[styles.authModeTabText, authMode === 'login' && styles.authModeTabTextActive]}>Войти</Text>
+                </TouchableOpacity>
+                <TouchableOpacity activeOpacity={0.86} onPress={() => setAuthMode('register')} style={[styles.authModeTab, authMode === 'register' && styles.authModeTabActive]}>
+                  <Text style={[styles.authModeTabText, authMode === 'register' && styles.authModeTabTextActive]}>Зарегистрироваться</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.authNativeForm}>
+                <TextInput value={phone} onChangeText={setPhone} placeholder="+7 999 000 00 00" placeholderTextColor="#8a9aae" keyboardType="phone-pad" style={styles.authInput} />
+                {authMode === 'register' ? (
+                  <>
+                    <TextInput value={firstName} onChangeText={setFirstName} placeholder="Имя" placeholderTextColor="#8a9aae" style={styles.authInput} />
+                    <TextInput value={lastName} onChangeText={setLastName} placeholder="Фамилия" placeholderTextColor="#8a9aae" style={styles.authInput} />
+                    <TextInput value={nickname} onChangeText={setNickname} placeholder="Никнейм" placeholderTextColor="#8a9aae" style={styles.authInput} autoCapitalize="none" />
+                  </>
+                ) : null}
+                <View style={styles.authPasswordRow}>
+                  <TextInput value={password} onChangeText={setPassword} placeholder={authMode === 'login' ? 'Пароль' : 'Минимум 6 символов'} placeholderTextColor="#8a9aae" secureTextEntry={!showPassword} style={[styles.authInput, styles.authPasswordInput]} />
+                  <TouchableOpacity activeOpacity={0.82} onPress={() => setShowPassword((value) => !value)} style={styles.authPasswordToggle}>
+                    <Text style={styles.authPasswordToggleText}>{showPassword ? 'Скрыть' : 'Показать'}</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity activeOpacity={0.88} disabled={!canSubmitAuthForm} onPress={submitAuthForm} style={[styles.authSubmitButton, !canSubmitAuthForm && styles.authProviderButtonDisabled]}>
+                  <Text style={styles.authSubmitText}>{authMode === 'login' ? 'Войти' : 'Зарегистрироваться'}</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.authDividerRow}>
+                <View style={styles.authDividerLine} />
+                <Text style={styles.authDividerText}>или</Text>
+                <View style={styles.authDividerLine} />
+              </View>
               {!API_BASE_URL ? (
                 <View style={styles.authNotice}>
                   <Text style={styles.authNoticeText}>Для входа нужно указать EXPO_PUBLIC_API_BASE_URL в mobile/.env.</Text>
@@ -2222,7 +2370,7 @@ function AuthSheet({
               </TouchableOpacity>
             </>
           )}
-        </View>
+        </ScrollView>
       </View>
     </Modal>
   );
@@ -2233,6 +2381,7 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
   const { width: viewportWidth } = useWindowDimensions();
   const gallery = getPlaceImageUrls(place);
   const [fullscreenImage, setFullscreenImage] = useState('');
+  const [isVerificationOpen, setVerificationOpen] = useState(false);
   const detailImageWidth = Math.max(280, viewportWidth - 28);
   const details = Array.from(new Set([...toTextArray((place as GuidePlace & { extra?: unknown }).extra), ...toTextArray((place as GuidePlace & { services?: unknown }).services)]));
   const tags = toTextArray((place as GuidePlace & { tags?: unknown }).tags);
@@ -2241,12 +2390,13 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
   const categoryLabel = toText(category?.title || place.kind || place.categoryId, 'Раздел');
   const phone = toText(place.phoneNumber || place.phone);
   const website = toText(place.websiteUrl || place.website);
-  const address = toText(place.address || place.location, 'Не указан');
-  const hours = toText(place.hours, 'Не указано');
+  const address = toText(place.address || place.location);
+  const hours = toText(place.hours);
   const price = toText(place.priceLabel);
   const cuisine = toText(place.cuisine);
   const district = toText(place.district);
   const hasMapPoint = Boolean(placeCoordinate(place));
+  const hasInfoFields = Boolean(address || hours || phone);
 
   return (
     <ScrollView
@@ -2282,6 +2432,9 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
             <Text style={styles.detailSubtitle}>{categoryLabel}</Text>
             <Text style={styles.detailTitle}>{title}</Text>
           </View>
+          <TouchableOpacity activeOpacity={0.82} onPress={() => setVerificationOpen(true)} style={styles.detailVerificationButton}>
+            <Image source={placeVerificationBadge} resizeMode="contain" style={styles.detailVerificationImage} />
+          </TouchableOpacity>
           <TouchableOpacity activeOpacity={0.8} onPress={onToggleFavorite} style={styles.detailFavorite}>
             <Text style={styles.detailFavoriteText}>{isFavorite ? '★' : '☆'}</Text>
           </TouchableOpacity>
@@ -2298,16 +2451,20 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
         </View>
       </View>
 
-      <View style={styles.detailInfoList}>
-        <InfoBlock title="Адрес" value={address} />
-        <InfoBlock title="Время работы" value={hours} />
-        <InfoBlock title="Телефон" value={phone || 'Не указан'} />
-      </View>
+      {hasInfoFields ? (
+        <View style={styles.detailInfoList}>
+          {address ? <InfoBlock title="Адрес" value={address} /> : null}
+          {hours ? <InfoBlock title="Время работы" value={hours} /> : null}
+          {phone ? <InfoBlock title="Телефон" value={phone} onPress={() => {
+            const contactUrl = contactUrlFromText(phone);
+            if (contactUrl) void openExternalUrl(contactUrl);
+          }} /> : null}
+        </View>
+      ) : null}
 
       <View style={styles.actionsGrid}>
         <AppButton label="Маршрут" onPress={() => void openExternalUrl(directionsUrl(place))} />
         {Platform.OS === 'ios' ? <AppButton label="Apple Maps" variant="ghost" onPress={() => void openExternalUrl(appleMapsUrl(place))} /> : null}
-        {phone ? <AppButton label="Позвонить" variant="ghost" onPress={() => void openExternalUrl(`tel:${phone}`)} /> : null}
         {website ? <AppButton label="Сайт" variant="ghost" onPress={() => void openExternalUrl(website)} /> : null}
       </View>
 
@@ -2331,16 +2488,42 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
           <GuideMap places={[place]} height={250} />
         </View>
       ) : null}
+      <Modal visible={isVerificationOpen} transparent animationType="fade" onRequestClose={() => setVerificationOpen(false)}>
+        <View style={styles.verificationModalBackdrop}>
+          <View style={styles.verificationModalCard}>
+            <Image source={placeVerificationBadge} resizeMode="contain" style={styles.verificationModalImage} />
+            <Text style={styles.verificationModalTitle}>Проверка места</Text>
+            <Text style={styles.verificationModalText}>привет,молодцы что посмотрели</Text>
+            <TouchableOpacity activeOpacity={0.86} onPress={() => setVerificationOpen(false)} style={styles.verificationModalButton}>
+              <Text style={styles.verificationModalButtonText}>Понятно</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       <FullscreenImageModal imageUrl={fullscreenImage} onClose={() => setFullscreenImage('')} />
     </ScrollView>
   );
 }
 
-function InfoBlock({ title, value }: { title: string; value: string }) {
+function InfoBlock({ title, value, onPress }: { title: string; value: string; onPress?: () => void }) {
+  const content = (
+    <>
+      <Text style={styles.infoLabel}>{title}</Text>
+      <Text style={[styles.infoValue, onPress && styles.infoValueLink]}>{value}</Text>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity activeOpacity={0.82} onPress={onPress} style={styles.infoBlock}>
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <View style={styles.infoBlock}>
-      <Text style={styles.infoLabel}>{title}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
+      {content}
     </View>
   );
 }
@@ -2416,14 +2599,13 @@ const styles = StyleSheet.create({
   errorButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
 
   homeRoot: { flex: 1, width: '100%', alignSelf: 'center', backgroundColor: '#ffffff' },
-  homeHero: { width: '100%', minWidth: '100%', alignSelf: 'stretch', height: Platform.OS === 'android' ? 118 + ANDROID_STATUS_BAR_INSET : 118, paddingTop: ANDROID_STATUS_BAR_INSET, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', backgroundColor: '#1c65a0' },
+  homeHero: { width: '100%', minWidth: '100%', alignSelf: 'stretch', height: Platform.OS === 'android' ? 150 + ANDROID_STATUS_BAR_INSET : 150, paddingTop: ANDROID_STATUS_BAR_INSET, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', backgroundColor: '#1c65a0' },
   homeHeroImage: { resizeMode: 'cover' },
   homeHeroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5, 18, 38, 0.08)' },
   homeUtilityDot: { position: 'absolute', right: 18, top: 6, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.18)' },
   heroAuthButton: { position: 'absolute', right: 14, top: Platform.OS === 'android' ? ANDROID_STATUS_BAR_INSET + 10 : 12, zIndex: 4, width: 46, height: 46, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(8, 18, 37, 0.36)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
   heroAuthAvatar: { width: 42, height: 42, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.22)' },
   heroAuthIcon: { color: '#ffffff', fontSize: 20, lineHeight: 23, fontWeight: '900' },
-  heroLogoImage: { width: 304, height: 88, marginTop: 4 },
   homeBody: { width: '100%', minWidth: '100%', alignSelf: 'stretch', marginTop: -18, paddingHorizontal: 0, paddingLeft: 0, paddingRight: 0, gap: 14, backgroundColor: '#ffffff' },
   bannerStack: { width: '100%', minWidth: '100%', height: 168, justifyContent: 'center', overflow: 'hidden' },
   bannerCarousel: { height: 136, width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
@@ -2479,6 +2661,16 @@ const styles = StyleSheet.create({
   tipModalText: { color: '#53657c', fontSize: 15, lineHeight: 22, fontWeight: '700', marginTop: 10 },
   tipModalButton: { minHeight: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7', marginTop: 18 },
   tipModalButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
+  welcomeScreen: { flex: 1, width: '100%', backgroundColor: '#156db2' },
+  welcomeBackgroundImage: { resizeMode: 'cover' },
+  welcomeOverlay: { flex: 1, justifyContent: 'space-between', paddingHorizontal: 22, backgroundColor: 'rgba(8, 24, 48, 0.18)' },
+  welcomeCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18 },
+  welcomeLogo: { width: 190, height: 190 },
+  welcomeText: { maxWidth: 310, color: '#ffffff', fontSize: 21, lineHeight: 28, fontWeight: '900', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.36)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
+  welcomeButton: { width: '100%', minHeight: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff', shadowColor: '#102a43', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.18, shadowRadius: 18, elevation: 7 },
+  welcomeButtonText: { color: '#102a43', fontSize: 15, lineHeight: 19, fontWeight: '900' },
+  welcomePolicyText: { color: 'rgba(255,255,255,0.82)', fontSize: 12, lineHeight: 17, fontWeight: '700', textAlign: 'center' },
+  welcomePolicyLink: { color: '#ffffff', fontWeight: '900', textDecorationLine: 'underline' },
 
   sectionTitle: { color: '#102a43', fontSize: 20, fontWeight: '900', marginTop: 4 },
   screenHeader: { gap: 6, marginBottom: 4, paddingTop: 4 },
@@ -2510,6 +2702,8 @@ const styles = StyleSheet.create({
   detailTitleRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   detailTitle: { color: '#102a43', fontSize: 29, lineHeight: 34, fontWeight: '900', marginTop: 5 },
   detailSubtitle: { color: '#53739b', fontSize: 15, fontWeight: '800', marginTop: 6 },
+  detailVerificationButton: { width: 48, height: 48, borderRadius: 18, backgroundColor: '#fff7e5', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#f2d58a' },
+  detailVerificationImage: { width: 38, height: 38 },
   detailFavorite: { width: 48, height: 48, borderRadius: 18, backgroundColor: '#f1f5fa', alignItems: 'center', justifyContent: 'center' },
   detailFavoriteText: { color: '#2f78d6', fontSize: 24, lineHeight: 26, fontWeight: '900' },
   detailPillsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
@@ -2517,7 +2711,15 @@ const styles = StyleSheet.create({
   infoBlock: { paddingVertical: 13, paddingHorizontal: 2, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)', gap: 4 },
   infoLabel: { color: '#53739b', fontSize: 13, fontWeight: '900', textTransform: 'uppercase' },
   infoValue: { color: '#102a43', fontSize: 16, lineHeight: 22, fontWeight: '700' },
+  infoValueLink: { color: '#1f63c7' },
   actionsGrid: { gap: 10 },
+  verificationModalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 22, backgroundColor: 'rgba(9, 19, 38, 0.42)' },
+  verificationModalCard: { width: '100%', maxWidth: 340, borderRadius: 24, backgroundColor: '#ffffff', alignItems: 'center', paddingHorizontal: 20, paddingTop: 22, paddingBottom: 18 },
+  verificationModalImage: { width: 88, height: 88 },
+  verificationModalTitle: { color: '#102a43', fontSize: 20, lineHeight: 25, fontWeight: '900', marginTop: 10, textAlign: 'center' },
+  verificationModalText: { color: '#53657c', fontSize: 15, lineHeight: 22, fontWeight: '700', marginTop: 8, textAlign: 'center' },
+  verificationModalButton: { minHeight: 46, borderRadius: 15, backgroundColor: '#1f63c7', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, marginTop: 18 },
+  verificationModalButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
   bulletText: { color: '#486581', fontSize: 15, lineHeight: 22 },
   nearbyCardWrap: { gap: 8 },
   nearbyBadge: { alignSelf: 'flex-start', marginLeft: 12, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: '#102a43' },
@@ -2686,7 +2888,8 @@ const styles = StyleSheet.create({
   programCardAction: { color: '#1f63c7', fontSize: 13, fontWeight: '900', marginTop: 12 },
 
   authModalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(9, 19, 38, 0.36)' },
-  authSheet: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 30 : 18 + ANDROID_NAVIGATION_BAR_INSET, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#f8fbff', gap: 10 },
+  authSheet: { maxHeight: '92%', borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#f8fbff' },
+  authSheetContent: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 30 : 18 + ANDROID_NAVIGATION_BAR_INSET, gap: 10 },
   authSheetHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 4 },
   authSheetTitle: { color: '#102a43', fontSize: 22, lineHeight: 27, fontWeight: '900' },
   authSheetText: { color: '#5e7088', fontSize: 13, lineHeight: 18, fontWeight: '700', marginTop: 5, maxWidth: 270 },
@@ -2694,6 +2897,22 @@ const styles = StyleSheet.create({
   authCloseText: { color: '#102a43', fontSize: 24, lineHeight: 26, fontWeight: '700' },
   authNotice: { padding: 12, borderRadius: 16, backgroundColor: '#fff8e7', borderWidth: 1, borderColor: '#f0dfb8' },
   authNoticeText: { color: '#80611c', fontSize: 12, lineHeight: 17, fontWeight: '800' },
+  authModeTabs: { minHeight: 46, flexDirection: 'row', gap: 6, padding: 4, borderRadius: 16, backgroundColor: '#eaf1f8' },
+  authModeTab: { flex: 1, minHeight: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  authModeTabActive: { backgroundColor: '#ffffff', shadowColor: '#243c5a', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 2 },
+  authModeTabText: { color: '#61758d', fontSize: 12.5, lineHeight: 16, fontWeight: '900' },
+  authModeTabTextActive: { color: '#102a43' },
+  authNativeForm: { gap: 9 },
+  authInput: { minHeight: 48, borderRadius: 16, borderWidth: 1, borderColor: '#e0e8f2', backgroundColor: '#ffffff', paddingHorizontal: 14, color: '#102a43', fontSize: 14, fontWeight: '800' },
+  authPasswordRow: { position: 'relative' },
+  authPasswordInput: { paddingRight: 92 },
+  authPasswordToggle: { position: 'absolute', right: 8, top: 7, minHeight: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: '#edf4ff' },
+  authPasswordToggleText: { color: '#1f63c7', fontSize: 11, lineHeight: 14, fontWeight: '900' },
+  authSubmitButton: { minHeight: 50, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7' },
+  authSubmitText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
+  authDividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 2 },
+  authDividerLine: { flex: 1, height: 1, backgroundColor: '#dfe8f2' },
+  authDividerText: { color: '#7a8da3', fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
   authProviderButton: { minHeight: 62, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e0e8f2' },
   authProviderButtonDisabled: { opacity: 0.48 },
   authProviderBrand: { width: 38, height: 38, borderRadius: 14, overflow: 'hidden', backgroundColor: '#edf4ff', color: '#1f63c7', textAlign: 'center', textAlignVertical: 'center', fontSize: 17, lineHeight: 38, fontWeight: '900' },
