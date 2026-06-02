@@ -86,6 +86,7 @@ const OWNER_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const GOOGLE_MAPS_SERVER_API_KEY = String(
   process.env.GOOGLE_MAPS_API_KEY ||
   process.env.GOOGLE_GEOCODING_API_KEY ||
+  process.env.PUBLIC_GOOGLE_MAPS_API_KEY ||
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
   ''
 ).trim();
