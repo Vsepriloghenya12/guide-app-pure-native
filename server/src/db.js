@@ -514,6 +514,8 @@ function normalizePlace(place, index, fallbackPlace = {}) {
     contactName: String(safePlace.contactName || safeFallbackPlace.contactName || '').trim(),
     createdByUserId: String(safePlace.createdByUserId || safeFallbackPlace.createdByUserId || '').trim(),
     moderationNote: String(safePlace.moderationNote || safeFallbackPlace.moderationNote || '').trim(),
+    qualityBadge: toBoolean(safePlace.qualityBadge, safeFallbackPlace.qualityBadge ?? false),
+    qualityBadgeText: String(safePlace.qualityBadgeText || safeFallbackPlace.qualityBadgeText || '').trim(),
     status: coerceStatus(safePlace.status || safeFallbackPlace.status),
     sortOrder: Number.isFinite(Number(safePlace.sortOrder)) ? Number(safePlace.sortOrder) : Number.isFinite(Number(safeFallbackPlace.sortOrder)) ? Number(safeFallbackPlace.sortOrder) : index * 10 + 10,
     lat: toNullableNumber(safePlace.lat ?? safeFallbackPlace.lat),
@@ -670,6 +672,8 @@ async function ensureDatabase() {
           contact_name text not null default '',
           created_by_user_id text not null default '',
           moderation_note text not null default '',
+          quality_badge boolean not null default false,
+          quality_badge_text text not null default '',
           hotel_stars integer,
           hotel_pool boolean not null default false,
           hotel_spa boolean not null default false,
@@ -687,6 +691,8 @@ async function ensureDatabase() {
       await db.unsafe(`alter table places add column if not exists contact_name text not null default ''`);
       await db.unsafe(`alter table places add column if not exists created_by_user_id text not null default ''`);
       await db.unsafe(`alter table places add column if not exists moderation_note text not null default ''`);
+      await db.unsafe(`alter table places add column if not exists quality_badge boolean not null default false`);
+      await db.unsafe(`alter table places add column if not exists quality_badge_text text not null default ''`);
       await db.unsafe(`alter table places add column if not exists hotel_stars integer`);
       await db.unsafe(`alter table places add column if not exists hotel_pool boolean not null default false`);
       await db.unsafe(`alter table places add column if not exists hotel_spa boolean not null default false`);
@@ -959,11 +965,11 @@ async function replaceStoreContents(store) {
           insert into places (
             id, category_id, slug, title, description, address, phone, website, hours, avg_check, price_label, kind, cuisine,
             services, tags, breakfast, vegan, pets, child_programs, top, image_label, image_src,
-            status, sort_order, lat, lng, map_query, district, contact_name, created_by_user_id, moderation_note, hotel_stars, hotel_pool, hotel_spa, updated_at
+            status, sort_order, lat, lng, map_query, district, contact_name, created_by_user_id, moderation_note, quality_badge, quality_badge_text, hotel_stars, hotel_pool, hotel_spa, updated_at
           ) values (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
             $14::jsonb, $15::jsonb, $16, $17, $18, $19, $20, $21, $22, $23,
-            $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, now()
+            $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, now()
           )
           on conflict (id) do update set
             category_id = excluded.category_id,
@@ -996,6 +1002,8 @@ async function replaceStoreContents(store) {
             contact_name = excluded.contact_name,
             created_by_user_id = excluded.created_by_user_id,
             moderation_note = excluded.moderation_note,
+            quality_badge = excluded.quality_badge,
+            quality_badge_text = excluded.quality_badge_text,
             hotel_stars = excluded.hotel_stars,
             hotel_pool = excluded.hotel_pool,
             hotel_spa = excluded.hotel_spa,
@@ -1033,6 +1041,8 @@ async function replaceStoreContents(store) {
           place.contactName || '',
           place.createdByUserId || '',
           place.moderationNote || '',
+          Boolean(place.qualityBadge),
+          place.qualityBadgeText || '',
           place.hotelStars,
           Boolean(place.hotelPool),
           Boolean(place.hotelSpa)
@@ -1158,6 +1168,7 @@ async function readPlaces() {
              child_programs as "childPrograms", top, image_label as "imageLabel", image_src as "imageSrc",
              status, sort_order as "sortOrder", lat, lng, map_query as "mapQuery", district,
              contact_name as "contactName", created_by_user_id as "createdByUserId", moderation_note as "moderationNote",
+             quality_badge as "qualityBadge", quality_badge_text as "qualityBadgeText",
              hotel_stars as "hotelStars", hotel_pool as "hotelPool", hotel_spa as "hotelSpa"
       from places
       order by sort_order asc, title asc
@@ -1737,11 +1748,11 @@ async function upsertPlace(incomingPlace) {
         insert into places (
           id, category_id, slug, title, description, address, phone, website, hours, avg_check, price_label, kind, cuisine,
           services, tags, breakfast, vegan, pets, child_programs, top, image_label, image_src,
-          status, sort_order, lat, lng, map_query, district, contact_name, created_by_user_id, moderation_note, hotel_stars, hotel_pool, hotel_spa, updated_at
+          status, sort_order, lat, lng, map_query, district, contact_name, created_by_user_id, moderation_note, quality_badge, quality_badge_text, hotel_stars, hotel_pool, hotel_spa, updated_at
         ) values (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
           $14::jsonb, $15::jsonb, $16, $17, $18, $19, $20, $21, $22, $23,
-          $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, now()
+          $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, now()
         )
         on conflict (id) do update set
           category_id = excluded.category_id,
@@ -1774,6 +1785,8 @@ async function upsertPlace(incomingPlace) {
           contact_name = excluded.contact_name,
           created_by_user_id = excluded.created_by_user_id,
           moderation_note = excluded.moderation_note,
+          quality_badge = excluded.quality_badge,
+          quality_badge_text = excluded.quality_badge_text,
           hotel_stars = excluded.hotel_stars,
           hotel_pool = excluded.hotel_pool,
           hotel_spa = excluded.hotel_spa,
@@ -1811,6 +1824,8 @@ async function upsertPlace(incomingPlace) {
         normalizedPlace.contactName || '',
         normalizedPlace.createdByUserId || '',
         normalizedPlace.moderationNote || '',
+        Boolean(normalizedPlace.qualityBadge),
+        normalizedPlace.qualityBadgeText || '',
         normalizedPlace.hotelStars,
         Boolean(normalizedPlace.hotelPool),
         Boolean(normalizedPlace.hotelSpa)

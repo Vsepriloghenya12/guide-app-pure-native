@@ -118,6 +118,17 @@ export const api = {
   },
   deleteListing: (id: string) =>
     apiFetch<{ ok: true }>(`/api/owner/listings/${id}`, { method: 'DELETE' }),
+  ownerGeocode: (query: string) =>
+    apiFetch<{
+      ok: true;
+      result: {
+        address: string;
+        formattedAddress: string;
+        lat: number;
+        lng: number;
+        provider: 'google' | 'coordinates';
+      };
+    }>(`/api/owner/geocode?q=${encodeURIComponent(query)}`),
   saveCollectionItems: (slug: string, items: unknown[]) =>
     apiFetch<{ ok: true }>(`/api/owner/collections/${slug}/items`, {
       method: 'PUT',

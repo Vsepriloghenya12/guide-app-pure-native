@@ -2397,6 +2397,7 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
   const district = toText(place.district);
   const hasMapPoint = Boolean(placeCoordinate(place));
   const hasInfoFields = Boolean(address || hours || phone);
+  const qualityBadgeText = toText(place.qualityBadgeText, 'привет,молодцы что посмотрели');
 
   return (
     <ScrollView
@@ -2432,9 +2433,11 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
             <Text style={styles.detailSubtitle}>{categoryLabel}</Text>
             <Text style={styles.detailTitle}>{title}</Text>
           </View>
-          <TouchableOpacity activeOpacity={0.82} onPress={() => setVerificationOpen(true)} style={styles.detailVerificationButton}>
-            <Image source={placeVerificationBadge} resizeMode="contain" style={styles.detailVerificationImage} />
-          </TouchableOpacity>
+          {place.qualityBadge ? (
+            <TouchableOpacity activeOpacity={0.82} onPress={() => setVerificationOpen(true)} style={styles.detailVerificationButton}>
+              <Image source={placeVerificationBadge} resizeMode="contain" style={styles.detailVerificationImage} />
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity activeOpacity={0.8} onPress={onToggleFavorite} style={styles.detailFavorite}>
             <Text style={styles.detailFavoriteText}>{isFavorite ? '★' : '☆'}</Text>
           </TouchableOpacity>
@@ -2488,12 +2491,12 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
           <GuideMap places={[place]} height={250} />
         </View>
       ) : null}
-      <Modal visible={isVerificationOpen} transparent animationType="fade" onRequestClose={() => setVerificationOpen(false)}>
+      <Modal visible={isVerificationOpen && Boolean(place.qualityBadge)} transparent animationType="fade" onRequestClose={() => setVerificationOpen(false)}>
         <View style={styles.verificationModalBackdrop}>
           <View style={styles.verificationModalCard}>
             <Image source={placeVerificationBadge} resizeMode="contain" style={styles.verificationModalImage} />
             <Text style={styles.verificationModalTitle}>Проверка места</Text>
-            <Text style={styles.verificationModalText}>привет,молодцы что посмотрели</Text>
+            <Text style={styles.verificationModalText}>{qualityBadgeText}</Text>
             <TouchableOpacity activeOpacity={0.86} onPress={() => setVerificationOpen(false)} style={styles.verificationModalButton}>
               <Text style={styles.verificationModalButtonText}>Понятно</Text>
             </TouchableOpacity>

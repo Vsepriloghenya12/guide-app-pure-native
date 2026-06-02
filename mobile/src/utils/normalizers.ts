@@ -83,6 +83,8 @@ export function normalizePlace(place: Partial<GuidePlace>, index = 0): GuidePlac
     type: cleanString(place.type || place.kind || place.listingType),
     priceLabel: cleanString(place.priceLabel),
     mapQuery: cleanString(place.mapQuery || place.address || title),
+    qualityBadge: Boolean(place.qualityBadge),
+    qualityBadgeText: cleanString(place.qualityBadgeText),
     status: place.status || 'published',
     visible: place.visible !== false,
     featured: Boolean(place.featured || place.top),

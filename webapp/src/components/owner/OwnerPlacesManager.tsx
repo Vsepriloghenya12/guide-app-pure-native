@@ -51,6 +51,8 @@ type PlaceDraft = {
   hotelSpa: boolean;
   childPrograms: boolean;
   top: boolean;
+  qualityBadge: boolean;
+  qualityBadgeText: string;
   status: NonNullable<GuidePlace["status"]>;
   sortOrder: string;
   lat: string;
@@ -84,6 +86,8 @@ const initialDraft: PlaceDraft = {
   hotelSpa: false,
   childPrograms: false,
   top: false,
+  qualityBadge: false,
+  qualityBadgeText: "",
   status: "published",
   sortOrder: "100",
   lat: "",
@@ -314,6 +318,8 @@ function toDraft(item: GuidePlace): PlaceDraft {
     hotelSpa: Boolean(item.hotelSpa),
     childPrograms: item.childPrograms,
     top: item.top,
+    qualityBadge: Boolean(item.qualityBadge),
+    qualityBadgeText: item.qualityBadgeText || "",
     status: item.status || "published",
     sortOrder: String(item.sortOrder ?? 100),
     lat: typeof item.lat === "number" ? String(item.lat) : "",
@@ -381,6 +387,8 @@ function createPlacePayload(draft: PlaceDraft) {
     pets: draft.pets,
     childPrograms: draft.childPrograms,
     top: draft.top,
+    qualityBadge: draft.qualityBadge,
+    qualityBadgeText: draft.qualityBadgeText.trim(),
     status: draft.status,
     sortOrder: Number(draft.sortOrder || 100) || 100,
     lat: parseNullableNumber(draft.lat),
@@ -1132,6 +1140,7 @@ export function OwnerPlacesManager({
               {isMapEditorOpen ? (
                 <OwnerMapPicker
                   value={selectedMapPoint}
+                  searchValue={draft.mapQuery || draft.address || draft.title}
                   disabled={isBusy}
                   onChange={handleMapPointChange}
                 />
@@ -1287,6 +1296,19 @@ export function OwnerPlacesManager({
           <div className="owner-checkbox-grid">
             {!isBulletinDraft ? (
               <>
+                <label className="checkbox-pill checkbox-pill--owner checkbox-pill--owner-accent">
+                  <input
+                    type="checkbox"
+                    checked={draft.qualityBadge}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        qualityBadge: event.target.checked,
+                      }))
+                    }
+                  />
+                  <span>Показывать знак качества</span>
+                </label>
                 <label className="checkbox-pill checkbox-pill--owner">
                   <input
                     type="checkbox"
@@ -1398,6 +1420,21 @@ export function OwnerPlacesManager({
               </span>
             </label>
           </div>
+
+          {!isBulletinDraft ? (
+            <label className="field field--textarea">
+              <span>Текст в знаке качества</span>
+              <textarea
+                value={draft.qualityBadgeText}
+                onChange={(event) =>
+                  updateDraftField("qualityBadgeText", event.target.value)
+                }
+                rows={3}
+                disabled={!draft.qualityBadge}
+                placeholder="Например: место проверено командой Mesto"
+              />
+            </label>
+          ) : null}
 
           {status ? <div className="owner-editor-status">{status}</div> : null}
 

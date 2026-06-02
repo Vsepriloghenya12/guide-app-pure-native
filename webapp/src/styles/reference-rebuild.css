@@ -4930,6 +4930,30 @@ body:not(.secret-theme-active) .app-shell.reference-shell .travel-list-card__res
   line-height: 1.35;
 }
 
+.owner-map-picker__search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.owner-map-picker__search .field {
+  margin: 0;
+}
+
+.owner-map-picker__search .button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.owner-map-picker__status {
+  margin: -4px 0 0;
+  color: var(--text-soft, #637491);
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .owner-map-picker__canvas {
   position: relative;
   overflow: hidden;
@@ -5046,6 +5070,10 @@ body:not(.secret-theme-active) .app-shell.reference-shell .travel-list-card__res
 
 @media (max-width: 560px) {
   .owner-map-picker__header {
+    grid-template-columns: 1fr;
+  }
+
+  .owner-map-picker__search {
     grid-template-columns: 1fr;
   }
 

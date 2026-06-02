@@ -83,6 +83,12 @@ const OWNER_PASSWORD = process.env.OWNER_PASSWORD || process.env.OWNER_PASSWOR |
 const OWNER_SESSION_SECRET = process.env.OWNER_SESSION_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'dev-guide-owner-secret');
 const OWNER_COOKIE_NAME = 'guide_owner_session';
 const OWNER_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
+const GOOGLE_MAPS_SERVER_API_KEY = String(
+  process.env.GOOGLE_MAPS_API_KEY ||
+  process.env.GOOGLE_GEOCODING_API_KEY ||
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
+  ''
+).trim();
 const DEFAULT_NATIVE_ORIGINS = [
   'exp://localhost:8081',
   'http://localhost:8081',
@@ -433,6 +439,39 @@ function slugifyPublicValue(value, fallback = 'bulletin') {
     .replace(/^-|-$/g, '') || fallback;
 }
 
+function parseCoordinatePart(value) {
+  const parsed = Number(String(value || '').trim().replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseLatLngPair(latValue, lngValue) {
+  const lat = parseCoordinatePart(latValue);
+  const lng = parseCoordinatePart(lngValue);
+  if (lat === null || lng === null || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+    return null;
+  }
+  return { lat, lng };
+}
+
+function extractLatLngFromMapsInput(value) {
+  const input = String(value || '').trim();
+  if (!input) return null;
+
+  const atMatch = input.match(/@(-?\d+(?:[.,]\d+)?),\s*(-?\d+(?:[.,]\d+)?)/);
+  if (atMatch) return parseLatLngPair(atMatch[1], atMatch[2]);
+
+  const googlePlaceMatch = input.match(/!3d(-?\d+(?:[.,]\d+)?)!4d(-?\d+(?:[.,]\d+)?)/);
+  if (googlePlaceMatch) return parseLatLngPair(googlePlaceMatch[1], googlePlaceMatch[2]);
+
+  const queryMatch = input.match(/[?&](?:q|query|ll|center|destination)=(-?\d+(?:[.,]\d+)?),\s*(-?\d+(?:[.,]\d+)?)/i);
+  if (queryMatch) return parseLatLngPair(queryMatch[1], queryMatch[2]);
+
+  const plainPairMatch = input.match(/^\s*(-?\d+(?:[.,]\d+)?)\s*,\s*(-?\d+(?:[.,]\d+)?)\s*$/);
+  if (plainPairMatch) return parseLatLngPair(plainPairMatch[1], plainPairMatch[2]);
+
+  return null;
+}
+
 function parsePublicPriceNumber(value) {
   const digits = String(value || '').replace(/[^\d]/g, '');
   if (!digits) {
@@ -738,6 +777,62 @@ function normalizeIncomingListing(incoming, currentListing = null) {
     0,
     currentListing || undefined
   );
+}
+
+function getGoogleGeocodingBounds() {
+  const bounds = String(process.env.GOOGLE_GEOCODING_BOUNDS || '15.93,108.05|16.19,108.33').trim();
+  return bounds || '15.93,108.05|16.19,108.33';
+}
+
+async function geocodeAddress(query) {
+  const address = String(query || '').trim();
+  if (!address) {
+    throw new Error('Введите адрес для поиска.');
+  }
+
+  const directPoint = extractLatLngFromMapsInput(address);
+  if (directPoint) {
+    return {
+      address,
+      formattedAddress: address,
+      lat: directPoint.lat,
+      lng: directPoint.lng,
+      provider: 'coordinates'
+    };
+  }
+
+  if (!GOOGLE_MAPS_SERVER_API_KEY) {
+    throw new Error('На сервере не настроен GOOGLE_MAPS_API_KEY для поиска адресов.');
+  }
+
+  const params = new URLSearchParams({
+    address,
+    key: GOOGLE_MAPS_SERVER_API_KEY,
+    language: 'ru',
+    region: 'vn',
+    bounds: getGoogleGeocodingBounds()
+  });
+  const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`);
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok || !data) {
+    throw new Error('Google Geocoding не ответил. Попробуйте ещё раз.');
+  }
+
+  if (data.status !== 'OK' || !Array.isArray(data.results) || !data.results[0]?.geometry?.location) {
+    const status = typeof data.status === 'string' ? data.status : 'UNKNOWN';
+    throw new Error(status === 'ZERO_RESULTS' ? 'Адрес не найден.' : `Не удалось найти адрес: ${status}.`);
+  }
+
+  const result = data.results[0];
+  const location = result.geometry.location;
+  return {
+    address,
+    formattedAddress: String(result.formatted_address || address),
+    lat: Number(location.lat),
+    lng: Number(location.lng),
+    provider: 'google'
+  };
 }
 
 async function getOwnerSummaryPayload() {
@@ -1174,6 +1269,16 @@ app.get('/api/owner/places', requireOwner, async (req, res) => {
     res.json({ ok: true, places });
   } catch (error) {
     res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to load owner places' });
+  }
+});
+
+app.get('/api/owner/geocode', requireOwner, async (req, res) => {
+  try {
+    const query = typeof req.query.q === 'string' ? req.query.q : '';
+    const result = await geocodeAddress(query);
+    res.json({ ok: true, result });
+  } catch (error) {
+    res.status(400).json({ ok: false, message: error instanceof Error ? error.message : 'Не удалось найти адрес.' });
   }
 });
 

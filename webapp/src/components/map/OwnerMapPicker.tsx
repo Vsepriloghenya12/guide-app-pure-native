@@ -1,4 +1,5 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, memo, useEffect, useMemo, useRef, useState } from 'react';
+import { api } from '../../api/client';
 import {
   DANANG_MAP_CENTER,
   DANANG_OWNER_MAP_ZOOM,
@@ -13,6 +14,7 @@ import {
 
 type OwnerMapPickerProps = {
   value: AppMapPoint | null;
+  searchValue?: string;
   disabled?: boolean;
   onChange: (point: AppMapPoint | null) => void;
 };
@@ -132,10 +134,13 @@ function getPinchState(pointers: Map<number, PointerPosition>): PinchState | nul
   };
 }
 
-const OwnerMapPickerComponent = function OwnerMapPicker({ value, disabled, onChange }: OwnerMapPickerProps) {
+const OwnerMapPickerComponent = function OwnerMapPicker({ value, searchValue, disabled, onChange }: OwnerMapPickerProps) {
   const { ref: canvasRef, size } = useElementSize<HTMLDivElement>();
   const [mapCenter, setMapCenter] = useState<AppMapPoint>(value || DANANG_MAP_CENTER);
   const [zoom, setZoom] = useState(DANANG_OWNER_MAP_ZOOM);
+  const [addressQuery, setAddressQuery] = useState(searchValue || '');
+  const [geocodeStatus, setGeocodeStatus] = useState('');
+  const [isGeocoding, setIsGeocoding] = useState(false);
   const dragRef = useRef<DragState | null>(null);
   const activePointersRef = useRef<Map<number, PointerPosition>>(new Map());
   const pinchRef = useRef<PinchState | null>(null);
@@ -191,6 +196,12 @@ const OwnerMapPickerComponent = function OwnerMapPicker({ value, disabled, onCha
       setMapCenter(value);
     }
   }, [value?.lat, value?.lng]);
+
+  useEffect(() => {
+    if (!addressQuery.trim() && searchValue) {
+      setAddressQuery(searchValue);
+    }
+  }, [addressQuery, searchValue]);
 
   const applyPan = (deltaX: number, deltaY: number) => {
     const nextCenter = shiftCenter(mapCenterRef.current, zoomRef.current, deltaX, deltaY);
@@ -356,12 +367,49 @@ const OwnerMapPickerComponent = function OwnerMapPicker({ value, disabled, onCha
     setZoom(DANANG_OWNER_MAP_ZOOM);
   };
 
+  const applyGeocodedPoint = (point: AppMapPoint, message: string) => {
+    const nextPoint = {
+      lat: Number(point.lat.toFixed(6)),
+      lng: Number(point.lng.toFixed(6))
+    };
+    mapCenterRef.current = nextPoint;
+    zoomRef.current = Math.max(zoomRef.current, 16);
+    setMapCenter(nextPoint);
+    setZoom(zoomRef.current);
+    onChange(nextPoint);
+    setGeocodeStatus(message);
+  };
+
+  const handleAddressSearch = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = addressQuery.trim();
+    if (!query || disabled || isGeocoding) {
+      return;
+    }
+
+    setIsGeocoding(true);
+    setGeocodeStatus('Ищу адрес...');
+    try {
+      const response = await api.ownerGeocode(query);
+      applyGeocodedPoint(
+        { lat: response.result.lat, lng: response.result.lng },
+        response.result.provider === 'coordinates'
+          ? 'Метка поставлена по координатам.'
+          : `Метка поставлена: ${response.result.formattedAddress}`
+      );
+    } catch (error) {
+      setGeocodeStatus(error instanceof Error ? error.message : 'Не удалось найти адрес.');
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
   return (
     <section className="owner-map-picker" aria-label="Точка на карте приложения">
       <div className="owner-map-picker__header">
         <div>
           <strong>Точка на карте</strong>
-          <span>Двигайте карту, меняйте масштаб двумя пальцами или кнопками и нажмите на нужное место, чтобы поставить метку.</span>
+          <span>Введите адрес, вставьте ссылку Google Maps или поставьте метку вручную нажатием на карту.</span>
         </div>
         {value ? (
           <button className="button button--ghost" type="button" onClick={() => onChange(null)} disabled={disabled}>
@@ -369,6 +417,21 @@ const OwnerMapPickerComponent = function OwnerMapPicker({ value, disabled, onCha
           </button>
         ) : null}
       </div>
+      <form className="owner-map-picker__search" onSubmit={handleAddressSearch}>
+        <label className="field">
+          <span>Адрес или ссылка на Google Maps</span>
+          <input
+            value={addressQuery}
+            onChange={(event) => setAddressQuery(event.target.value)}
+            placeholder="Например: Dragon Bridge, Da Nang"
+            disabled={disabled || isGeocoding}
+          />
+        </label>
+        <button className="button button--primary" type="submit" disabled={disabled || isGeocoding || !addressQuery.trim()}>
+          {isGeocoding ? 'Ищу...' : 'Найти и поставить метку'}
+        </button>
+      </form>
+      {geocodeStatus ? <p className="owner-map-picker__status">{geocodeStatus}</p> : null}
 
       <div
         ref={canvasRef}
@@ -419,6 +482,7 @@ export const OwnerMapPicker = memo(
   OwnerMapPickerComponent,
   (previousProps, nextProps) =>
     previousProps.disabled === nextProps.disabled &&
+    previousProps.searchValue === nextProps.searchValue &&
     previousProps.onChange === nextProps.onChange &&
     (previousProps.value?.lat ?? null) === (nextProps.value?.lat ?? null) &&
     (previousProps.value?.lng ?? null) === (nextProps.value?.lng ?? null)

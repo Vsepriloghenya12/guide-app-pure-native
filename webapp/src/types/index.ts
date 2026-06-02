@@ -66,6 +66,8 @@ export type GuidePlace = {
   contactName?: string;
   createdByUserId?: string;
   moderationNote?: string;
+  qualityBadge?: boolean;
+  qualityBadgeText?: string;
   status?: 'draft' | 'hidden' | 'published';
   sortOrder?: number;
   lat?: number | null;
