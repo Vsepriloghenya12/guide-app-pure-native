@@ -1,4 +1,4 @@
-import { FormEvent, memo, useEffect, useMemo, useRef, useState } from 'react';
+import { KeyboardEvent, memo, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../api/client';
 import {
   DANANG_MAP_CENTER,
@@ -380,8 +380,7 @@ const OwnerMapPickerComponent = function OwnerMapPicker({ value, searchValue, di
     setGeocodeStatus(message);
   };
 
-  const handleAddressSearch = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleAddressSearch = async () => {
     const query = addressQuery.trim();
     if (!query || disabled || isGeocoding) {
       return;
@@ -404,6 +403,16 @@ const OwnerMapPickerComponent = function OwnerMapPicker({ value, searchValue, di
     }
   };
 
+  const handleAddressKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    void handleAddressSearch();
+  };
+
   return (
     <section className="owner-map-picker" aria-label="Точка на карте приложения">
       <div className="owner-map-picker__header">
@@ -417,20 +426,21 @@ const OwnerMapPickerComponent = function OwnerMapPicker({ value, searchValue, di
           </button>
         ) : null}
       </div>
-      <form className="owner-map-picker__search" onSubmit={handleAddressSearch}>
+      <div className="owner-map-picker__search">
         <label className="field">
           <span>Адрес или ссылка на Google Maps</span>
           <input
             value={addressQuery}
             onChange={(event) => setAddressQuery(event.target.value)}
+            onKeyDown={handleAddressKeyDown}
             placeholder="Например: Dragon Bridge, Da Nang"
             disabled={disabled || isGeocoding}
           />
         </label>
-        <button className="button button--primary" type="submit" disabled={disabled || isGeocoding || !addressQuery.trim()}>
+        <button className="button button--primary" type="button" onClick={() => void handleAddressSearch()} disabled={disabled || isGeocoding || !addressQuery.trim()}>
           {isGeocoding ? 'Ищу...' : 'Найти и поставить метку'}
         </button>
-      </form>
+      </div>
       {geocodeStatus ? <p className="owner-map-picker__status">{geocodeStatus}</p> : null}
 
       <div
