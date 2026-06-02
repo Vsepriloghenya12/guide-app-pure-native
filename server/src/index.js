@@ -822,7 +822,8 @@ async function geocodeAddress(query) {
 
   if (data.status !== 'OK' || !Array.isArray(data.results) || !data.results[0]?.geometry?.location) {
     const status = typeof data.status === 'string' ? data.status : 'UNKNOWN';
-    throw new Error(status === 'ZERO_RESULTS' ? 'Адрес не найден.' : `Не удалось найти адрес: ${status}.`);
+    const googleMessage = typeof data.error_message === 'string' ? data.error_message.trim() : '';
+    throw new Error(status === 'ZERO_RESULTS' ? 'Адрес не найден.' : `Не удалось найти адрес: ${status}${googleMessage ? `. ${googleMessage}` : ''}`);
   }
 
   const result = data.results[0];
