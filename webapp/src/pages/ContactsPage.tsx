@@ -63,6 +63,10 @@ export function ContactsPage() {
         <a className="client-help-sections__chip" href="#help-emergency">Экстренные службы</a>
         <a className="client-help-sections__chip" href="#help-contacts">Контакты</a>
         <a className="client-help-sections__chip" href="#help-faq">FAQ</a>
+        <a className="client-help-sections__chip" href="/terms" target="_blank" rel="noreferrer">Соглашение</a>
+        <a className="client-help-sections__chip" href="/privacy" target="_blank" rel="noreferrer">Конфиденциальность</a>
+        <a className="client-help-sections__chip" href="/delete-profile" target="_blank" rel="noreferrer">Удаление данных</a>
+        <a className="client-help-sections__chip" href="/support" target="_blank" rel="noreferrer">Поддержка</a>
       </section>
 
       <section className="client-help-block" id="help-emergency" aria-labelledby="help-emergency-title">

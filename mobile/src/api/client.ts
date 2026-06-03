@@ -85,6 +85,12 @@ export async function logoutAuthSession() {
   }
 }
 
+export async function deleteAuthProfile() {
+  return requestJson<{ ok: boolean; deleted?: { profile: boolean; favorites: number; bulletins: number; sessions: number; files: number } }>('/api/me/profile', {
+    method: 'DELETE'
+  });
+}
+
 export async function fetchAuthStartUrl(provider: 'google' | 'apple' | 'telegram', returnTo: string, authNonce: string) {
   if (!API_BASE_URL) {
     throw new Error('EXPO_PUBLIC_API_BASE_URL is not configured.');

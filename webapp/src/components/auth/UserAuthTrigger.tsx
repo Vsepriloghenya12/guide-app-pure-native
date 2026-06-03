@@ -39,7 +39,7 @@ export function UserAuthTrigger({ variant = 'topbar' }: UserAuthTriggerProps) {
       type="button"
       className={`user-auth-trigger user-auth-trigger--${variant}${session.authenticated ? ' is-authenticated' : ''}`}
       onClick={openSheet}
-      aria-label={session.authenticated ? `Профиль: ${session.user?.displayName || 'пользователь'}` : 'Вход или регистрация'}
+      aria-label={session.authenticated ? `Профиль: ${session.user?.displayName || 'пользователь'}` : 'Авторизация'}
     >
       <span className="user-auth-trigger__avatar" aria-hidden="true">
         {session.authenticated && session.user?.avatarUrl ? (

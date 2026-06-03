@@ -364,6 +364,17 @@ function setMemoryUserFavorite(userId, slug, favorite) {
   return setMemoryUserFavorites(userId, Array.from(current));
 }
 
+function removeMemoryUser(userId) {
+  const normalizedUserId = String(userId || '').trim();
+  const users = getMemoryUsers();
+  const existing = users.find((item) => item.id === normalizedUserId) || null;
+  if (!existing) {
+    return null;
+  }
+  writeMemoryUsers(users.filter((item) => item.id !== normalizedUserId));
+  return existing;
+}
+
 
 function getMemoryStore() {
   if (!memoryStore) {
@@ -2043,6 +2054,33 @@ async function upsertPublicUser(profile) {
   return toPublicUser(rows[0]);
 }
 
+async function getPublicUserById(userId) {
+  const normalizedUserId = String(userId || '').trim();
+  if (!normalizedUserId) {
+    return null;
+  }
+
+  const db = await getReadyDb();
+  if (!db) {
+    return toPublicUser(getMemoryUserById(normalizedUserId));
+  }
+
+  const rows = await db.unsafe(
+    `
+      select id, provider, provider_user_id as "providerUserId", display_name as "displayName",
+        given_name as "givenName", family_name as "familyName", email, email_verified as "emailVerified",
+        avatar_url as "avatarUrl", username, created_at as "createdAt", updated_at as "updatedAt",
+        last_login_at as "lastLoginAt"
+      from users
+      where id = $1
+      limit 1
+    `,
+    [normalizedUserId]
+  );
+
+  return toPublicUser(rows[0]);
+}
+
 async function getUserFavorites(userId) {
   const normalizedUserId = String(userId || '').trim();
   if (!normalizedUserId) {
@@ -2110,6 +2148,151 @@ async function setUserFavorite(userId, slug, favorite) {
   return getUserFavorites(normalizedUserId);
 }
 
+function getPlaceMediaUrls(place) {
+  return Array.from(new Set([
+    place?.imageSrc,
+    place?.coverImageUrl,
+    ...(Array.isArray(place?.imageGallery) ? place.imageGallery : []),
+    ...(Array.isArray(place?.imageUrls) ? place.imageUrls : [])
+  ].map((item) => String(item || '').trim()).filter(Boolean)));
+}
+
+async function deletePublicUserProfile(userId) {
+  const normalizedUserId = String(userId || '').trim();
+  const emptyResult = {
+    profile: false,
+    favorites: 0,
+    bulletins: 0,
+    sessions: 0,
+    files: 0,
+    mediaRecords: []
+  };
+  if (!normalizedUserId) {
+    return emptyResult;
+  }
+
+  const db = await getReadyDb();
+  if (!db) {
+    const user = getMemoryUserById(normalizedUserId);
+    if (!user) {
+      return emptyResult;
+    }
+
+    const store = getMemoryStore();
+    const bulletinPlaces = store.places.filter((place) => (
+      place.categoryId === 'bulletin-board' &&
+      String(place.createdByUserId || '').trim() === normalizedUserId
+    ));
+    const bulletinIds = new Set(bulletinPlaces.map((place) => place.id));
+    const imageUrls = new Set(bulletinPlaces.flatMap(getPlaceMediaUrls));
+    const mediaRecords = getMemoryMediaFiles(10000).filter((record) => imageUrls.has(record.publicUrl));
+
+    setMemoryStore({
+      ...store,
+      places: store.places.filter((place) => !bulletinIds.has(place.id)),
+      home: {
+        ...store.home,
+        popularPlaceIds: store.home.popularPlaceIds.filter((itemId) => !bulletinIds.has(itemId))
+      },
+      collections: store.collections.map((collection) => ({
+        ...collection,
+        itemIds: collection.itemIds.filter((itemId) => !bulletinIds.has(itemId))
+      }))
+    });
+    writeMemoryMediaFiles(getMemoryMediaFiles(10000).filter((record) => !mediaRecords.some((item) => item.id === record.id)));
+    removeMemoryUser(normalizedUserId);
+
+    return {
+      profile: true,
+      favorites: user.favoriteSlugs.length,
+      bulletins: bulletinPlaces.length,
+      sessions: 1,
+      files: mediaRecords.length,
+      mediaRecords
+    };
+  }
+
+  let result = emptyResult;
+  await db.begin(async (tx) => {
+    const userRows = await tx.unsafe('select id from users where id = $1 limit 1', [normalizedUserId]);
+    if (userRows.length === 0) {
+      return;
+    }
+
+    const favoriteRows = await tx.unsafe('select count(*)::int as count from user_favorites where user_id = $1', [normalizedUserId]);
+    const bulletinRows = await tx.unsafe(
+      `
+        select id
+        from places
+        where category_id = 'bulletin-board'
+          and created_by_user_id = $1
+      `,
+      [normalizedUserId]
+    );
+    const bulletinIds = bulletinRows.map((row) => String(row.id || '')).filter(Boolean);
+
+    let imageUrls = [];
+    if (bulletinIds.length > 0) {
+      const imageRows = await tx.unsafe(
+        `
+          select image_url as "imageUrl"
+          from place_images
+          where place_id = any($1::text[])
+        `,
+        [bulletinIds]
+      );
+      imageUrls = Array.from(new Set(imageRows.map((row) => String(row.imageUrl || '').trim()).filter(Boolean)));
+    }
+
+    const mediaRecords = imageUrls.length > 0
+      ? await tx.unsafe(
+        `
+          delete from media_files
+          where public_url = any($1::text[])
+          returning id, kind, file_name as "fileName", mime_type as "mimeType", size_bytes as "sizeBytes",
+            storage_path as "storagePath", public_url as "publicUrl", created_at as "createdAt"
+        `,
+        [imageUrls]
+      )
+      : [];
+
+    if (bulletinIds.length > 0) {
+      await tx.unsafe('delete from collection_items where place_id = any($1::text[])', [bulletinIds]);
+      await tx.unsafe('delete from places where id = any($1::text[])', [bulletinIds]);
+
+      const homeRows = await tx.unsafe('select payload from home_content where id = $1 limit 1', ['main']);
+      const currentHome = normalizeContentStore({ home: homeRows[0]?.payload || cloneDefaultContent().home }).home;
+      const nextHome = {
+        ...currentHome,
+        popularPlaceIds: currentHome.popularPlaceIds.filter((itemId) => !bulletinIds.includes(itemId))
+      };
+
+      await tx.unsafe(
+        `
+          insert into home_content (id, payload, updated_at)
+          values ('main', $1::jsonb, now())
+          on conflict (id) do update set payload = excluded.payload, updated_at = now()
+        `,
+        [JSON.stringify(nextHome)]
+      );
+    }
+
+    await tx.unsafe('delete from user_favorites where user_id = $1', [normalizedUserId]);
+    await tx.unsafe('delete from users where id = $1', [normalizedUserId]);
+
+    result = {
+      profile: true,
+      favorites: Number(favoriteRows[0]?.count || 0),
+      bulletins: bulletinIds.length,
+      sessions: 1,
+      files: mediaRecords.length,
+      mediaRecords
+    };
+  });
+
+  return result;
+}
+
 
 module.exports = {
   appendAnalyticsEvent,
@@ -2126,6 +2309,7 @@ module.exports = {
   getPlaceBySlug,
   getPlaces,
   getMediaFiles,
+  getPublicUserById,
   getSql,
   hasDatabase,
   normalizeContentStore,
@@ -2145,5 +2329,6 @@ module.exports = {
   upsertCategory,
   upsertPlace,
   upsertPublicUser,
+  deletePublicUserProfile,
   getUserFavorites
 };

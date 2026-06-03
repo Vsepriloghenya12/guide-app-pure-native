@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { upsertPublicUser } = require('./db');
+const { getPublicUserById, upsertPublicUser } = require('./db');
 
 const USER_SESSION_COOKIE_NAME = 'guide_user_session';
 const AUTH_STATE_COOKIE_NAME = 'guide_user_auth_state';
@@ -793,11 +793,13 @@ function getStateOrThrow(req, provider, incomingState) {
 }
 
 function registerPublicAuthRoutes(app) {
-  app.get('/api/auth/session', (req, res) => {
+  app.get('/api/auth/session', async (req, res) => {
+    const sessionUser = readUserSession(req);
+    const existingUser = sessionUser?.id ? await getPublicUserById(sessionUser.id) : null;
     res.json({
       ok: true,
-      authenticated: Boolean(readUserSession(req)),
-      user: readUserSession(req),
+      authenticated: Boolean(existingUser),
+      user: existingUser,
       providers: getProviderStatus()
     });
   });

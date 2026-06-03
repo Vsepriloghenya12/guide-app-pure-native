@@ -59,6 +59,12 @@ export function OwnerLoginPage() {
             Вход владельца теперь проверяется на сервере, а сессия хранится в cookie. Пароль удобно
             задаётся через Railway Variables.
           </p>
+          <p>
+            Документы: <a href="/terms" target="_blank" rel="noreferrer">соглашение</a>,{' '}
+            <a href="/privacy" target="_blank" rel="noreferrer">конфиденциальность</a>,{' '}
+            <a href="/delete-profile" target="_blank" rel="noreferrer">удаление данных</a>,{' '}
+            <a href="/support" target="_blank" rel="noreferrer">поддержка</a>.
+          </p>
         </div>
 
         <form className="owner-login-form" onSubmit={handleSubmit}>

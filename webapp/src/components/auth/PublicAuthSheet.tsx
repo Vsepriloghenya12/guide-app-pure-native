@@ -61,8 +61,8 @@ export function PublicAuthSheet() {
       <div className="modal-window filter-modal public-auth-sheet" role="dialog" aria-modal="true" aria-labelledby="public-auth-title" onClick={(event) => event.stopPropagation()}>
         <div className="modal-window__header public-auth-sheet__header">
           <div>
-            <strong id="public-auth-title">Профиль и вход</strong>
-            <small>Сохраняйте аккаунт и входите через Telegram, Google или Apple.</small>
+            <strong id="public-auth-title">Авторизованный профиль</strong>
+            <small>Войдите через Telegram, Google или Apple для персональных функций.</small>
           </div>
           <button className="modal-window__close" type="button" onClick={closeSheet} aria-label="Закрыть">
             ×
@@ -87,7 +87,7 @@ export function PublicAuthSheet() {
                 </span>
                 <div className="public-auth-profile-card__copy">
                   <strong>{profileName}</strong>
-                  <span>{session.user.email || (session.user.username ? `@${session.user.username}` : 'Аккаунт подключён')}</span>
+                  <span>{session.user.email || (session.user.username ? `@${session.user.username}` : 'Профиль подключён')}</span>
                   <small>Вход через {session.user.provider === 'google' ? 'Google' : session.user.provider === 'apple' ? 'Apple' : 'Telegram'}</small>
                 </div>
               </div>
@@ -99,7 +99,7 @@ export function PublicAuthSheet() {
           ) : (
             <section className="public-auth-intro-card">
               <strong>Войдите, чтобы использовать персональные функции приложения.</strong>
-              <p>Новый пользователь создаётся автоматически при первом входе через выбранную соцсеть.</p>
+              <p>Технический профиль создаётся автоматически при первом входе через выбранный провайдер.</p>
             </section>
           )}
 
@@ -117,7 +117,7 @@ export function PublicAuthSheet() {
               <GoogleIcon />
               <span className="public-auth-provider__copy">
                 <strong>Продолжить с Google</strong>
-                <span>{session.providers.google ? 'Быстрый вход и регистрация' : 'Провайдер пока не настроен'}</span>
+                <span>{session.providers.google ? 'Быстрая авторизация' : 'Провайдер пока не настроен'}</span>
               </span>
             </a>
 

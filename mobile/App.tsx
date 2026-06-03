@@ -25,7 +25,7 @@ import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, GeoJSONSource, Layer, Map as MapLibreMap, type LngLatBounds, type StyleSpecification } from '@maplibre/maplibre-react-native';
 import type { BootstrapPayload, GuideCategory, GuideCollection, GuidePlace, GuideTip, SupportContentStore } from './src/types';
-import { fetchBootstrap, fetchSupportContent, fetchAuthSession, fetchAuthStartUrl, logoutAuthSession, API_BASE_URL, sendAnalytics, submitBulletinListing, fetchMyBulletinListings, deleteMyBulletinListing } from './src/api/client';
+import { fetchBootstrap, fetchSupportContent, fetchAuthSession, fetchAuthStartUrl, logoutAuthSession, deleteAuthProfile, API_BASE_URL, sendAnalytics, submitBulletinListing, fetchMyBulletinListings, deleteMyBulletinListing } from './src/api/client';
 import { directionsUrl, openExternalUrl } from './src/utils/links';
 import { estimateTravelTime, formatDistance, hasCoordinates, haversineDistanceKm } from './src/utils/geo';
 import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
@@ -63,6 +63,21 @@ const tabItems: Array<{ key: TabKey; label: string; icon: string }> = [
 const hiddenHomeCategoryIds = new Set(['events']);
 const restaurantQuickFilters = ['Морепродукты', 'Вьетнамская', 'Европейская'];
 const welcomeSeenStorageKey = 'guide-app-welcome-seen-v1';
+const legalBaseUrl = API_BASE_URL.replace(/\/api$/i, '');
+const legalLinks = [
+  { id: 'terms', label: 'Пользовательское соглашение', path: '/terms' },
+  { id: 'privacy', label: 'Политика конфиденциальности', path: '/privacy' },
+  { id: 'delete-profile', label: 'Удаление данных профиля', path: '/delete-profile' },
+  { id: 'support', label: 'Поддержка', path: '/support' }
+] as const;
+
+function legalPageUrl(path: string) {
+  return legalBaseUrl ? `${legalBaseUrl}${path}` : '';
+}
+
+function openLegalPage(path: string) {
+  return openExternalUrl(legalPageUrl(path));
+}
 
 const filterTextMap: Record<string, string> = {
   breakfast: 'Завтраки',
@@ -320,36 +335,6 @@ function buildMapBounds(points: Array<{ latitude: number; longitude: number }>):
   const lngPadding = Math.max(0.01, (maxLng - minLng) * 0.25);
 
   return [minLng - lngPadding, minLat - latPadding, maxLng + lngPadding, maxLat + latPadding];
-}
-
-function isPhoneValid(phone: string) {
-  return phone.replace(/[^0-9]/g, '').length >= 10;
-}
-
-function isLoginValid({ phone, password }: { phone: string; password: string }) {
-  return isPhoneValid(phone) && password.length >= 6;
-}
-
-function isRegisterValid({
-  phone,
-  firstName,
-  lastName,
-  nickname,
-  password
-}: {
-  phone: string;
-  firstName: string;
-  lastName: string;
-  nickname: string;
-  password: string;
-}) {
-  return (
-    isPhoneValid(phone) &&
-    firstName.trim().length >= 2 &&
-    lastName.trim().length >= 2 &&
-    nickname.trim().length >= 2 &&
-    password.length >= 6
-  );
 }
 
 function contactUrlFromText(value: string) {
@@ -732,6 +717,34 @@ function AppContent() {
     setAuthSheetOpen(false);
   }, []);
 
+  const handleDeleteProfile = useCallback(() => {
+    Alert.alert(
+      'Удалить данные профиля?',
+      'Будут удалены ваш авторизованный профиль Danang Guide, избранное, ваши объявления и связанные с ними данные. Это не удалит ваш аккаунт Google, Apple или Telegram.',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Удалить данные',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAuthProfile();
+              await clearAuthToken();
+              await saveFavoriteSlugs([]);
+              setFavoriteSlugs([]);
+              setAuthUser(null);
+              setAuthSheetOpen(false);
+              await loadApp();
+              Alert.alert('Данные профиля удалены');
+            } catch (error) {
+              Alert.alert('Не удалось удалить данные', error instanceof Error ? error.message : 'Попробуйте ещё раз.');
+            }
+          }
+        }
+      ]
+    );
+  }, [loadApp]);
+
   const handleWelcomeStart = useCallback(async () => {
     await AsyncStorage.setItem(welcomeSeenStorageKey, '1');
     setWelcomeVisible(false);
@@ -868,7 +881,7 @@ function AppContent() {
       {route.name !== 'detail' ? (
         <BottomTabs active={route.name === 'tabs' ? route.tab : 'home'} onChange={(tab) => setRoute({ name: 'tabs', tab })} bottomInset={mobileInsets.bottom} />
       ) : null}
-      <AuthSheet visible={isAuthSheetOpen} user={authUser} providers={authProviders} onClose={() => setAuthSheetOpen(false)} onLogout={handleLogout} />
+      <AuthSheet visible={isAuthSheetOpen} user={authUser} providers={authProviders} onClose={() => setAuthSheetOpen(false)} onLogout={handleLogout} onDeleteProfile={handleDeleteProfile} />
     </View>
   );
 }
@@ -2161,6 +2174,17 @@ function ContactsScreen({ support }: { support: SupportContentStore }) {
           <Text style={styles.contactValue}>{channel.value}</Text>
         </TouchableOpacity>
       ))}
+      {legalBaseUrl ? (
+        <View style={styles.legalLinksCard}>
+          <Text style={styles.legalLinksTitle}>Документы и поддержка</Text>
+          {legalLinks.map((link) => (
+            <TouchableOpacity key={link.id} activeOpacity={0.82} onPress={() => void openLegalPage(link.path)} style={styles.legalLinkRow}>
+              <Text style={styles.legalLinkText}>{link.label}</Text>
+              <Text style={styles.legalLinkArrow}>›</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : null}
       <SectionTitle title={support?.emergencyTitle || 'Экстренные контакты'} />
       <Text style={styles.noteText}>{support?.emergencySubtitle || 'Сохрани эти контакты на случай срочной ситуации.'}</Text>
       {emergencyContacts.map((contact) => (
@@ -2227,13 +2251,17 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
           <Image source={welcomeLogo} resizeMode="contain" style={styles.welcomeLogo} />
           <Text style={styles.welcomeText}>наше приложение создано туристами для туристов</Text>
           <TouchableOpacity activeOpacity={0.88} onPress={onStart} style={styles.welcomeButton}>
-            <Text style={styles.welcomeButtonText}>Войти/зарегистрироваться</Text>
+            <Text style={styles.welcomeButtonText}>Войти</Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.welcomePolicyText}>
-          регистрируясь в приложении вы соглашаетесь с{' '}
-          <Text onPress={() => Alert.alert('Политика пользования', 'Ссылку добавим позже.')} style={styles.welcomePolicyLink}>
-            политикой пользования
+          авторизуясь, вы соглашаетесь с{' '}
+          <Text onPress={() => void openLegalPage('/terms')} style={styles.welcomePolicyLink}>
+            пользовательским соглашением
+          </Text>
+          {' '}и{' '}
+          <Text onPress={() => void openLegalPage('/privacy')} style={styles.welcomePolicyLink}>
+            политикой конфиденциальности
           </Text>
         </Text>
       </View>
@@ -2246,30 +2274,22 @@ function AuthSheet({
   user,
   providers,
   onClose,
-  onLogout
+  onLogout,
+  onDeleteProfile
 }: {
   visible: boolean;
   user: Record<string, unknown> | null;
   providers: NativeAuthProviders;
   onClose: () => void;
   onLogout: () => void;
+  onDeleteProfile: () => void;
 }) {
   const authReturnTo = 'danangguide:///auth';
   const displayName = toText(user?.displayName || user?.username || user?.email, 'Пользователь');
   const userEmail = toText(user?.email);
   const avatarUrl = getAuthUserAvatarUrl(user);
   const [openingProvider, setOpeningProvider] = useState<'google' | 'apple' | 'telegram' | null>(null);
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [showPassword, setShowPassword] = useState(false);
-  const [phone, setPhone] = useState('+7 ');
-  const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [nickname, setNickname] = useState('');
   const providerEnabled = useCallback((provider: 'google' | 'apple' | 'telegram') => Boolean(providers?.[provider]), [providers]);
-  const canSubmitAuthForm = authMode === 'login'
-    ? isLoginValid({ phone, password })
-    : isRegisterValid({ phone, firstName, lastName, nickname, password });
 
   const openProvider = async (provider: 'google' | 'apple' | 'telegram') => {
     if (!API_BASE_URL) return;
@@ -2287,11 +2307,6 @@ function AuthSheet({
     }
   };
 
-  const submitAuthForm = () => {
-    if (!canSubmitAuthForm) return;
-    Alert.alert('Скоро добавим', 'Пока вход в приложение работает через Google или Telegram.');
-  };
-
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.authModalBackdrop}>
@@ -2305,8 +2320,8 @@ function AuthSheet({
           <View style={styles.tipModalHandle} />
           <View style={styles.authSheetHeader}>
             <View>
-              <Text style={styles.authSheetTitle}>{user ? 'Профиль' : 'Профиль и вход'}</Text>
-              <Text style={styles.authSheetText}>{user ? 'Вы уже авторизованы в приложении.' : 'Авторизация нужна для избранного, объявлений и личных функций.'}</Text>
+              <Text style={styles.authSheetTitle}>{user ? 'Авторизованный профиль' : 'Войти в Danang Guide'}</Text>
+              <Text style={styles.authSheetText}>{user ? 'Данные профиля используются для личных функций приложения.' : 'Авторизация нужна для избранного, объявлений и персональных функций.'}</Text>
             </View>
             <TouchableOpacity style={styles.authCloseButton} onPress={onClose}>
               <Text style={styles.authCloseText}>×</Text>
@@ -2314,56 +2329,39 @@ function AuthSheet({
           </View>
 
           {user ? (
-            <View style={styles.profileBlock}>
-              <View style={styles.profileAvatar}>
-                {avatarUrl ? (
-                  <Image source={{ uri: avatarUrl }} style={styles.profileAvatarImage} />
-                ) : (
-                  <Text style={styles.profileAvatarText}>{displayName.slice(0, 1).toUpperCase()}</Text>
-                )}
-              </View>
-              <View style={styles.flex}>
-                <Text style={styles.profileName}>{displayName}</Text>
-                {userEmail ? <Text style={styles.profileEmail}>{userEmail}</Text> : null}
-              </View>
-              <TouchableOpacity activeOpacity={0.84} onPress={onLogout} style={styles.profileLogoutButton}>
-                <Text style={styles.profileLogoutText}>Выйти</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
             <>
-              <View style={styles.authModeTabs}>
-                <TouchableOpacity activeOpacity={0.86} onPress={() => setAuthMode('login')} style={[styles.authModeTab, authMode === 'login' && styles.authModeTabActive]}>
-                  <Text style={[styles.authModeTabText, authMode === 'login' && styles.authModeTabTextActive]}>Войти</Text>
-                </TouchableOpacity>
-                <TouchableOpacity activeOpacity={0.86} onPress={() => setAuthMode('register')} style={[styles.authModeTab, authMode === 'register' && styles.authModeTabActive]}>
-                  <Text style={[styles.authModeTabText, authMode === 'register' && styles.authModeTabTextActive]}>Зарегистрироваться</Text>
+              <View style={styles.profileBlock}>
+                <View style={styles.profileAvatar}>
+                  {avatarUrl ? (
+                    <Image source={{ uri: avatarUrl }} style={styles.profileAvatarImage} />
+                  ) : (
+                    <Text style={styles.profileAvatarText}>{displayName.slice(0, 1).toUpperCase()}</Text>
+                  )}
+                </View>
+                <View style={styles.flex}>
+                  <Text style={styles.profileName}>{displayName}</Text>
+                  {userEmail ? <Text style={styles.profileEmail}>{userEmail}</Text> : null}
+                </View>
+                <TouchableOpacity activeOpacity={0.84} onPress={onLogout} style={styles.profileLogoutButton}>
+                  <Text style={styles.profileLogoutText}>Выйти</Text>
                 </TouchableOpacity>
               </View>
-              <View style={styles.authNativeForm}>
-                <TextInput value={phone} onChangeText={setPhone} placeholder="+7 999 000 00 00" placeholderTextColor="#8a9aae" keyboardType="phone-pad" style={styles.authInput} />
-                {authMode === 'register' ? (
-                  <>
-                    <TextInput value={firstName} onChangeText={setFirstName} placeholder="Имя" placeholderTextColor="#8a9aae" style={styles.authInput} />
-                    <TextInput value={lastName} onChangeText={setLastName} placeholder="Фамилия" placeholderTextColor="#8a9aae" style={styles.authInput} />
-                    <TextInput value={nickname} onChangeText={setNickname} placeholder="Никнейм" placeholderTextColor="#8a9aae" style={styles.authInput} autoCapitalize="none" />
-                  </>
-                ) : null}
-                <View style={styles.authPasswordRow}>
-                  <TextInput value={password} onChangeText={setPassword} placeholder={authMode === 'login' ? 'Пароль' : 'Минимум 6 символов'} placeholderTextColor="#8a9aae" secureTextEntry={!showPassword} style={[styles.authInput, styles.authPasswordInput]} />
-                  <TouchableOpacity activeOpacity={0.82} onPress={() => setShowPassword((value) => !value)} style={styles.authPasswordToggle}>
-                    <Text style={styles.authPasswordToggleText}>{showPassword ? 'Скрыть' : 'Показать'}</Text>
+              <TouchableOpacity activeOpacity={0.84} onPress={onDeleteProfile} style={styles.profileDeleteButton}>
+                <Text style={styles.profileDeleteText}>Удалить данные профиля</Text>
+              </TouchableOpacity>
+              {legalBaseUrl ? (
+                <View style={styles.authLegalLinks}>
+                  <TouchableOpacity activeOpacity={0.82} onPress={() => void openLegalPage('/delete-profile')}>
+                    <Text style={styles.authLegalLinkText}>Подробнее об удалении данных</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity activeOpacity={0.82} onPress={() => void openLegalPage('/support')}>
+                    <Text style={styles.authLegalLinkText}>Поддержка</Text>
                   </TouchableOpacity>
                 </View>
-                <TouchableOpacity activeOpacity={0.88} disabled={!canSubmitAuthForm} onPress={submitAuthForm} style={[styles.authSubmitButton, !canSubmitAuthForm && styles.authProviderButtonDisabled]}>
-                  <Text style={styles.authSubmitText}>{authMode === 'login' ? 'Войти' : 'Зарегистрироваться'}</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.authDividerRow}>
-                <View style={styles.authDividerLine} />
-                <Text style={styles.authDividerText}>или</Text>
-                <View style={styles.authDividerLine} />
-              </View>
+              ) : null}
+            </>
+          ) : (
+            <>
               {!API_BASE_URL ? (
                 <View style={styles.authNotice}>
                   <Text style={styles.authNoticeText}>Для входа нужно указать EXPO_PUBLIC_API_BASE_URL в mobile/.env.</Text>
@@ -2405,6 +2403,14 @@ function AuthSheet({
                   <Text style={styles.authProviderSub}>{providerEnabled('telegram') ? 'Откроется Telegram-авторизация и возврат в приложение' : 'Telegram сейчас не настроен на сервере'}</Text>
                 </View>
               </TouchableOpacity>
+              {legalBaseUrl ? (
+                <Text style={styles.authLegalText}>
+                  Авторизуясь, вы соглашаетесь с{' '}
+                  <Text onPress={() => void openLegalPage('/terms')} style={styles.authLegalTextLink}>Пользовательским соглашением</Text>
+                  {' '}и{' '}
+                  <Text onPress={() => void openLegalPage('/privacy')} style={styles.authLegalTextLink}>Политикой конфиденциальности</Text>.
+                </Text>
+              ) : null}
             </>
           )}
         </ScrollView>
@@ -2721,6 +2727,11 @@ const styles = StyleSheet.create({
   contactCardTitle: { color: '#102a43', fontSize: 18, lineHeight: 22, fontWeight: '900' },
   contactCardText: { color: '#62748b', fontSize: 14, lineHeight: 20, marginTop: 5, fontWeight: '700' },
   contactValue: { color: '#155ea6', fontSize: 16, fontWeight: '900', marginTop: 10 },
+  legalLinksCard: { padding: 14, borderRadius: 20, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', gap: 4 },
+  legalLinksTitle: { color: '#102a43', fontSize: 15, lineHeight: 19, fontWeight: '900', marginBottom: 4 },
+  legalLinkRow: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  legalLinkText: { color: '#1f63c7', fontSize: 13, lineHeight: 17, fontWeight: '900' },
+  legalLinkArrow: { color: '#8a9aae', fontSize: 22, lineHeight: 24, fontWeight: '700' },
 
   detailContentInner: { paddingHorizontal: 14, paddingTop: Platform.OS === 'android' ? ANDROID_STATUS_BAR_INSET + 14 : 14, paddingBottom: 28 + ANDROID_NAVIGATION_BAR_INSET, backgroundColor: '#ffffff', gap: 14 },
   detailGalleryWrap: { width: '100%', height: 270, borderRadius: 28, overflow: 'hidden', backgroundColor: '#dce8f4' },
@@ -2938,27 +2949,15 @@ const styles = StyleSheet.create({
   authCloseText: { color: '#102a43', fontSize: 24, lineHeight: 26, fontWeight: '700' },
   authNotice: { padding: 12, borderRadius: 16, backgroundColor: '#fff8e7', borderWidth: 1, borderColor: '#f0dfb8' },
   authNoticeText: { color: '#80611c', fontSize: 12, lineHeight: 17, fontWeight: '800' },
-  authModeTabs: { minHeight: 46, flexDirection: 'row', gap: 6, padding: 4, borderRadius: 16, backgroundColor: '#eaf1f8' },
-  authModeTab: { flex: 1, minHeight: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  authModeTabActive: { backgroundColor: '#ffffff', shadowColor: '#243c5a', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 2 },
-  authModeTabText: { color: '#61758d', fontSize: 12.5, lineHeight: 16, fontWeight: '900' },
-  authModeTabTextActive: { color: '#102a43' },
-  authNativeForm: { gap: 9 },
-  authInput: { minHeight: 48, borderRadius: 16, borderWidth: 1, borderColor: '#e0e8f2', backgroundColor: '#ffffff', paddingHorizontal: 14, color: '#102a43', fontSize: 14, fontWeight: '800' },
-  authPasswordRow: { position: 'relative' },
-  authPasswordInput: { paddingRight: 92 },
-  authPasswordToggle: { position: 'absolute', right: 8, top: 7, minHeight: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: '#edf4ff' },
-  authPasswordToggleText: { color: '#1f63c7', fontSize: 11, lineHeight: 14, fontWeight: '900' },
-  authSubmitButton: { minHeight: 50, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7' },
-  authSubmitText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
-  authDividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 2 },
-  authDividerLine: { flex: 1, height: 1, backgroundColor: '#dfe8f2' },
-  authDividerText: { color: '#7a8da3', fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
   authProviderButton: { minHeight: 62, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e0e8f2' },
   authProviderButtonDisabled: { opacity: 0.48 },
   authProviderBrand: { width: 38, height: 38, borderRadius: 14, overflow: 'hidden', backgroundColor: '#edf4ff', color: '#1f63c7', textAlign: 'center', textAlignVertical: 'center', fontSize: 17, lineHeight: 38, fontWeight: '900' },
   authProviderTitle: { color: '#102a43', fontSize: 14.5, lineHeight: 18, fontWeight: '900' },
   authProviderSub: { color: '#718096', fontSize: 11.5, lineHeight: 15, fontWeight: '700', marginTop: 2 },
+  authLegalText: { color: '#718096', fontSize: 11.5, lineHeight: 17, fontWeight: '700', textAlign: 'center', paddingHorizontal: 8 },
+  authLegalTextLink: { color: '#1f63c7', fontWeight: '900', textDecorationLine: 'underline' },
+  authLegalLinks: { paddingHorizontal: 4, gap: 8 },
+  authLegalLinkText: { color: '#1f63c7', fontSize: 12.5, lineHeight: 17, fontWeight: '900', textDecorationLine: 'underline' },
   profileBlock: { minHeight: 76, borderRadius: 22, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e0e8f2', flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
   profileAvatar: { width: 46, height: 46, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7', overflow: 'hidden' },
   profileAvatarImage: { width: 46, height: 46 },
@@ -2967,6 +2966,8 @@ const styles = StyleSheet.create({
   profileEmail: { color: '#718096', fontSize: 11.5, lineHeight: 15, fontWeight: '700', marginTop: 2 },
   profileLogoutButton: { minHeight: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5fa', paddingHorizontal: 12 },
   profileLogoutText: { color: '#1f63c7', fontSize: 12, lineHeight: 15, fontWeight: '900' },
+  profileDeleteButton: { minHeight: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff1f1', borderWidth: 1, borderColor: '#ffd1d1', paddingHorizontal: 12 },
+  profileDeleteText: { color: '#8f1d1d', fontSize: 12.5, lineHeight: 16, fontWeight: '900' },
 
   bottomTabs: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 6, paddingBottom: Platform.OS === 'ios' ? 16 : 8 + ANDROID_NAVIGATION_BAR_INSET, backgroundColor: 'rgba(250,252,255,0.97)', borderTopWidth: 1, borderTopColor: 'rgba(211, 221, 234, 0.92)', shadowColor: '#293d5d', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.10, shadowRadius: 24, elevation: 14 },
   bottomTabsInner: { minHeight: 60, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, borderRadius: 0, backgroundColor: 'transparent', borderWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', shadowOpacity: 0, elevation: 0 },

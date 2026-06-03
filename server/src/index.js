@@ -10,6 +10,7 @@ const {
   deleteCategory,
   deleteMediaFileRecord,
   deletePlace,
+  deletePublicUserProfile,
   ensureDatabase,
   getCategories,
   getCategoryById,
@@ -19,6 +20,7 @@ const {
   getPlaceById,
   getPlaceBySlug,
   getPlaces,
+  getPublicUserById,
   hasDatabase,
   normalizePlace,
   resetContentStore,
@@ -37,7 +39,7 @@ const {
   upsertCategory,
   upsertPlace
 } = require('./db');
-const { readUserSession, registerPublicAuthRoutes } = require('./publicAuth');
+const { clearUserSessionCookie, readUserSession, registerPublicAuthRoutes } = require('./publicAuth');
 
 function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -189,6 +191,264 @@ app.use((req, res, next) => {
 
 registerPublicAuthRoutes(app);
 
+const SUPPORT_EMAIL = 'support@danangguide.app';
+const LEGAL_UPDATED_AT = '3 июня 2026 г.';
+const legalLinks = [
+  { href: '/terms', label: 'Пользовательское соглашение' },
+  { href: '/privacy', label: 'Политика конфиденциальности' },
+  { href: '/delete-profile', label: 'Удаление данных профиля' },
+  { href: '/support', label: 'Поддержка' }
+];
+
+function renderLegalPage({ title, description, sections }) {
+  const navigation = legalLinks
+    .map((link) => `<a href="${link.href}">${link.label}</a>`)
+    .join('');
+  const body = sections
+    .map((section) => {
+      const items = Array.isArray(section.items) && section.items.length > 0
+        ? `<ul>${section.items.map((item) => `<li>${item}</li>`).join('')}</ul>`
+        : '';
+      return `<section><h2>${section.title}</h2>${section.text ? `<p>${section.text}</p>` : ''}${items}</section>`;
+    })
+    .join('');
+
+  return `<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title} · Danang Guide</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #102a43; background: #f4f8fc; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; background: #f4f8fc; }
+    main { width: min(920px, 100%); margin: 0 auto; padding: 28px 16px 40px; }
+    header { padding: 24px; border-radius: 24px; background: #ffffff; border: 1px solid #dbe6f2; box-shadow: 0 16px 38px rgba(31, 64, 104, 0.08); }
+    .brand { margin: 0 0 8px; color: #1f63c7; font-size: 15px; line-height: 20px; font-weight: 900; letter-spacing: 0.02em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(28px, 7vw, 44px); line-height: 1.04; }
+    .updated, header p { color: #5e7088; font-size: 15px; line-height: 1.6; }
+    nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; }
+    nav a { display: inline-flex; align-items: center; min-height: 38px; padding: 8px 12px; border-radius: 999px; background: #edf4ff; color: #1f63c7; font-weight: 800; text-decoration: none; }
+    section { margin-top: 16px; padding: 22px; border-radius: 22px; background: #ffffff; border: 1px solid #dbe6f2; }
+    h2 { margin: 0 0 10px; font-size: 20px; line-height: 1.25; }
+    p, li { color: #394b61; font-size: 16px; line-height: 1.7; }
+    ul { margin: 0; padding-left: 20px; }
+    a { color: #1f63c7; }
+    footer { margin-top: 18px; color: #5e7088; font-size: 14px; line-height: 1.6; text-align: center; }
+    @media (max-width: 640px) { main { padding: 14px 12px 28px; } header, section { border-radius: 18px; padding: 18px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="brand">Danang Guide</p>
+      <h1>${title}</h1>
+      <p>${description}</p>
+      <p class="updated">Дата обновления: ${LEGAL_UPDATED_AT}</p>
+      <nav aria-label="Правовые страницы">${navigation}</nav>
+    </header>
+    ${body}
+    <footer>По вопросам приложения и данных: <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a></footer>
+  </main>
+</body>
+</html>`;
+}
+
+const legalPages = {
+  '/terms': {
+    title: 'Пользовательское соглашение',
+    description: 'Правила использования Danang Guide, публичного гида по Данангу для туристов, жителей и владельцев заведений.',
+    sections: [
+      {
+        title: 'Назначение сервиса',
+        text: 'Danang Guide помогает находить места, заведения, маршруты, объявления, контакты и полезную информацию о Дананге и Вьетнаме.'
+      },
+      {
+        title: 'Авторизация и профиль',
+        items: [
+          'В приложении может использоваться вход через Google, Apple или Telegram.',
+          'Отдельной ручной авторизации с логином и паролем может не быть.',
+          'При входе может создаваться технический авторизованный профиль Danang Guide для избранного, объявлений, сессий и личных функций.',
+          'Профиль Danang Guide не является аккаунтом Google, Apple или Telegram.'
+        ]
+      },
+      {
+        title: 'Правила использования',
+        text: 'Пользователь обязуется пользоваться приложением законно, уважительно и без попыток нарушить работу сервиса, получить несанкционированный доступ или вводить других пользователей в заблуждение.'
+      },
+      {
+        title: 'Информация о местах',
+        text: 'Информация о местах, заведениях, ценах, графике работы, контактах, услугах и маршрутах может быть неточной, устаревшей или неполной. Пользователь должен самостоятельно проверять важную информацию перед поездкой, оплатой или посещением.'
+      },
+      {
+        title: 'Пользовательский и партнёрский контент',
+        text: 'В сервисе может размещаться пользовательский, партнёрский или редакционный контент, включая описания мест, фото, контакты, предложения и рекламные материалы.'
+      },
+      {
+        title: 'Доска объявлений',
+        text: 'Доска объявлений является пользовательским контентом. Пользователь отвечает за корректность, законность и актуальность размещаемого объявления, фото и контактных данных.'
+      },
+      {
+        title: 'Модерация и ограничения',
+        text: 'Danang Guide может проверять, скрывать, отклонять, редактировать или удалять контент, если он нарушает правила сервиса, законы, права третьих лиц или качество приложения.'
+      },
+      {
+        title: 'Запрещённый контент',
+        items: [
+          'незаконные товары или услуги;',
+          'мошенничество, спам, вредоносные ссылки и обман;',
+          'оскорбления, дискриминация, угрозы и преследование;',
+          'контент сексуального характера, эксплуатация несовершеннолетних или насилие;',
+          'чужие персональные данные без разрешения;',
+          'материалы, нарушающие авторские права или права владельцев заведений.'
+        ]
+      },
+      {
+        title: 'Сторонние сервисы и ссылки',
+        text: 'Приложение может открывать сторонние сервисы авторизации, карты, сайты заведений, мессенджеры, почту или другие внешние ресурсы. Danang Guide не управляет их условиями, доступностью и безопасностью.'
+      },
+      {
+        title: 'Отказ от гарантий',
+        text: 'Сервис предоставляется как есть. Danang Guide не гарантирует непрерывную работу, полную точность данных, доступность сторонних сервисов или соответствие информации ожиданиям пользователя.'
+      },
+      {
+        title: 'Ограничение ответственности',
+        text: 'Danang Guide не несёт ответственности за решения пользователя, действия третьих лиц, качество услуг заведений, расходы, убытки, ошибки в данных или последствия использования внешних ссылок, кроме случаев, когда ответственность прямо требуется законом.'
+      },
+      {
+        title: 'Поддержка и связанные страницы',
+        text: `Связаться с поддержкой можно по адресу <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>. Также доступны страницы <a href="/privacy">Политика конфиденциальности</a>, <a href="/delete-profile">Удаление данных профиля</a> и <a href="/support">Поддержка</a>.`
+      }
+    ]
+  },
+  '/privacy': {
+    title: 'Политика конфиденциальности',
+    description: 'Как Danang Guide может обрабатывать данные пользователя в мобильном приложении, web-интерфейсе и backend API.',
+    sections: [
+      {
+        title: 'Какие данные могут обрабатываться',
+        items: [
+          'имя, email, user id/provider id, имя пользователя и avatar при входе через Google, Apple или Telegram;',
+          'избранные места и настройки, связанные с авторизованным профилем;',
+          'объявления пользователя, фото объявлений и контактные данные в объявлениях;',
+          'данные обращений в поддержку, включая email, текст сообщения и приложенные сведения;',
+          'технические логи, сведения об ошибках, базовые данные запросов и аналитика работы приложения.'
+        ]
+      },
+      {
+        title: 'Авторизация через Google, Apple и Telegram',
+        text: 'Для входа приложение может перенаправлять пользователя к внешнему провайдеру авторизации. Danang Guide получает только данные, необходимые для создания технического профиля и работы функций приложения.'
+      },
+      {
+        title: 'Геолокация',
+        text: 'Геолокация используется для функций “рядом” и “карта” только если пользователь разрешил доступ на устройстве. Пользователь может отключить разрешение в настройках устройства.'
+      },
+      {
+        title: 'Фото',
+        text: 'Фото используются для объявлений или контента только если пользователь сам выбрал файл или загрузил изображение через доступные функции приложения.'
+      },
+      {
+        title: 'Цели обработки',
+        items: [
+          'авторизация и поддержка пользовательской сессии;',
+          'работа избранного, объявлений, карты, рекомендаций и поддержки;',
+          'модерация, безопасность, предотвращение злоупотреблений;',
+          'исправление ошибок, диагностика и улучшение качества приложения.'
+        ]
+      },
+      {
+        title: 'Хранение и защита',
+        text: 'Данные хранятся в backend-инфраструктуре Danang Guide и защищаются разумными техническими и организационными мерами. Мы не раскрываем внутренние ключи, переменные окружения и технические секреты.'
+      },
+      {
+        title: 'Передача третьим лицам',
+        text: 'Данные могут обрабатываться через провайдеров авторизации, hosting-инфраструктуру, карты, email/support-инструменты и другие сервисы, если это необходимо для работы приложения, поддержки, безопасности или выполнения запроса пользователя.'
+      },
+      {
+        title: 'Удаление профиля и данных',
+        text: 'Пользователь может запросить удаление авторизованного профиля Danang Guide и связанных данных по инструкции на странице <a href="/delete-profile">Удаление данных профиля</a>.'
+      },
+      {
+        title: 'Контакты по privacy-вопросам',
+        text: `По вопросам конфиденциальности напишите на <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>. Также доступны <a href="/terms">Пользовательское соглашение</a> и <a href="/support">Поддержка</a>.`
+      }
+    ]
+  },
+  '/delete-profile': {
+    title: 'Удаление авторизованного профиля и данных',
+    description: 'Инструкция для запроса удаления технического профиля Danang Guide и связанных пользовательских данных.',
+    sections: [
+      {
+        title: 'Как устроен профиль',
+        text: 'В Danang Guide нет обязательной отдельной ручной авторизации с логином и паролем. При входе через Google, Apple или Telegram может создаваться технический авторизованный профиль Danang Guide.'
+      },
+      {
+        title: 'Что можно удалить',
+        items: [
+          'технический профиль Danang Guide;',
+          'избранные места;',
+          'объявления пользователя;',
+          'фото объявлений;',
+          'контактные данные, указанные в объявлениях;',
+          'активные сессии Danang Guide.'
+        ]
+      },
+      {
+        title: 'Что не удаляется',
+        text: 'Удаление профиля Danang Guide не удаляет аккаунт Google, Apple или Telegram и не удаляет данные, которые хранятся у этих сторонних провайдеров.'
+      },
+      {
+        title: 'Как удалить данные в приложении',
+        text: 'Откройте Danang Guide и выберите: Профиль → Удалить данные профиля. После подтверждения приложение удалит данные Danang Guide, связанные с вашим авторизованным профилем.'
+      },
+      {
+        title: 'Запрос через поддержку',
+        text: `Если доступ к приложению потерян или нужна помощь, напишите на <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>. Укажите провайдер входа, email или username, примерную дату входа и просьбу удалить профиль Danang Guide.`
+      },
+      {
+        title: 'Связанные страницы',
+        text: 'Дополнительно смотрите <a href="/privacy">Политику конфиденциальности</a>, <a href="/terms">Пользовательское соглашение</a> и <a href="/support">Поддержку</a>.'
+      }
+    ]
+  },
+  '/support': {
+    title: 'Поддержка и жалобы',
+    description: 'Куда обращаться по вопросам приложения, данных, объявлений, мест и запросов владельцев заведений.',
+    sections: [
+      {
+        title: 'Email поддержки',
+        text: `Основной контакт поддержки: <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>.`
+      },
+      {
+        title: 'С чем можно обратиться',
+        items: [
+          'вопросы по работе приложения;',
+          'запросы по данным и privacy;',
+          'жалобы на контент или объявления;',
+          'жалобы на неточную информацию о местах и заведениях;',
+          'запросы владельцев заведений на исправление или обновление данных.'
+        ]
+      },
+      {
+        title: 'Что указать в обращении',
+        text: 'Опишите проблему, приложите ссылку или название места/объявления, контакт для ответа и любые детали, которые помогут быстрее проверить обращение.'
+      },
+      {
+        title: 'Правовые страницы',
+        text: 'Доступны <a href="/terms">Пользовательское соглашение</a>, <a href="/privacy">Политика конфиденциальности</a> и <a href="/delete-profile">Удаление данных профиля</a>.'
+      }
+    ]
+  }
+};
+
+for (const [routePath, page] of Object.entries(legalPages)) {
+  app.get(routePath, (_req, res) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(renderLegalPage(page));
+  });
+}
+
 function resolveUploadsRoot() {
   const configuredPath = process.env.UPLOADS_DIR ? path.resolve(process.env.UPLOADS_DIR) : '';
   const candidates = [configuredPath, defaultUploadsRoot].filter(Boolean);
@@ -301,6 +561,38 @@ async function storeUploadedImage({ fileName, dataUrl, kind = 'general' }) {
   };
 }
 
+function deleteLocalUploadFiles(mediaRecords) {
+  const uploadsRootRealPath = fs.realpathSync.native(uploadsRoot);
+  const uploadsRootWithSeparator = uploadsRootRealPath.endsWith(path.sep) ? uploadsRootRealPath : `${uploadsRootRealPath}${path.sep}`;
+  let deletedFiles = 0;
+
+  for (const record of Array.isArray(mediaRecords) ? mediaRecords : []) {
+    const storagePath = String(record?.storagePath || '').trim();
+    if (!storagePath) {
+      continue;
+    }
+
+    try {
+      const absolutePath = path.resolve(storagePath);
+      if (!fs.existsSync(absolutePath)) {
+        continue;
+      }
+
+      const realPath = fs.realpathSync.native(absolutePath);
+      if (realPath !== uploadsRootRealPath && !realPath.startsWith(uploadsRootWithSeparator)) {
+        continue;
+      }
+
+      fs.unlinkSync(realPath);
+      deletedFiles += 1;
+    } catch {
+      // Profile deletion should not fail if a local media file is already gone or locked.
+    }
+  }
+
+  return deletedFiles;
+}
+
 
 function parseCookies(cookieHeader = '') {
   return cookieHeader
@@ -403,15 +695,25 @@ function requireOwner(req, res, next) {
   next();
 }
 
-function requirePublicUser(req, res, next) {
+async function requirePublicUser(req, res, next) {
   const user = readUserSession(req);
   if (!user?.id) {
-    res.status(401).json({ ok: false, message: 'Нужно войти в аккаунт.' });
+    res.status(401).json({ error: 'auth_required' });
     return;
   }
 
-  req.publicUser = user;
-  next();
+  try {
+    const existingUser = await getPublicUserById(user.id);
+    if (!existingUser?.id) {
+      res.status(401).json({ error: 'auth_required' });
+      return;
+    }
+
+    req.publicUser = existingUser;
+    next();
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to verify user session' });
+  }
 }
 
 
@@ -1154,6 +1456,27 @@ app.delete('/api/me/bulletins/:id', requirePublicUser, async (req, res) => {
     res.json({ ok: true, deletedId: req.params.id });
   } catch (error) {
     res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Не удалось удалить объявление.' });
+  }
+});
+
+app.delete('/api/me/profile', requirePublicUser, async (req, res) => {
+  try {
+    const deletion = await deletePublicUserProfile(req.publicUser.id);
+    const deletedFiles = deleteLocalUploadFiles(deletion.mediaRecords);
+
+    clearUserSessionCookie(res);
+    res.json({
+      ok: true,
+      deleted: {
+        profile: Boolean(deletion.profile),
+        favorites: Number(deletion.favorites || 0),
+        bulletins: Number(deletion.bulletins || 0),
+        sessions: Number(deletion.sessions || 0),
+        files: deletedFiles
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to delete profile' });
   }
 });
 
