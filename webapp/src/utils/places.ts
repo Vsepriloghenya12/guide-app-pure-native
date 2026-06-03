@@ -14,49 +14,41 @@ function getRawPlaceMapValue(place: MapTarget) {
   return String(place.mapQuery || getCoordinateQuery(place) || place.address || place.title || '').trim();
 }
 
-function normalizeGoogleMapsUrl(value: string) {
+function looksLikeExternalMapUrl(value: string) {
   const trimmed = String(value || '').trim();
   if (!trimmed) {
-    return null;
+    return false;
   }
 
   const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : trimmed.startsWith('www.') ? `https://${trimmed}` : '';
   if (!candidate) {
-    return null;
+    return false;
   }
 
   try {
     const url = new URL(candidate);
     const hostname = url.hostname.toLowerCase();
-    const isGoogleMapsHost =
-      hostname === 'maps.app.goo.gl' ||
-      hostname === 'goo.gl' ||
-      hostname === 'maps.google.com' ||
-      (hostname.includes('google.') && url.pathname.toLowerCase().startsWith('/maps'));
-
-    return isGoogleMapsHost ? url.toString() : null;
+    return hostname.includes('maps') || hostname === 'goo.gl' || hostname.includes('openstreetmap') || hostname.includes('2gis');
   } catch {
-    return null;
+    return false;
   }
 }
 
 export function getPlaceMapQuery(place: MapTarget) {
   const rawValue = getRawPlaceMapValue(place);
-  if (normalizeGoogleMapsUrl(rawValue)) {
+  if (looksLikeExternalMapUrl(rawValue)) {
     return getCoordinateQuery(place) || place.address || place.title;
   }
 
   return rawValue;
 }
 
-export function createGoogleMapsUrl(place: MapTarget) {
-  const rawValue = getRawPlaceMapValue(place);
-  const directUrl = normalizeGoogleMapsUrl(rawValue);
-  if (directUrl) {
-    return directUrl;
+export function createOpenStreetMapUrl(place: MapTarget) {
+  if (hasPlaceCoordinates(place)) {
+    return `https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lng}#map=16/${place.lat}/${place.lng}`;
   }
 
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(getPlaceMapQuery(place))}`;
+  return `https://www.openstreetmap.org/search?query=${encodeURIComponent(getPlaceMapQuery(place))}`;
 }
 
 export function createAppleMapsUrl(place: MapTarget) {
@@ -67,22 +59,19 @@ export function create2GisUrl(place: MapTarget) {
   return `https://2gis.com/?query=${encodeURIComponent(getPlaceMapQuery(place))}`;
 }
 
-export function createGoogleDirectionsUrl(
+export function createOpenStreetMapDirectionsUrl(
   place: MapTarget,
   origin?: { lat: number; lng: number } | null
 ) {
-  const rawValue = getRawPlaceMapValue(place);
-  const directUrl = normalizeGoogleMapsUrl(rawValue);
-  if (directUrl) {
-    return directUrl;
+  if (!hasPlaceCoordinates(place)) {
+    return createOpenStreetMapUrl(place);
   }
 
-  const destination = encodeURIComponent(getPlaceMapQuery(place));
   if (!origin) {
-    return `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
+    return createOpenStreetMapUrl(place);
   }
 
-  return `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${destination}&travelmode=driving`;
+  return `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${origin.lat}%2C${origin.lng}%3B${place.lat}%2C${place.lng}`;
 }
 
 export function createAppleDirectionsUrl(

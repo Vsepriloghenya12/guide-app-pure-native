@@ -9,7 +9,7 @@ import { useUserLocation } from '../hooks/useUserLocation';
 import { usePageMeta } from '../hooks/usePageMeta';
 import {
   comparePlacesByPriority,
-  createGoogleDirectionsUrl,
+  createOpenStreetMapDirectionsUrl,
   estimateTravelTime,
   formatDistance,
   hasCoordinates,
@@ -168,7 +168,7 @@ export function NearbyPage() {
               <a
                 key={`mini-${place.id}`}
                 className="travel-inline-place"
-                href={createGoogleDirectionsUrl(toListingLike(place), userLocation)}
+                href={createOpenStreetMapDirectionsUrl(toListingLike(place), userLocation)}
                 target="_blank"
                 rel="noreferrer"
               >

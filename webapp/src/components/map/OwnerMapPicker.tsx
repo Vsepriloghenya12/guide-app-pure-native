@@ -418,7 +418,7 @@ const OwnerMapPickerComponent = function OwnerMapPicker({ value, searchValue, di
       <div className="owner-map-picker__header">
         <div>
           <strong>Точка на карте</strong>
-          <span>Введите адрес, вставьте ссылку Google Maps или поставьте метку вручную нажатием на карту.</span>
+          <span>Введите адрес, вставьте ссылку на карту или поставьте метку вручную нажатием на карту.</span>
         </div>
         {value ? (
           <button className="button button--ghost" type="button" onClick={() => onChange(null)} disabled={disabled}>
@@ -428,7 +428,7 @@ const OwnerMapPickerComponent = function OwnerMapPicker({ value, searchValue, di
       </div>
       <div className="owner-map-picker__search">
         <label className="field">
-          <span>Адрес или ссылка на Google Maps</span>
+          <span>Адрес или ссылка на карту</span>
           <input
             value={addressQuery}
             onChange={(event) => setAddressQuery(event.target.value)}

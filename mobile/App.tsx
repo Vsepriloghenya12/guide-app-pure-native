@@ -23,10 +23,10 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
+import { Camera, GeoJSONSource, Layer, Map as MapLibreMap, type LngLatBounds, type StyleSpecification } from '@maplibre/maplibre-react-native';
 import type { BootstrapPayload, GuideCategory, GuideCollection, GuidePlace, GuideTip, SupportContentStore } from './src/types';
 import { fetchBootstrap, fetchSupportContent, fetchAuthSession, fetchAuthStartUrl, logoutAuthSession, API_BASE_URL, sendAnalytics, submitBulletinListing, fetchMyBulletinListings, deleteMyBulletinListing } from './src/api/client';
-import { appleMapsUrl, directionsUrl, googleMapsUrl, openExternalUrl } from './src/utils/links';
+import { directionsUrl, openExternalUrl } from './src/utils/links';
 import { estimateTravelTime, formatDistance, hasCoordinates, haversineDistanceKm } from './src/utils/geo';
 import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
 import { clearAuthToken, getAuthUserAvatarUrl, getCachedAuthUser, readUserFromAuthToken, saveAuthToken } from './src/utils/auth';
@@ -105,12 +105,25 @@ const filterTextMap: Record<string, string> = {
   beach: 'Пляж'
 };
 
-const rawGoogleMapsApiKey = String(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '').trim();
-const hasGoogleMapsApiKey =
-  rawGoogleMapsApiKey.length > 12 &&
-  !rawGoogleMapsApiKey.includes('your_google_maps') &&
-  !rawGoogleMapsApiKey.includes('твой_google') &&
-  rawGoogleMapsApiKey !== 'AIza...';
+const mapTileUrl = String(process.env.EXPO_PUBLIC_MAP_TILE_URL || '').trim() || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const mapLibreStyle: StyleSpecification = {
+  version: 8,
+  sources: {
+    osm: {
+      type: 'raster',
+      tiles: [mapTileUrl],
+      tileSize: 256,
+      attribution: '© OpenStreetMap contributors'
+    }
+  },
+  layers: [
+    {
+      id: 'osm',
+      type: 'raster',
+      source: 'osm'
+    }
+  ]
+};
 
 const ANDROID_STATUS_BAR_INSET = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0;
 const ANDROID_NAVIGATION_BAR_INSET = Platform.OS === 'android' ? 34 : 0;
@@ -197,12 +210,6 @@ function isValidLatitude(value: number) {
 
 function isValidLongitude(value: number) {
   return Number.isFinite(value) && value >= -180 && value <= 180;
-}
-
-function mapUnavailableText() {
-  return hasGoogleMapsApiKey
-    ? 'Карту временно не удалось открыть на этом устройстве. Можно открыть точку во внешнем Google Maps.'
-    : 'Для встроенной карты в APK нужен Google Maps Android API key. Пока можно открыть маршрут во внешнем Google Maps.';
 }
 
 function normalizeToken(value: string) {
@@ -298,13 +305,9 @@ function placeCoordinate(place: GuidePlace) {
   return { latitude: lat, longitude: lng };
 }
 
-function buildMapRegion(points: Array<{ latitude: number; longitude: number }>): Region {
+function buildMapBounds(points: Array<{ latitude: number; longitude: number }>): LngLatBounds {
   if (points.length === 0) {
-    return { latitude: 16.0678, longitude: 108.2208, latitudeDelta: 0.12, longitudeDelta: 0.12 };
-  }
-
-  if (points.length === 1) {
-    return { ...points[0], latitudeDelta: 0.012, longitudeDelta: 0.012 };
+    return [108.1608, 16.0078, 108.2808, 16.1278];
   }
 
   const lats = points.map((point) => point.latitude);
@@ -313,15 +316,10 @@ function buildMapRegion(points: Array<{ latitude: number; longitude: number }>):
   const maxLat = Math.max(...lats);
   const minLng = Math.min(...lngs);
   const maxLng = Math.max(...lngs);
-  const latitudeDelta = Math.max(0.025, (maxLat - minLat) * 1.8);
-  const longitudeDelta = Math.max(0.025, (maxLng - minLng) * 1.8);
+  const latPadding = Math.max(0.01, (maxLat - minLat) * 0.25);
+  const lngPadding = Math.max(0.01, (maxLng - minLng) * 0.25);
 
-  return {
-    latitude: (minLat + maxLat) / 2,
-    longitude: (minLng + maxLng) / 2,
-    latitudeDelta,
-    longitudeDelta
-  };
+  return [minLng - lngPadding, minLat - latPadding, maxLng + lngPadding, maxLat + latPadding];
 }
 
 function isPhoneValid(phone: string) {
@@ -484,27 +482,11 @@ const nativeRoutes: NativeRoute[] = [
   }
 ];
 
-function googleRouteUrl(route: NativeRoute) {
+function openStreetMapRouteUrl(route: NativeRoute) {
   const origin = route.points[0];
   const destination = route.points[route.points.length - 1];
-  const waypoints = route.points.slice(1, -1).map((point) => `${point.lat},${point.lng}`).join('|');
-  const params = [`api=1`, `travelmode=walking`, `origin=${origin.lat},${origin.lng}`, `destination=${destination.lat},${destination.lng}`];
-  if (waypoints) params.push(`waypoints=${encodeURIComponent(waypoints)}`);
-  return `https://www.google.com/maps/dir/?${params.join('&')}`;
+  return `https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=${origin.lat}%2C${origin.lng}%3B${destination.lat}%2C${destination.lng}`;
 }
-
-function googleRoutePointsUrl(points: NativeRoutePoint[]) {
-  if (points.length === 0) return '';
-  if (points.length === 1) return `https://www.google.com/maps/search/?api=1&query=${points[0].lat},${points[0].lng}`;
-
-  const origin = points[0];
-  const destination = points[points.length - 1];
-  const waypoints = points.slice(1, -1).map((point) => `${point.lat},${point.lng}`).join('|');
-  const params = [`api=1`, `travelmode=walking`, `origin=${origin.lat},${origin.lng}`, `destination=${destination.lat},${destination.lng}`];
-  if (waypoints) params.push(`waypoints=${encodeURIComponent(waypoints)}`);
-  return `https://www.google.com/maps/dir/?${params.join('&')}`;
-}
-
 
 function normalizeBannerLink(value: unknown) {
   const raw = toText(value).trim();
@@ -1774,6 +1756,7 @@ function GuideMap({
   onOpenPlace?: (place: GuidePlace) => void;
   height?: number;
 }) {
+  const [selectedPlace, setSelectedPlace] = useState<GuidePlace | null>(null);
   const placeMarkers = places
     .map((place) => ({ place, coordinate: placeCoordinate(place) }))
     .filter((item): item is { place: GuidePlace; coordinate: { latitude: number; longitude: number } } => Boolean(item.coordinate));
@@ -1790,6 +1773,49 @@ function GuideMap({
     })
     .filter((point) => isValidLatitude(point.latitude) && isValidLongitude(point.longitude));
   const allCoordinates = [...routeCoordinates, ...placeMarkers.map((item) => item.coordinate)];
+  const mapInitialViewState = allCoordinates.length === 1
+    ? { center: [allCoordinates[0].longitude, allCoordinates[0].latitude] as [number, number], zoom: 15 }
+    : { bounds: buildMapBounds(allCoordinates), padding: { top: 42, right: 42, bottom: 42, left: 42 } };
+  const routeLineData: GeoJSON.FeatureCollection<GeoJSON.LineString> = {
+    type: 'FeatureCollection',
+    features: routeCoordinates.length > 1 ? [{
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: routeCoordinates.map((point) => [point.longitude, point.latitude])
+      },
+      properties: {}
+    }] : []
+  };
+  const routePointData: GeoJSON.FeatureCollection<GeoJSON.Point> = {
+    type: 'FeatureCollection',
+    features: routeCoordinates.map((point, index) => ({
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [point.longitude, point.latitude]
+      },
+      properties: {
+        title: toText(routePoints[index]?.title, 'Точка маршрута'),
+        color: index === 0 ? '#22a06b' : index === routeCoordinates.length - 1 ? '#e05a3f' : '#1f63c7'
+      }
+    }))
+  };
+  const placePointData: GeoJSON.FeatureCollection<GeoJSON.Point> = {
+    type: 'FeatureCollection',
+    features: placeMarkers.map(({ place, coordinate }) => ({
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [coordinate.longitude, coordinate.latitude]
+      },
+      properties: {
+        id: place.id,
+        title: toText(place.title, 'Место'),
+        subtitle: toText(place.address || place.district || place.kind)
+      }
+    }))
+  };
 
   if (allCoordinates.length === 0) {
     return (
@@ -1800,59 +1826,70 @@ function GuideMap({
     );
   }
 
-  if (!hasGoogleMapsApiKey) {
-    const externalUrl = routePoints.length > 0 ? googleRoutePointsUrl(routePoints) : placeMarkers[0] ? googleMapsUrl(placeMarkers[0].place) : '';
-    return (
-      <View style={[styles.nativeMapCard, styles.nativeMapFallbackCard, { height }]}> 
-        <Text style={styles.nativeMapEmptyTitle}>Карта подключается отдельно</Text>
-        <Text style={styles.nativeMapEmptyText}>{mapUnavailableText()}</Text>
-        {externalUrl ? (
-          <TouchableOpacity activeOpacity={0.86} onPress={() => void openExternalUrl(externalUrl)} style={styles.nativeMapFallbackButton}>
-            <Text style={styles.nativeMapFallbackButtonText}>Открыть во внешнем Google Maps</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-    );
-  }
-
   return (
     <View style={[styles.nativeMapCard, { height }]}> 
-      <MapView
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+      <MapLibreMap
         style={styles.nativeMap}
-        initialRegion={buildMapRegion(allCoordinates)}
-        mapType="standard"
-        loadingEnabled
-        loadingIndicatorColor="#1f63c7"
-        loadingBackgroundColor="#eef5ff"
-        toolbarEnabled={false}
-        showsCompass
-        showsScale={false}
-        showsUserLocation={false}
-        showsMyLocationButton={false}
+        mapStyle={mapLibreStyle}
+        logo={false}
+        attribution
+        attributionPosition={{ bottom: 8, left: 8 }}
+        compass
+        compassPosition={{ top: 10, right: 10 }}
+        scaleBar={false}
       >
+        <Camera initialViewState={mapInitialViewState} />
         {routeCoordinates.length > 1 ? (
-          <Polyline coordinates={routeCoordinates} strokeColor="#1f63c7" strokeWidth={5} />
+          <GeoJSONSource id="route-line-source" data={routeLineData}>
+            <Layer
+              id="route-line"
+              type="line"
+              layout={{
+                'line-cap': 'round',
+                'line-join': 'round'
+              }}
+              paint={{
+                'line-color': '#1f63c7',
+                'line-width': 5,
+                'line-opacity': 0.86
+              }}
+            />
+          </GeoJSONSource>
         ) : null}
-        {routeCoordinates.map((coordinate, index) => (
-          <Marker
-            key={`route-${index}`}
-            coordinate={coordinate}
-            title={`${index + 1}. ${toText(routePoints[index]?.title, 'Точка маршрута')}`}
-            description={toText(routePoints[index]?.text)}
-            pinColor={index === 0 ? '#22a06b' : index === routeCoordinates.length - 1 ? '#e05a3f' : '#1f63c7'}
-          />
-        ))}
-        {placeMarkers.map(({ place, coordinate }) => (
-          <Marker
-            key={place.id}
-            coordinate={coordinate}
-            title={toText(place.title, 'Место')}
-            description={toText(place.address || place.district || place.kind)}
-            onCalloutPress={() => onOpenPlace?.(place)}
-          />
-        ))}
-      </MapView>
+        {routeCoordinates.length > 0 ? (
+          <GeoJSONSource id="route-points-source" data={routePointData}>
+            <Layer id="route-point-halo" type="circle" paint={{ 'circle-radius': 9, 'circle-color': '#ffffff', 'circle-opacity': 0.92 }} />
+            <Layer id="route-point" type="circle" paint={{ 'circle-radius': 6, 'circle-color': ['get', 'color'], 'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff' }} />
+          </GeoJSONSource>
+        ) : null}
+        {placeMarkers.length > 0 ? (
+          <GeoJSONSource
+            id="place-points-source"
+            data={placePointData}
+            hitbox={{ top: 18, right: 18, bottom: 18, left: 18 }}
+            onPress={(event) => {
+              const feature = event.nativeEvent.features?.[0];
+              const id = String(feature?.properties?.id || '');
+              const nextPlace = placeMarkers.find((item) => item.place.id === id)?.place || null;
+              setSelectedPlace(nextPlace);
+            }}
+          >
+            <Layer id="place-point-halo" type="circle" paint={{ 'circle-radius': 12, 'circle-color': '#ffffff', 'circle-opacity': 0.94 }} />
+            <Layer id="place-point" type="circle" paint={{ 'circle-radius': 8, 'circle-color': '#e05a3f', 'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff' }} />
+          </GeoJSONSource>
+        ) : null}
+      </MapLibreMap>
+      {selectedPlace ? (
+        <View style={styles.nativeMapPopup}>
+          <View style={styles.flex}>
+            <Text style={styles.nativeMapPopupTitle} numberOfLines={1}>{toText(selectedPlace.title, 'Место')}</Text>
+            <Text style={styles.nativeMapPopupText} numberOfLines={2}>{toText(selectedPlace.address || selectedPlace.district || selectedPlace.kind, 'Открыть карточку')}</Text>
+          </View>
+          <TouchableOpacity activeOpacity={0.82} onPress={() => onOpenPlace?.(selectedPlace)} style={styles.nativeMapPopupButton}>
+            <Text style={styles.nativeMapPopupButtonText}>Открыть</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -1939,7 +1976,7 @@ function RouteDetailScreen({ route, onBack }: { route: NativeRoute; onBack: () =
       <View style={styles.routeMapCard}>
         <Text style={styles.routeBlockTitle}>Карта маршрута</Text>
         <GuideMap routePoints={route.points} height={270} />
-        <TouchableOpacity activeOpacity={0.86} onPress={() => void openExternalUrl(googleRouteUrl(route))} style={styles.routeMapButton}>
+        <TouchableOpacity activeOpacity={0.86} onPress={() => void openExternalUrl(openStreetMapRouteUrl(route))} style={styles.routeMapButton}>
           <Text style={styles.routeMapButtonText}>Открыть маршрут</Text>
         </TouchableOpacity>
       </View>
@@ -2467,7 +2504,6 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
 
       <View style={styles.actionsGrid}>
         <AppButton label="Маршрут" onPress={() => void openExternalUrl(directionsUrl(place))} />
-        {Platform.OS === 'ios' ? <AppButton label="Apple Maps" variant="ghost" onPress={() => void openExternalUrl(appleMapsUrl(place))} /> : null}
         {website ? <AppButton label="Сайт" variant="ghost" onPress={() => void openExternalUrl(website)} /> : null}
       </View>
 
@@ -2731,9 +2767,11 @@ const styles = StyleSheet.create({
   nativeMap: { ...StyleSheet.absoluteFillObject },
   nativeMapEmptyTitle: { color: '#162640', fontSize: 17, fontWeight: '900', textAlign: 'center' },
   nativeMapEmptyText: { color: '#60718a', fontSize: 13, lineHeight: 18, fontWeight: '700', textAlign: 'center', marginTop: 6, paddingHorizontal: 18 },
-  nativeMapFallbackCard: { alignItems: 'center', paddingHorizontal: 18 },
-  nativeMapFallbackButton: { minHeight: 42, borderRadius: 14, backgroundColor: '#1f63c7', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, marginTop: 14 },
-  nativeMapFallbackButtonText: { color: '#ffffff', fontSize: 12, lineHeight: 15, fontWeight: '900', textAlign: 'center' },
+  nativeMapPopup: { position: 'absolute', left: 12, right: 12, bottom: 12, minHeight: 58, borderRadius: 16, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', padding: 10, flexDirection: 'row', alignItems: 'center', gap: 10, shadowColor: '#12213a', shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
+  nativeMapPopupTitle: { color: '#162640', fontSize: 13, lineHeight: 17, fontWeight: '900' },
+  nativeMapPopupText: { color: '#60718a', fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
+  nativeMapPopupButton: { minHeight: 36, borderRadius: 12, backgroundColor: '#1f63c7', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  nativeMapPopupButtonText: { color: '#ffffff', fontSize: 11, lineHeight: 14, fontWeight: '900' },
   nearbyMapFallbackCard: { minHeight: 178 },
   nearbyMapCount: { marginTop: 12, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, overflow: 'hidden', backgroundColor: '#e8f1ff', color: '#1f63c7', fontSize: 12, lineHeight: 15, fontWeight: '900' },
 

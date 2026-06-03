@@ -65,7 +65,7 @@ COOKIE_SAME_SITE=Lax
 
 ```text
 EXPO_PUBLIC_API_BASE_URL=https://your-real-railway-backend.up.railway.app
-EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=ваш_google_maps_android_api_key
+EXPO_PUBLIC_MAP_TILE_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
 ```
 
 Если `mobile/.env` нет — скопируйте `mobile/.env.example` в `mobile/.env` и замените значения.

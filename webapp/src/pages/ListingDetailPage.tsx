@@ -9,7 +9,7 @@ import { useGuideContent } from "../hooks/useGuideContent";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { recordGuideAnalytics } from "../utils/analytics";
 import {
-  createGoogleDirectionsUrl,
+  createOpenStreetMapDirectionsUrl,
   formatDistance,
   formatOpeningHours,
   hasCoordinates,
@@ -235,7 +235,7 @@ export function ListingDetailPage() {
       : category.id === "wellness"
         ? "/wellness"
         : category.path;
-  const routeUrl = createGoogleDirectionsUrl(listing, userLocation);
+  const routeUrl = createOpenStreetMapDirectionsUrl(listing, userLocation);
   const listingHasCoordinates = hasCoordinates(listing);
   const websiteLink = listing.websiteUrl || listing.website;
   const phoneLink = listing.phoneNumber || listing.phone;

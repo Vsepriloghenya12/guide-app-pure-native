@@ -8,16 +8,15 @@ function getMapQuery(place: GuidePlace) {
   return String(place.mapQuery || place.address || place.title).trim();
 }
 
-export function googleMapsUrl(place: GuidePlace) {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(getMapQuery(place))}`;
-}
-
-export function appleMapsUrl(place: GuidePlace) {
-  return `https://maps.apple.com/?q=${encodeURIComponent(getMapQuery(place))}`;
+function getOpenStreetMapPointUrl(place: GuidePlace) {
+  if (typeof place.lat === 'number' && Number.isFinite(place.lat) && typeof place.lng === 'number' && Number.isFinite(place.lng)) {
+    return `https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lng}#map=16/${place.lat}/${place.lng}`;
+  }
+  return `https://www.openstreetmap.org/search?query=${encodeURIComponent(getMapQuery(place))}`;
 }
 
 export function directionsUrl(place: GuidePlace) {
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(getMapQuery(place))}`;
+  return getOpenStreetMapPointUrl(place);
 }
 
 export async function openExternalUrl(url: string) {
