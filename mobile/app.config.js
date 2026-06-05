@@ -52,8 +52,6 @@ module.exports = {
     },
     backgroundColor: '#ffffff',
     extra: {
-      apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://guide-app-pure-native-production.up.railway.app',
-      mapTileUrl: process.env.EXPO_PUBLIC_MAP_TILE_URL || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       eas: {
         projectId: '5d3c1adc-6568-443d-9eb1-b1a829d388ec'
       }

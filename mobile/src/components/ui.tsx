@@ -3,7 +3,7 @@ import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, Touchabl
 import type { GuideCategory, GuidePlace } from '../types';
 import { API_BASE_URL } from '../api/client';
 import { normalizeImageUrl } from '../utils/normalizers';
-import { categoryIcons, defaultCategoryIcon } from '../assets';
+import { categoryIcons, defaultCategoryIcon, placeVerificationBadge } from '../assets';
 
 type ButtonProps = {
   label: string;
@@ -103,7 +103,10 @@ export function ListingCard({
       <View style={styles.listingBody}>
         <View style={styles.rowBetween}>
           <View style={styles.flex}>
-            <Text style={styles.cardTitle} numberOfLines={2}>{place.title}</Text>
+            <View style={styles.listingTitleRow}>
+              <Text style={styles.cardTitle} numberOfLines={2}>{place.title}</Text>
+              {place.qualityBadge ? <Image source={placeVerificationBadge} resizeMode="contain" style={styles.listingQualityBadge} /> : null}
+            </View>
             <Text style={styles.cardMeta} numberOfLines={1}>{place.district || place.kind || place.listingType || place.categoryId}</Text>
           </View>
           <TouchableOpacity activeOpacity={0.78} onPress={onToggleFavorite} style={styles.favoriteButton}>
@@ -163,7 +166,7 @@ const styles = StyleSheet.create({
   loadingText: { color: '#486581', fontSize: 16, fontWeight: '700' },
   categoryCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 22, backgroundColor: '#fff', borderWidth: 1, borderColor: '#dfe7f1' },
   categoryIconImage: { width: 50, height: 50, borderRadius: 14, backgroundColor: '#e3edf6' },
-  cardTitle: { color: '#102a43', fontSize: 18, fontWeight: '800' },
+  cardTitle: { flexShrink: 1, color: '#102a43', fontSize: 18, fontWeight: '800' },
   cardText: { color: '#62748b', fontSize: 14, lineHeight: 20, marginTop: 5 },
   cardMeta: { color: '#53739b', fontSize: 13, marginTop: 4, fontWeight: '700' },
   countText: { color: '#53739b', fontSize: 14, fontWeight: '800' },
@@ -179,6 +182,8 @@ const styles = StyleSheet.create({
   fullscreenImageCloseButton: { position: 'absolute', top: 44, right: 18, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
   fullscreenImageCloseText: { color: '#fff', fontSize: 30, lineHeight: 34, fontWeight: '600' },
   listingBody: { padding: 16 },
+  listingTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
+  listingQualityBadge: { width: 22, height: 22, flexShrink: 0 },
   favoriteButton: { width: 42, height: 42, borderRadius: 16, backgroundColor: '#f1f5fa', alignItems: 'center', justifyContent: 'center' },
   favoriteText: { color: '#2f78d6', fontSize: 24, lineHeight: 26 }
 });

@@ -589,6 +589,24 @@ class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, Ap
   }
 }
 
+type InlineErrorBoundaryState = { hasError: boolean };
+
+class InlineErrorBoundary extends React.Component<{ children: React.ReactNode; fallback: React.ReactNode }, InlineErrorBoundaryState> {
+  state: InlineErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): InlineErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
@@ -1898,7 +1916,10 @@ function CategoryListingCard({
         </View>
       )}
       <View style={styles.restaurantCardBody}>
-        <Text style={styles.restaurantCardTitle} numberOfLines={2}>{place.title}</Text>
+        <View style={styles.restaurantCardTitleRow}>
+          <Text style={styles.restaurantCardTitle} numberOfLines={2}>{place.title}</Text>
+          {place.qualityBadge ? <Image source={placeVerificationBadge} resizeMode="contain" style={styles.restaurantCardQualityBadge} /> : null}
+        </View>
         <Text style={styles.restaurantCardSubtitle} numberOfLines={1}>{place.shortDescription || place.description || place.district || place.kind}</Text>
         <View style={styles.restaurantFacts}>
           <RestaurantFact tone="hours" value={hoursLabel} />
@@ -2442,6 +2463,27 @@ function TipsScreen({ tips, onBack }: { tips: GuideTip[]; onBack: () => void }) 
   );
 }
 
+function getApiOriginForAuth() {
+  const raw = API_BASE_URL.replace(/\/api\/?$/i, '').replace(/\/+$/g, '');
+  return raw || API_BASE_URL;
+}
+
+function buildTelegramNativeOAuthUrl(providers: NativeAuthProviders, returnTo: string) {
+  const botId = String(providers.telegramBotId || '').trim();
+  if (!/^\d+$/.test(botId)) return '';
+
+  const origin = getApiOriginForAuth();
+  const callbackUrl = `${origin}/api/auth/telegram/callback?returnTo=${encodeURIComponent(returnTo)}`;
+  const query = [
+    `bot_id=${encodeURIComponent(botId)}`,
+    `origin=${encodeURIComponent(origin)}`,
+    `return_to=${encodeURIComponent(callbackUrl)}`,
+    'request_access=write'
+  ].join('&');
+
+  return `https://oauth.telegram.org/auth?${query}`;
+}
+
 function WelcomeScreen({ onStart }: { onStart: () => void }) {
   const insets = useMobileInsets();
 
@@ -2507,7 +2549,19 @@ function AuthSheet({
     setOpeningProvider(provider);
     const authNonce = Date.now().toString(36);
     try {
-      const authUrl = await fetchAuthStartUrl(provider, authReturnTo, authNonce);
+      let authUrl = provider === 'telegram'
+        ? buildTelegramNativeOAuthUrl(providers, authReturnTo)
+        : '';
+      if (!authUrl) {
+        authUrl = await fetchAuthStartUrl(provider, authReturnTo, authNonce);
+      }
+      if (provider === 'telegram' && /accounts\.google\.com|google\.com\/o\/oauth/i.test(authUrl)) {
+        const telegramUrl = buildTelegramNativeOAuthUrl(providers, authReturnTo);
+        if (!telegramUrl) {
+          throw new Error('Сервер вернул ссылку Google вместо Telegram. Проверь TELEGRAM_BOT_ID на Railway.');
+        }
+        authUrl = telegramUrl;
+      }
       onClose();
       await openExternalUrl(authUrl);
     } catch (error) {
@@ -2795,7 +2849,16 @@ function DetailScreen({
       {hasMapPoint ? (
         <View style={styles.detailMapSection}>
           <SectionTitle title="Карта" />
-          <GuideMap places={[place]} height={250} />
+          <InlineErrorBoundary
+            fallback={(
+              <View style={styles.detailMapFallback}>
+                <Text style={styles.detailMapFallbackTitle}>Карта временно недоступна</Text>
+                <Text style={styles.detailMapFallbackText}>Карточка открыта, а маршрут можно построить кнопкой выше.</Text>
+              </View>
+            )}
+          >
+            <GuideMap places={[place]} height={250} />
+          </InlineErrorBoundary>
         </View>
       ) : null}
       <Modal visible={isVerificationOpen && Boolean(place.qualityBadge)} transparent animationType="fade" onRequestClose={() => setVerificationOpen(false)}>
@@ -3008,6 +3071,9 @@ const styles = StyleSheet.create({
   detailPlainHeader: { gap: 12, paddingHorizontal: 2, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
   detailPlainSection: { gap: 10, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
   detailMapSection: { gap: 10, paddingTop: 2, paddingBottom: 4 },
+  detailMapFallback: { minHeight: 128, borderRadius: 22, alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: '#f3f7ff', borderWidth: 1, borderColor: '#d8e4f2' },
+  detailMapFallbackTitle: { color: '#102a43', fontSize: 15, lineHeight: 20, fontWeight: '900', textAlign: 'center' },
+  detailMapFallbackText: { color: '#60718a', fontSize: 12.5, lineHeight: 18, fontWeight: '700', textAlign: 'center', marginTop: 4 },
   fullscreenImageBackdrop: { flex: 1, backgroundColor: 'rgba(2, 8, 23, 0.94)' },
   fullscreenImageCloseArea: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
   fullscreenImage: { width: '100%', height: '86%' },
@@ -3082,7 +3148,9 @@ const styles = StyleSheet.create({
   restaurantCardImageCount: { position: 'absolute', left: 6, top: 5, overflow: 'hidden', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999, backgroundColor: 'rgba(9, 19, 38, 0.58)', color: '#ffffff', fontSize: 9.5, fontWeight: '900' },
   restaurantCardSavedMark: { position: 'absolute', right: 6, top: 5, color: '#ffffff', fontSize: 13, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
   restaurantCardBody: { flex: 1, minWidth: 0, maxWidth: '100%', justifyContent: 'center', gap: 4, paddingTop: 0, paddingRight: 2, overflow: 'hidden' },
-  restaurantCardTitle: { color: '#162640', fontSize: 14.2, lineHeight: 17, fontWeight: '900', letterSpacing: -0.2 },
+  restaurantCardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
+  restaurantCardQualityBadge: { width: 22, height: 22, flexShrink: 0 },
+  restaurantCardTitle: { flex: 1, minWidth: 0, color: '#162640', fontSize: 14.2, lineHeight: 17, fontWeight: '900', letterSpacing: -0.2 },
   restaurantCardSubtitle: { color: '#60718a', fontSize: 11.8, lineHeight: 15, fontWeight: '500' },
   restaurantFacts: { gap: 4, marginTop: 3 },
   restaurantFactRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
