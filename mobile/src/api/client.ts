@@ -180,17 +180,26 @@ export async function fetchAuthStartUrl(provider: 'google' | 'apple' | 'telegram
     mode: 'native',
     source: 'mobile',
     format: 'json',
-    authNonce
+    authNonce,
+    provider
   });
 
   if (provider === 'telegram') {
     searchParams.set('prefer', 'oauth');
+    searchParams.set('forceProvider', 'telegram');
   }
 
-  const data = await requestJson<{ ok: boolean; url?: string }>(`/api/auth/${provider}/start?${searchParams.toString()}`);
+  const data = await requestJson<{ ok: boolean; provider?: string; url?: string }>(`/api/auth/${provider}/start?${searchParams.toString()}`);
+  const returnedProvider = String(data.provider || provider).trim().toLowerCase();
   const url = String(data.url || '').trim();
+  if (returnedProvider && returnedProvider !== provider) {
+    throw new Error(`Auth provider mismatch: expected ${provider}, got ${returnedProvider}.`);
+  }
   if (!url) {
     throw new Error('Auth provider did not return a start URL.');
+  }
+  if (provider === 'telegram' && /accounts\.google\.com|google\.com\/o\/oauth|auth\/google|provider=google/i.test(url)) {
+    throw new Error('Server returned a Google URL for Telegram login. Deploy the updated backend and check Telegram environment variables.');
   }
 
   return url;

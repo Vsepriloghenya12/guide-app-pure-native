@@ -18,7 +18,7 @@ module.exports = {
     android: {
       package: 'com.realone14.guideappnativeconnected',
       versionCode: 8,
-      permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION'],
+      permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'POST_NOTIFICATIONS'],
       blockedPermissions: [
         'android.permission.RECORD_AUDIO',
         'android.permission.SYSTEM_ALERT_WINDOW',
@@ -36,7 +36,6 @@ module.exports = {
     plugins: [
       'expo-location',
       'expo-notifications',
-      '@maplibre/maplibre-react-native',
       [
         'expo-image-picker',
         {
@@ -54,7 +53,8 @@ module.exports = {
     extra: {
       eas: {
         projectId: '5d3c1adc-6568-443d-9eb1-b1a829d388ec'
-      }
+      },
+      telegramBotId: process.env.EXPO_PUBLIC_TELEGRAM_BOT_ID || ''
     }
   }
 };
