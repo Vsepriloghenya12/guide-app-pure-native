@@ -1,9 +1,17 @@
+import Constants from 'expo-constants';
 import type { BootstrapPayload, GuidePlace, SupportContentStore } from '../types';
 import { normalizeBootstrap, normalizeSupportContent } from '../utils/normalizers';
 import { getAuthToken } from '../utils/auth';
 
-const rawApiBaseUrl = String(process.env.EXPO_PUBLIC_API_BASE_URL || '').replace(/\/+$/g, '');
-export const API_BASE_URL = rawApiBaseUrl.includes('your-app.up.railway.app') || rawApiBaseUrl.includes('your-railway-backend') ? '' : rawApiBaseUrl;
+const DEFAULT_API_BASE_URL = 'https://guide-app-pure-native-production.up.railway.app';
+const configuredApiBaseUrl = String(
+  process.env.EXPO_PUBLIC_API_BASE_URL ||
+  Constants.expoConfig?.extra?.apiBaseUrl ||
+  Constants.manifest2?.extra?.expoClient?.extra?.apiBaseUrl ||
+  DEFAULT_API_BASE_URL
+);
+const rawApiBaseUrl = configuredApiBaseUrl.replace(/\/+$/g, '');
+export const API_BASE_URL = rawApiBaseUrl.includes('your-app.up.railway.app') || rawApiBaseUrl.includes('your-railway-backend') ? DEFAULT_API_BASE_URL : rawApiBaseUrl;
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_BASE_URL) {

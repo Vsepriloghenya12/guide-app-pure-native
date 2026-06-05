@@ -1880,7 +1880,7 @@ function CategoryListingCard({
             style={styles.full}
           >
             {imageUrls.map((imageUrl, index) => (
-              <TouchableOpacity key={`${imageUrl}-${index}`} activeOpacity={0.92} onPress={() => setFullscreenImage(imageUrl)}>
+              <TouchableOpacity key={`${imageUrl}-${index}`} activeOpacity={0.92} onPress={onPress}>
                 <ImageBackground source={{ uri: imageUrl }} style={styles.restaurantCardImageSlide} imageStyle={styles.restaurantCardImageReal}>
                 <View style={styles.restaurantCardImageShade} />
                 </ImageBackground>

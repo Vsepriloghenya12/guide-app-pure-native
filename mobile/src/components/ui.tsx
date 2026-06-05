@@ -92,7 +92,7 @@ export function ListingCard({
         <View style={styles.listingImageWrap}>
           <ScrollView horizontal pagingEnabled nestedScrollEnabled showsHorizontalScrollIndicator={false} style={styles.listingImage}>
             {imageUrls.map((imageUrl, index) => (
-              <TouchableOpacity key={`${imageUrl}-${index}`} activeOpacity={0.92} onPress={() => setFullscreenImage(imageUrl)}>
+              <TouchableOpacity key={`${imageUrl}-${index}`} activeOpacity={0.92} onPress={onPress}>
                 <Image source={{ uri: imageUrl }} style={[styles.listingImageSlide, { width: imageWidth }]} />
               </TouchableOpacity>
             ))}

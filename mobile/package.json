@@ -13,6 +13,7 @@
   "dependencies": {
     "@maplibre/maplibre-react-native": "^11.3.2",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-masked-view/masked-view": "^0.3.2",
     "expo": "~54.0.35",
     "expo-constants": "~18.0.13",
     "expo-image-picker": "~17.0.11",
