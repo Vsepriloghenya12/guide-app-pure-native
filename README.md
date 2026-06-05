@@ -1,13 +1,18 @@
-# Danang Guide — native mobile + Railway backend
+# Danang Guide — mobile app + Railway backend + owner CMS
 
-Проект состоит из двух частей:
+Единая рабочая папка проекта Danang Guide.
 
-- `mobile` — чистое мобильное приложение Expo / React Native.
+## Структура
+
 - `server` — backend/API для Railway.
+- `webapp` — страница владельца / CMS, собирается вместе с backend.
+- `mobile` — Expo / React Native приложение для Android и iOS.
+- `shared` — стартовые данные.
+- `storage` — локальное файловое хранилище для разработки.
 
-Главный файл с пошаговым подключением: `CONNECT_AND_TEST.md`.
+Главная инструкция по работе из одной папки: `docs/WORK_FROM_ONE_FOLDER.md`.
 
-## Быстрый локальный запуск
+## Быстрый локальный запуск backend + web
 
 ```bash
 npm install
@@ -20,18 +25,46 @@ npm run dev:server
 http://localhost:8080/api/bootstrap
 ```
 
-## APK
+В отдельном терминале для страницы владельца:
 
-Перед сборкой APK укажите реальный Railway URL в `mobile/.env`:
+```bash
+npm run dev:web
+```
+
+## Мобильное приложение
+
+Перед запуском укажите Railway URL в `mobile/.env`:
 
 ```text
 EXPO_PUBLIC_API_BASE_URL=https://your-real-railway-backend.up.railway.app
 EXPO_PUBLIC_MAP_TILE_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
 ```
 
-Затем:
+Запуск:
+
+```bash
+npm run mobile:install
+npm run mobile:start
+```
+
+## APK / Play Market
+
+Тестовый APK:
 
 ```bash
 cd mobile
 eas build -p android --profile preview --clear-cache
 ```
+
+Production AAB для Play Market:
+
+```bash
+cd mobile
+eas build -p android --profile production --clear-cache
+```
+
+## Railway
+
+На Railway выкладывается корень проекта. Railway использует `server`, `webapp`, `package.json`, `package-lock.json` и `railway.json`.
+
+Переменные смотри в `.env.example`. Реальные секреты хранить только в Railway / EAS, не в git.

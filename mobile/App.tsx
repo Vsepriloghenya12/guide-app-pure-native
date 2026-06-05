@@ -21,11 +21,13 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import * as Notifications from 'expo-notifications';
 import { Camera, GeoJSONSource, Layer, Map as MapLibreMap, type LngLatBounds, type StyleSpecification } from '@maplibre/maplibre-react-native';
 import type { BootstrapPayload, GuideCategory, GuideCollection, GuidePlace, GuideTip, SupportContentStore } from './src/types';
-import { fetchBootstrap, fetchSupportContent, fetchAuthSession, fetchAuthStartUrl, logoutAuthSession, deleteAuthProfile, API_BASE_URL, sendAnalytics, submitBulletinListing, fetchMyBulletinListings, deleteMyBulletinListing } from './src/api/client';
+import { fetchBootstrap, fetchSupportContent, fetchAuthSession, fetchAuthStartUrl, logoutAuthSession, deleteAuthProfile, reportBulletin, fetchHiddenAuthors, hideBulletinAuthor, API_BASE_URL, sendAnalytics, submitBulletinListing, fetchMyBulletinListings, deleteMyBulletinListing, getNotificationSettings, registerPushToken, updateNotificationSettings, type NotificationSettings } from './src/api/client';
 import { directionsUrl, openExternalUrl } from './src/utils/links';
 import { estimateTravelTime, formatDistance, hasCoordinates, haversineDistanceKm } from './src/utils/geo';
 import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
@@ -71,12 +73,57 @@ const legalLinks = [
   { id: 'support', label: 'Поддержка', path: '/support' }
 ] as const;
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false
+  })
+});
+
 function legalPageUrl(path: string) {
   return legalBaseUrl ? `${legalBaseUrl}${path}` : '';
 }
 
 function openLegalPage(path: string) {
   return openExternalUrl(legalPageUrl(path));
+}
+
+function getExpoProjectId() {
+  const extra = Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined;
+  return Constants.easConfig?.projectId || extra?.eas?.projectId || '';
+}
+
+function notificationPlatform(): 'ios' | 'android' | 'unknown' {
+  if (Platform.OS === 'ios' || Platform.OS === 'android') return Platform.OS;
+  return 'unknown';
+}
+
+async function getPromotionPushToken() {
+  if (Platform.OS === 'web') {
+    throw new Error('Push-уведомления доступны только в мобильном приложении.');
+  }
+
+  const currentPermissions = await Notifications.getPermissionsAsync();
+  let status = currentPermissions.status;
+  if (status !== 'granted') {
+    const requestedPermissions = await Notifications.requestPermissionsAsync();
+    status = requestedPermissions.status;
+  }
+  if (status !== 'granted') {
+    throw new Error('Разрешение на уведомления не выдано.');
+  }
+
+  const projectId = getExpoProjectId();
+  const tokenResult = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
+  return tokenResult.data;
+}
+
+function getPromotionListingIdFromNotification(response: Notifications.NotificationResponse | null) {
+  const data = response?.notification?.request?.content?.data || {};
+  if (data?.type !== 'promotion') return '';
+  return String(data?.listing_id || data?.listingId || '').trim();
 }
 
 const filterTextMap: Record<string, string> = {
@@ -421,6 +468,8 @@ type BulletinPostImage = {
   fileName: string;
 };
 
+type BulletinReportReason = 'spam' | 'illegal' | 'offensive' | 'misleading' | 'other';
+
 const nativeRoutes: NativeRoute[] = [
   {
     id: 'center-evening',
@@ -563,8 +612,11 @@ function AppContent() {
   const [isAuthSheetOpen, setAuthSheetOpen] = useState(false);
   const [authUser, setAuthUser] = useState<Record<string, unknown> | null>(null);
   const [authProviders, setAuthProviders] = useState<NativeAuthProviders>({});
+  const [hiddenAuthorIds, setHiddenAuthorIds] = useState<string[]>([]);
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({ promotionsEnabled: false, hasPushToken: false });
   const [isWelcomeChecked, setWelcomeChecked] = useState(false);
   const [isWelcomeVisible, setWelcomeVisible] = useState(false);
+  const pendingPromotionListingIdRef = useRef('');
 
   useEffect(() => {
     routeRef.current = route;
@@ -614,17 +666,21 @@ function AppContent() {
   }), [canGoBack, goBack]);
 
   const loadApp = useCallback(async () => {
-    const [nextPayload, nextSupport, savedFavorites, authSession, cachedAuthUser] = await Promise.all([
+    const [nextPayload, nextSupport, savedFavorites, authSession, cachedAuthUser, nextHiddenAuthorIds, nextNotificationSettings] = await Promise.all([
       fetchBootstrap(),
       fetchSupportContent(),
       loadFavoriteSlugs(),
       fetchAuthSession(),
-      getCachedAuthUser()
+      getCachedAuthUser(),
+      fetchHiddenAuthors(),
+      getNotificationSettings()
     ]);
     setPayload(nextPayload);
     setSupport(nextSupport);
     setFavoriteSlugs(savedFavorites);
     setAuthProviders(authSession.providers || {});
+    setHiddenAuthorIds(nextHiddenAuthorIds);
+    setNotificationSettings(nextNotificationSettings);
     setAuthUser(
       authSession.authenticated && authSession.user && typeof authSession.user === 'object'
         ? authSession.user as Record<string, unknown>
@@ -699,8 +755,53 @@ function AppContent() {
   }, [loadApp]);
 
   const categories = payload?.categories ?? [];
-  const listings = payload?.listings ?? [];
+  const allListings = payload?.listings ?? [];
+  const hiddenAuthorSet = useMemo(() => new Set(hiddenAuthorIds), [hiddenAuthorIds]);
+  const listings = useMemo(
+    () => allListings.filter((item) => (
+      item.categoryId !== 'bulletin-board' ||
+      !item.createdByUserId ||
+      !hiddenAuthorSet.has(item.createdByUserId)
+    )),
+    [allListings, hiddenAuthorSet]
+  );
   const favoriteSet = useMemo(() => new Set(favoriteSlugs), [favoriteSlugs]);
+
+  const openPromotionListing = useCallback((listingId: string) => {
+    const normalizedId = String(listingId || '').trim();
+    if (!normalizedId) return false;
+
+    const listing = allListings.find((item) => item.id === normalizedId || item.slug === normalizedId) || null;
+    if (!listing) {
+      pendingPromotionListingIdRef.current = normalizedId;
+      return false;
+    }
+
+    pendingPromotionListingIdRef.current = '';
+    setRoute({ name: 'detail', slug: listing.slug || listing.id });
+    return true;
+  }, [allListings, setRoute]);
+
+  useEffect(() => {
+    const pendingListingId = pendingPromotionListingIdRef.current;
+    if (pendingListingId && allListings.length > 0 && !openPromotionListing(pendingListingId)) {
+      Alert.alert('Акция', 'Не удалось найти карточку заведения. Откройте главный экран и обновите данные.');
+      pendingPromotionListingIdRef.current = '';
+    }
+  }, [allListings.length, openPromotionListing]);
+
+  useEffect(() => {
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      const listingId = getPromotionListingIdFromNotification(response);
+      if (listingId) openPromotionListing(listingId);
+    });
+
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const listingId = getPromotionListingIdFromNotification(response);
+      if (listingId) openPromotionListing(listingId);
+    });
+    return () => subscription.remove();
+  }, [openPromotionListing]);
 
   const toggleFavorite = useCallback(async (slug: string) => {
     const next = favoriteSet.has(slug)
@@ -714,6 +815,8 @@ function AppContent() {
     await logoutAuthSession();
     await clearAuthToken();
     setAuthUser(null);
+    setHiddenAuthorIds([]);
+    setNotificationSettings({ promotionsEnabled: false, hasPushToken: false });
     setAuthSheetOpen(false);
   }, []);
 
@@ -733,6 +836,8 @@ function AppContent() {
               await saveFavoriteSlugs([]);
               setFavoriteSlugs([]);
               setAuthUser(null);
+              setHiddenAuthorIds([]);
+              setNotificationSettings({ promotionsEnabled: false, hasPushToken: false });
               setAuthSheetOpen(false);
               await loadApp();
               Alert.alert('Данные профиля удалены');
@@ -745,11 +850,95 @@ function AppContent() {
     );
   }, [loadApp]);
 
+  const handlePromotionsNotificationsChange = useCallback(async (enabled: boolean) => {
+    if (!authUser) {
+      setAuthSheetOpen(true);
+      return;
+    }
+
+    try {
+      if (enabled) {
+        const expoPushToken = await getPromotionPushToken();
+        await registerPushToken({
+          expoPushToken,
+          platform: notificationPlatform(),
+          promotionsEnabled: true
+        });
+        setNotificationSettings({ promotionsEnabled: true, hasPushToken: true });
+        Alert.alert('Уведомления включены', 'Мы будем присылать только акции заведений Danang Guide.');
+        return;
+      }
+
+      const nextSettings = await updateNotificationSettings(false);
+      setNotificationSettings(nextSettings);
+      Alert.alert('Уведомления отключены', 'Акции заведений больше не будут приходить push-уведомлениями.');
+    } catch (error) {
+      Alert.alert('Не удалось изменить уведомления', error instanceof Error ? error.message : 'Попробуйте ещё раз.');
+    }
+  }, [authUser]);
+
   const handleWelcomeStart = useCallback(async () => {
     await AsyncStorage.setItem(welcomeSeenStorageKey, '1');
     setWelcomeVisible(false);
     setAuthSheetOpen(true);
   }, []);
+
+  const handleReportBulletin = useCallback((place: GuidePlace) => {
+    if (!authUser) {
+      setAuthSheetOpen(true);
+      return;
+    }
+
+    const sendReport = async (reason: BulletinReportReason) => {
+      try {
+        const response = await reportBulletin(place.id, reason);
+        Alert.alert(response.report?.duplicate ? 'Жалоба уже отправлена' : 'Жалоба отправлена', response.message || 'Спасибо, мы проверим объявление.');
+      } catch (error) {
+        Alert.alert('Не удалось отправить жалобу', error instanceof Error ? error.message : 'Попробуйте ещё раз.');
+      }
+    };
+
+    Alert.alert('Пожаловаться на объявление', place.title, [
+      { text: 'Спам', onPress: () => void sendReport('spam') },
+      { text: 'Запрещённый контент', onPress: () => void sendReport('illegal') },
+      { text: 'Оскорбительный контент', onPress: () => void sendReport('offensive') },
+      { text: 'Недостоверная информация', onPress: () => void sendReport('misleading') },
+      { text: 'Другое', onPress: () => void sendReport('other') },
+      { text: 'Отмена', style: 'cancel' }
+    ]);
+  }, [authUser]);
+
+  const handleHideBulletinAuthor = useCallback((place: GuidePlace) => {
+    if (!authUser) {
+      setAuthSheetOpen(true);
+      return;
+    }
+
+    if (!place.createdByUserId) {
+      Alert.alert('Не удалось скрыть автора', 'У объявления не указан автор.');
+      return;
+    }
+
+    Alert.alert('Скрыть автора?', 'Объявления этого автора больше не будут показываться у вас в списке.', [
+      { text: 'Отмена', style: 'cancel' },
+      {
+        text: 'Скрыть автора',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const nextHiddenAuthorIds = await hideBulletinAuthor(place.id);
+            setHiddenAuthorIds(nextHiddenAuthorIds);
+            Alert.alert('Автор скрыт');
+            if (routeRef.current.name === 'detail') {
+              goBack();
+            }
+          } catch (error) {
+            Alert.alert('Не удалось скрыть автора', error instanceof Error ? error.message : 'Попробуйте ещё раз.');
+          }
+        }
+      }
+    ]);
+  }, [authUser, goBack]);
 
   const openCategory = useCallback((category: GuideCategory) => {
     if (category.id === 'routes') {
@@ -805,6 +994,10 @@ function AppContent() {
           category={categories.find((item) => item.id === selectedListing.categoryId)}
           isFavorite={favoriteSet.has(selectedListing.slug || selectedListing.id)}
           onToggleFavorite={() => void toggleFavorite(selectedListing.slug || selectedListing.id)}
+          authUser={authUser}
+          onOpenAuth={() => setAuthSheetOpen(true)}
+          onReportBulletin={handleReportBulletin}
+          onHideBulletinAuthor={handleHideBulletinAuthor}
         />
       ) : route.name === 'routeDetail' ? (
         <RouteDetailScreen
@@ -881,7 +1074,16 @@ function AppContent() {
       {route.name !== 'detail' ? (
         <BottomTabs active={route.name === 'tabs' ? route.tab : 'home'} onChange={(tab) => setRoute({ name: 'tabs', tab })} bottomInset={mobileInsets.bottom} />
       ) : null}
-      <AuthSheet visible={isAuthSheetOpen} user={authUser} providers={authProviders} onClose={() => setAuthSheetOpen(false)} onLogout={handleLogout} onDeleteProfile={handleDeleteProfile} />
+      <AuthSheet
+        visible={isAuthSheetOpen}
+        user={authUser}
+        providers={authProviders}
+        notificationSettings={notificationSettings}
+        onClose={() => setAuthSheetOpen(false)}
+        onLogout={handleLogout}
+        onDeleteProfile={handleDeleteProfile}
+        onTogglePromotionsNotifications={handlePromotionsNotificationsChange}
+      />
     </View>
   );
 }
@@ -2273,27 +2475,35 @@ function AuthSheet({
   visible,
   user,
   providers,
+  notificationSettings,
   onClose,
   onLogout,
-  onDeleteProfile
+  onDeleteProfile,
+  onTogglePromotionsNotifications
 }: {
   visible: boolean;
   user: Record<string, unknown> | null;
   providers: NativeAuthProviders;
+  notificationSettings: NotificationSettings;
   onClose: () => void;
   onLogout: () => void;
   onDeleteProfile: () => void;
+  onTogglePromotionsNotifications: (enabled: boolean) => Promise<void>;
 }) {
   const authReturnTo = 'danangguide:///auth';
   const displayName = toText(user?.displayName || user?.username || user?.email, 'Пользователь');
   const userEmail = toText(user?.email);
   const avatarUrl = getAuthUserAvatarUrl(user);
   const [openingProvider, setOpeningProvider] = useState<'google' | 'apple' | 'telegram' | null>(null);
+  const [isNotificationBusy, setNotificationBusy] = useState(false);
   const providerEnabled = useCallback((provider: 'google' | 'apple' | 'telegram') => Boolean(providers?.[provider]), [providers]);
+  const canAttemptProvider = useCallback((provider: 'google' | 'apple' | 'telegram') => (
+    provider === 'apple' ? Boolean(API_BASE_URL) : providerEnabled(provider)
+  ), [providerEnabled]);
 
   const openProvider = async (provider: 'google' | 'apple' | 'telegram') => {
     if (!API_BASE_URL) return;
-    if (!providerEnabled(provider) || openingProvider) return;
+    if (!canAttemptProvider(provider) || openingProvider) return;
     setOpeningProvider(provider);
     const authNonce = Date.now().toString(36);
     try {
@@ -2304,6 +2514,16 @@ function AuthSheet({
       Alert.alert('Не удалось открыть вход', error instanceof Error ? error.message : 'Попробуйте ещё раз.');
     } finally {
       setOpeningProvider(null);
+    }
+  };
+
+  const handleToggleNotifications = async () => {
+    if (isNotificationBusy) return;
+    setNotificationBusy(true);
+    try {
+      await onTogglePromotionsNotifications(!notificationSettings.promotionsEnabled);
+    } finally {
+      setNotificationBusy(false);
     }
   };
 
@@ -2346,6 +2566,20 @@ function AuthSheet({
                   <Text style={styles.profileLogoutText}>Выйти</Text>
                 </TouchableOpacity>
               </View>
+              <TouchableOpacity
+                activeOpacity={0.84}
+                disabled={isNotificationBusy}
+                onPress={() => void handleToggleNotifications()}
+                style={[styles.profileNotificationRow, isNotificationBusy && styles.authProviderButtonDisabled]}
+              >
+                <View style={styles.flex}>
+                  <Text style={styles.profileNotificationTitle}>Уведомления об акциях</Text>
+                  <Text style={styles.profileNotificationText}>Получайте уведомления о специальных предложениях заведений Danang Guide. Можно отключить в любой момент.</Text>
+                </View>
+                <View style={[styles.profileNotificationSwitch, notificationSettings.promotionsEnabled && styles.profileNotificationSwitchActive]}>
+                  <View style={[styles.profileNotificationKnob, notificationSettings.promotionsEnabled && styles.profileNotificationKnobActive]} />
+                </View>
+              </TouchableOpacity>
               <TouchableOpacity activeOpacity={0.84} onPress={onDeleteProfile} style={styles.profileDeleteButton}>
                 <Text style={styles.profileDeleteText}>Удалить данные профиля</Text>
               </TouchableOpacity>
@@ -2381,14 +2615,14 @@ function AuthSheet({
               </TouchableOpacity>
               <TouchableOpacity
                 activeOpacity={0.86}
-                disabled={!providerEnabled('apple') || Boolean(openingProvider)}
+                disabled={!canAttemptProvider('apple') || Boolean(openingProvider)}
                 onPress={() => void openProvider('apple')}
-                style={[styles.authProviderButton, (!providerEnabled('apple') || openingProvider === 'apple') && styles.authProviderButtonDisabled]}
+                style={[styles.authProviderButton, (!canAttemptProvider('apple') || openingProvider === 'apple') && styles.authProviderButtonDisabled]}
               >
                 <Text style={styles.authProviderBrand}></Text>
                 <View style={styles.flex}>
                   <Text style={styles.authProviderTitle}>Войти через Apple</Text>
-                  <Text style={styles.authProviderSub}>{providerEnabled('apple') ? 'После входа приложение откроется обратно' : 'Apple сейчас не настроен на сервере'}</Text>
+                  <Text style={styles.authProviderSub}>После входа приложение откроется обратно</Text>
                 </View>
               </TouchableOpacity>
               <TouchableOpacity
@@ -2419,7 +2653,25 @@ function AuthSheet({
   );
 }
 
-function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place: GuidePlace; category?: GuideCategory; isFavorite: boolean; onToggleFavorite: () => void }) {
+function DetailScreen({
+  place,
+  category,
+  isFavorite,
+  onToggleFavorite,
+  authUser,
+  onOpenAuth,
+  onReportBulletin,
+  onHideBulletinAuthor
+}: {
+  place: GuidePlace;
+  category?: GuideCategory;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
+  authUser: Record<string, unknown> | null;
+  onOpenAuth: () => void;
+  onReportBulletin: (place: GuidePlace) => void;
+  onHideBulletinAuthor: (place: GuidePlace) => void;
+}) {
   const mobileInsets = useMobileInsets();
   const { width: viewportWidth } = useWindowDimensions();
   const gallery = getPlaceImageUrls(place);
@@ -2441,6 +2693,8 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
   const hasMapPoint = Boolean(placeCoordinate(place));
   const hasInfoFields = Boolean(address || hours || phone);
   const qualityBadgeText = toText(place.qualityBadgeText, 'привет,молодцы что посмотрели');
+  const isBulletin = place.categoryId === 'bulletin-board';
+  const isOwnBulletin = Boolean(authUser?.id && place.createdByUserId && String(authUser.id) === String(place.createdByUserId));
 
   return (
     <ScrollView
@@ -2482,7 +2736,7 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity activeOpacity={0.8} onPress={onToggleFavorite} style={styles.detailFavorite}>
-            <Text style={styles.detailFavoriteText}>{isFavorite ? '★' : '☆'}</Text>
+            <Text style={styles.detailFavoriteText}>{isFavorite ? '♥' : '♡'}</Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.detailText}>{description}</Text>
@@ -2512,6 +2766,17 @@ function DetailScreen({ place, category, isFavorite, onToggleFavorite }: { place
         <AppButton label="Маршрут" onPress={() => void openExternalUrl(directionsUrl(place))} />
         {website ? <AppButton label="Сайт" variant="ghost" onPress={() => void openExternalUrl(website)} /> : null}
       </View>
+
+      {isBulletin && !isOwnBulletin ? (
+        <View style={styles.bulletinSafetyActions}>
+          <TouchableOpacity activeOpacity={0.84} onPress={authUser ? () => onReportBulletin(place) : onOpenAuth} style={styles.bulletinSafetyButton}>
+            <Text style={styles.bulletinSafetyText}>Пожаловаться</Text>
+          </TouchableOpacity>
+          <TouchableOpacity activeOpacity={0.84} onPress={authUser ? () => onHideBulletinAuthor(place) : onOpenAuth} style={styles.bulletinSafetyButton}>
+            <Text style={styles.bulletinSafetyText}>Скрыть автора</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {tags.length > 0 ? (
         <View style={styles.detailPlainSection}>
@@ -2763,6 +3028,9 @@ const styles = StyleSheet.create({
   infoValue: { color: '#102a43', fontSize: 16, lineHeight: 22, fontWeight: '700' },
   infoValueLink: { color: '#1f63c7' },
   actionsGrid: { gap: 10 },
+  bulletinSafetyActions: { flexDirection: 'row', gap: 8 },
+  bulletinSafetyButton: { flex: 1, minHeight: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fed7aa', paddingHorizontal: 10 },
+  bulletinSafetyText: { color: '#9a3412', fontSize: 12.5, lineHeight: 16, fontWeight: '900' },
   verificationModalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 22, backgroundColor: 'rgba(9, 19, 38, 0.42)' },
   verificationModalCard: { width: '100%', maxWidth: 340, borderRadius: 24, backgroundColor: '#ffffff', alignItems: 'center', paddingHorizontal: 20, paddingTop: 22, paddingBottom: 18 },
   verificationModalImage: { width: 88, height: 88 },
@@ -2966,6 +3234,13 @@ const styles = StyleSheet.create({
   profileEmail: { color: '#718096', fontSize: 11.5, lineHeight: 15, fontWeight: '700', marginTop: 2 },
   profileLogoutButton: { minHeight: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5fa', paddingHorizontal: 12 },
   profileLogoutText: { color: '#1f63c7', fontSize: 12, lineHeight: 15, fontWeight: '900' },
+  profileNotificationRow: { minHeight: 82, borderRadius: 18, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e0e8f2', flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
+  profileNotificationTitle: { color: '#102a43', fontSize: 14, lineHeight: 18, fontWeight: '900' },
+  profileNotificationText: { color: '#718096', fontSize: 11.5, lineHeight: 16, fontWeight: '700', marginTop: 4 },
+  profileNotificationSwitch: { width: 48, height: 28, borderRadius: 14, backgroundColor: '#d8e0ea', padding: 3, justifyContent: 'center' },
+  profileNotificationSwitchActive: { backgroundColor: '#1f63c7' },
+  profileNotificationKnob: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#ffffff' },
+  profileNotificationKnobActive: { transform: [{ translateX: 20 }] },
   profileDeleteButton: { minHeight: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff1f1', borderWidth: 1, borderColor: '#ffd1d1', paddingHorizontal: 12 },
   profileDeleteText: { color: '#8f1d1d', fontSize: 12.5, lineHeight: 16, fontWeight: '900' },
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
 import { updateGuideContent } from "../../data/guideContent";
-import type { GuidePlace, Listing } from "../../types";
+import type { ContentReport, GuidePlace, Listing } from "../../types";
 
 type OwnerBulletinModerationPanelProps = {
   items: GuidePlace[];
@@ -44,6 +44,21 @@ const moderationStatusMeta: Record<
   draft: { label: "На модерации", className: "is-draft" }
 };
 
+const reportReasonLabels: Record<ContentReport["reason"], string> = {
+  spam: "Спам",
+  illegal: "Запрещённый контент",
+  offensive: "Оскорбительный контент",
+  misleading: "Недостоверная информация",
+  other: "Другое"
+};
+
+const reportStatusLabels: Record<ContentReport["status"], string> = {
+  new: "Новая",
+  reviewed: "Проверена",
+  dismissed: "Отклонена",
+  action_taken: "Приняты меры"
+};
+
 function sortBulletinItems(left: GuidePlace, right: GuidePlace) {
   const leftOrder = Number(left.sortOrder ?? 1000);
   const rightOrder = Number(right.sortOrder ?? 1000);
@@ -63,6 +78,9 @@ export function OwnerBulletinModerationPanel({
   const [status, setStatus] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [renderLimit, setRenderLimit] = useState(24);
+  const [reports, setReports] = useState<ContentReport[]>([]);
+  const [reportsStatus, setReportsStatus] = useState("");
+  const [busyReportId, setBusyReportId] = useState<string | null>(null);
 
   const bulletinItems = useMemo(
     () =>
@@ -91,6 +109,19 @@ export function OwnerBulletinModerationPanel({
   useEffect(() => {
     setRenderLimit(24);
   }, [activeBucket, visibleItems.length]);
+
+  const loadReports = useCallback(async () => {
+    try {
+      const response = await api.ownerReports();
+      setReports(response.reports);
+    } catch (error) {
+      setReportsStatus(error instanceof Error ? error.message : "Не удалось загрузить жалобы.");
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadReports();
+  }, [loadReports]);
 
   const visiblePageItems = useMemo(
     () => visibleItems.slice(0, renderLimit),
@@ -189,6 +220,54 @@ export function OwnerBulletinModerationPanel({
     [syncDeletedPlace]
   );
 
+  const handleReportAction = useCallback(
+    async (report: ContentReport, action: "dismiss" | "hide_bulletin" | "block_author") => {
+      setBusyReportId(report.id);
+      setReportsStatus(
+        action === "dismiss"
+          ? "Отклоняю жалобу..."
+          : action === "hide_bulletin"
+            ? "Скрываю объявление..."
+            : "Блокирую автора..."
+      );
+
+      try {
+        const response = await api.updateOwnerReport(report.id, action);
+        setReports((current) => current.map((item) => (item.id === report.id ? response.report : item)));
+        if (response.report.listing?.id && (action === "hide_bulletin" || action === "block_author")) {
+          updateGuideContent(
+            (current) => ({
+              ...current,
+              places: current.places.map((item) => (
+                item.categoryId === "bulletin-board" &&
+                (
+                  item.id === response.report.listing?.id ||
+                  (action === "block_author" && item.createdByUserId && item.createdByUserId === response.report.listing?.authorUserId)
+                )
+                  ? { ...item, status: "hidden", visible: false }
+                  : item
+              ))
+            }),
+            { persist: false }
+          );
+        }
+        setReportsStatus(
+          action === "dismiss"
+            ? "Жалоба отклонена."
+            : action === "hide_bulletin"
+              ? "Объявление скрыто."
+              : "Автор заблокирован."
+        );
+        void loadReports();
+      } catch (error) {
+        setReportsStatus(error instanceof Error ? error.message : "Не удалось обработать жалобу.");
+      } finally {
+        setBusyReportId(null);
+      }
+    },
+    [loadReports]
+  );
+
   const activeBucketMeta =
     moderationBuckets.find((bucket) => bucket.id === activeBucket) ||
     moderationBuckets[0];
@@ -223,6 +302,73 @@ export function OwnerBulletinModerationPanel({
       </div>
 
       {status ? <div className="owner-editor-status">{status}</div> : null}
+
+      <div className="owner-editor-card owner-editor-list">
+        <div className="owner-editor-list__head owner-editor-list__head--stack">
+          <div>
+            <strong>Жалобы</strong>
+            <span>{reports.length} шт.</span>
+          </div>
+          <span>Проверяй пользовательские жалобы на объявления и принимай меры.</span>
+        </div>
+
+        {reportsStatus ? <div className="owner-editor-status">{reportsStatus}</div> : null}
+
+        <div className="owner-item-list owner-moderation-list">
+          {reports.length > 0 ? (
+            reports.slice(0, 24).map((report) => {
+              const isBusy = busyReportId === report.id;
+              const listingStatus = report.listing?.status || "hidden";
+              const listingStatusMeta = moderationStatusMeta[listingStatus] || moderationStatusMeta.hidden;
+              const authorLabel = report.listing?.authorName || report.listing?.authorUserId || "Автор не указан";
+
+              return (
+                <article key={report.id} className="owner-item-card owner-moderation-card">
+                  <div className="owner-moderation-card__content">
+                    <div className="owner-moderation-card__top">
+                      <div>
+                        <h3>{report.listing?.title || "Объявление не найдено"}</h3>
+                        <p>{new Date(report.createdAt).toLocaleString("ru-RU")} · {reportReasonLabels[report.reason]}</p>
+                      </div>
+                      <span className={`owner-status-pill ${listingStatusMeta.className}`}>
+                        {reportStatusLabels[report.status]}
+                      </span>
+                    </div>
+                    <p className="owner-item-card__description">
+                      {report.comment || "Комментарий не указан."}
+                    </p>
+                    <div className="owner-place-preview-card__badges owner-moderation-card__badges">
+                      <span className="owner-meta-pill">Объявление: {listingStatusMeta.label}</span>
+                      <span className="owner-meta-pill">Автор: {authorLabel}</span>
+                      {report.reporter?.displayName || report.reporter?.email ? (
+                        <span className="owner-meta-pill">Жалоба от: {report.reporter.displayName || report.reporter.email}</span>
+                      ) : null}
+                    </div>
+                    {report.status === "new" ? (
+                      <div className="owner-item-card__actions owner-moderation-card__actions">
+                        <button className="button button--ghost" type="button" disabled={isBusy || !report.listing?.id} onClick={() => handleReportAction(report, "hide_bulletin")}>
+                          Скрыть объявление
+                        </button>
+                        <button className="button button--ghost" type="button" disabled={isBusy || !report.listing?.authorUserId} onClick={() => handleReportAction(report, "block_author")}>
+                          Заблокировать автора
+                        </button>
+                        <button className="button button--ghost" type="button" disabled={isBusy} onClick={() => handleReportAction(report, "dismiss")}>
+                          Отклонить жалобу
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })
+          ) : (
+            <article className="owner-place-preview-card owner-place-preview-card--empty">
+              <strong>Жалоб пока нет</strong>
+              <p>Новые жалобы пользователей появятся здесь.</p>
+            </article>
+          )}
+        </div>
+      </div>
 
       <div className="owner-editor-card owner-editor-list">
         <div className="owner-editor-list__head owner-editor-list__head--stack">

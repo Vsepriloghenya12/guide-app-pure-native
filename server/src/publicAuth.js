@@ -423,6 +423,29 @@ function redirectToReturnTo(res, returnTo, query = {}) {
   res.redirect(targetUrl);
 }
 
+function wantsJsonAuthStart(req) {
+  return String(req?.query?.format || '').toLowerCase() === 'json';
+}
+
+function sendAuthStartError(req, res, returnTo, provider, error) {
+  const message = error instanceof Error ? error.message : `${provider} вход пока недоступен.`;
+  if (wantsJsonAuthStart(req)) {
+    res.status(503).json({
+      ok: false,
+      provider,
+      error: 'provider_unavailable',
+      message
+    });
+    return;
+  }
+
+  redirectToReturnTo(res, returnTo, {
+    auth: 'error',
+    provider,
+    message
+  });
+}
+
 
 function getTelegramBotId() {
   const explicitBotId = String(process.env.TELEGRAM_BOT_ID || '').trim();
@@ -863,17 +886,13 @@ function registerPublicAuthRoutes(app) {
     try {
       const state = ensureStateCookie(req, res, 'apple', returnTo);
       const authUrl = buildAppleAuthUrl(req, state.oauthState || state.state);
-      if (String(req.query.format || '').toLowerCase() === 'json') {
+      if (wantsJsonAuthStart(req)) {
         res.json({ ok: true, provider: 'apple', url: authUrl });
         return;
       }
       res.redirect(authUrl);
     } catch (error) {
-      redirectToReturnTo(res, returnTo, {
-        auth: 'error',
-        provider: 'apple',
-        message: error instanceof Error ? error.message : 'Apple вход пока недоступен.'
-      });
+      sendAuthStartError(req, res, returnTo, 'apple', error);
     }
   });
 

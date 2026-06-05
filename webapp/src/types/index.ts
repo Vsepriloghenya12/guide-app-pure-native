@@ -145,6 +145,71 @@ export type PublicAuthSession = {
   providers: PublicAuthProviders;
 };
 
+export type ContentReportReason = 'spam' | 'illegal' | 'offensive' | 'misleading' | 'other';
+export type ContentReportStatus = 'new' | 'reviewed' | 'dismissed' | 'action_taken';
+export type ContentReportAction = 'hidden' | 'author_blocked' | 'dismissed' | '';
+
+export type ContentReport = {
+  id: string;
+  targetType: 'bulletin';
+  targetId: string;
+  reporterUserId?: string;
+  reason: ContentReportReason;
+  comment: string;
+  status: ContentReportStatus;
+  createdAt: string;
+  updatedAt: string;
+  reviewedAt?: string;
+  reviewerId?: string;
+  action?: ContentReportAction;
+  listing?: {
+    id: string;
+    slug?: string;
+    title: string;
+    description: string;
+    status: GuidePlace['status'];
+    authorUserId?: string;
+    authorName?: string;
+  } | null;
+  reporter?: {
+    id: string;
+    displayName?: string;
+    email?: string;
+    username?: string;
+  } | null;
+};
+
+export type PromotionStatus = 'draft' | 'published' | 'archived';
+
+export type Promotion = {
+  id: string;
+  listingId: string;
+  title: string;
+  description: string;
+  startsAt: string;
+  endsAt: string;
+  status: PromotionStatus;
+  createdAt: string;
+  updatedAt: string;
+  pushSentAt?: string;
+  pushTitle?: string;
+  pushBody?: string;
+  listing?: {
+    id: string;
+    slug?: string;
+    title: string;
+    status?: GuidePlace['status'];
+    categoryId?: string;
+  } | null;
+};
+
+export type PromotionPushStats = {
+  attempted: number;
+  sent: number;
+  failed: number;
+  skipped: number;
+};
+
 export type GuideAnalyticsKind =
   | 'page-view'
   | 'category-click'

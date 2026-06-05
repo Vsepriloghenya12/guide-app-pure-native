@@ -10,6 +10,7 @@ module.exports = {
     ios: {
       bundleIdentifier: 'com.danangguide.app',
       supportsTablet: true,
+      usesAppleSignIn: true,
       infoPlist: {
         NSLocationWhenInUseUsageDescription: 'Приложение использует геолокацию, чтобы показывать места рядом с вами.'
       }
@@ -18,6 +19,13 @@ module.exports = {
       package: 'com.realone14.guideappnativeconnected',
       versionCode: 8,
       permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION'],
+      blockedPermissions: [
+        'android.permission.RECORD_AUDIO',
+        'android.permission.SYSTEM_ALERT_WINDOW',
+        'android.permission.READ_EXTERNAL_STORAGE',
+        'android.permission.WRITE_EXTERNAL_STORAGE',
+        'android.permission.VIBRATE'
+      ],
       adaptiveIcon: {
         foregroundImage: './assets/icon.png',
         backgroundColor: '#ffffff'
@@ -27,6 +35,7 @@ module.exports = {
     },
     plugins: [
       'expo-location',
+      'expo-notifications',
       '@maplibre/maplibre-react-native',
       [
         'expo-image-picker',

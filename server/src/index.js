@@ -7,6 +7,7 @@ loadEnvFile(path.resolve(__dirname, '../../.env'));
 
 const {
   appendAnalyticsEvent,
+  createContentReport,
   deleteCategory,
   deleteMediaFileRecord,
   deletePlace,
@@ -16,12 +17,21 @@ const {
   getCategoryById,
   getCategoryBySlug,
   getContentStore,
+  getHiddenAuthorIds,
+  getNotificationSettings,
+  getOwnerPromotionById,
   getMediaFiles,
   getPlaceById,
   getPlaceBySlug,
   getPlaces,
+  getPromotionPushRecipients,
   getPublicUserById,
   hasDatabase,
+  hideAuthorForUser,
+  isPublicUserBlocked,
+  listOwnerPromotions,
+  listOwnerReports,
+  markPromotionPushSent,
   normalizePlace,
   resetContentStore,
   readSupportContent,
@@ -35,9 +45,14 @@ const {
   setUserFavorite,
   saveTips,
   syncDefaultContentStore,
+  updateOwnerReportAction,
+  updateNotificationSettings,
   updateCollectionItems,
   upsertCategory,
-  upsertPlace
+  upsertPlace,
+  upsertPushToken,
+  revokePushTokens,
+  saveOwnerPromotion
 } = require('./db');
 const { clearUserSessionCookie, readUserSession, registerPublicAuthRoutes } = require('./publicAuth');
 
@@ -309,6 +324,10 @@ const legalPages = {
         text: 'Приложение может открывать сторонние сервисы авторизации, карты, сайты заведений, мессенджеры, почту или другие внешние ресурсы. Danang Guide не управляет их условиями, доступностью и безопасностью.'
       },
       {
+        title: 'Уведомления об акциях',
+        text: 'Пользователь может добровольно включить уведомления об акциях заведений. Такие рекламно-информационные уведомления отправляются только после согласия пользователя и могут быть отключены в приложении в любой момент.'
+      },
+      {
         title: 'Отказ от гарантий',
         text: 'Сервис предоставляется как есть. Danang Guide не гарантирует непрерывную работу, полную точность данных, доступность сторонних сервисов или соответствие информации ожиданиям пользователя.'
       },
@@ -353,9 +372,14 @@ const legalPages = {
         items: [
           'авторизация и поддержка пользовательской сессии;',
           'работа избранного, объявлений, карты, рекомендаций и поддержки;',
+          'отправка уведомлений об акциях заведений, если пользователь явно включил такие уведомления;',
           'модерация, безопасность, предотвращение злоупотреблений;',
           'исправление ошибок, диагностика и улучшение качества приложения.'
         ]
+      },
+      {
+        title: 'Push-уведомления',
+        text: 'Если пользователь включает уведомления об акциях, Danang Guide может сохранить push token устройства и использовать его только для отправки выбранных уведомлений. Push-уведомления не обязательны для работы приложения и могут быть отключены в настройках профиля.'
       },
       {
         title: 'Хранение и защита',
@@ -432,7 +456,7 @@ const legalPages = {
       },
       {
         title: 'Что указать в обращении',
-        text: 'Опишите проблему, приложите ссылку или название места/объявления, контакт для ответа и любые детали, которые помогут быстрее проверить обращение.'
+        text: 'На объявление можно пожаловаться прямо из приложения. Если пишете на email, опишите проблему, приложите ссылку или название места/объявления, контакт для ответа и любые детали, которые помогут быстрее проверить обращение.'
       },
       {
         title: 'Правовые страницы',
@@ -725,6 +749,94 @@ function normalizePublicText(value, maxLength = 280) {
     .slice(0, maxLength);
 }
 
+function normalizeReportReason(value) {
+  const reason = String(value || '').trim();
+  return ['spam', 'illegal', 'offensive', 'misleading', 'other'].includes(reason) ? reason : '';
+}
+
+function normalizePushPlatform(value) {
+  const platform = String(value || '').trim().toLowerCase();
+  return ['ios', 'android'].includes(platform) ? platform : 'unknown';
+}
+
+function isExpoPushToken(value) {
+  const token = String(value || '').trim();
+  return /^ExponentPushToken\[[^\]]+\]$/.test(token) || /^ExpoPushToken\[[^\]]+\]$/.test(token);
+}
+
+function normalizePromotionStatus(value) {
+  const status = String(value || '').trim();
+  return ['draft', 'published', 'archived'].includes(status) ? status : 'draft';
+}
+
+function buildPromotionPushMessage(promotion) {
+  const listingTitle = normalizePublicText(promotion?.listing?.title, 80) || 'заведении';
+  const title = normalizePublicText(`Акция в ${listingTitle}`, 60);
+  const description = normalizePublicText(promotion?.description, 120);
+  const endsAt = normalizePublicText(promotion?.endsAt, 30);
+  const bodyParts = [
+    normalizePublicText(promotion?.title, 80),
+    description,
+    endsAt ? `До ${endsAt}` : ''
+  ].filter(Boolean);
+  return {
+    title,
+    body: normalizePublicText(bodyParts.join('. '), 160)
+  };
+}
+
+function chunkArray(items, size) {
+  const chunks = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+async function sendExpoPushMessages(messages) {
+  const stats = { attempted: messages.length, sent: 0, failed: 0, skipped: 0 };
+  const invalidTokens = [];
+  if (messages.length === 0) {
+    return { ...stats, invalidTokens };
+  }
+
+  for (const chunk of chunkArray(messages, 100)) {
+    try {
+      const response = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(chunk)
+      });
+      const payload = await response.json().catch(() => ({}));
+      const tickets = Array.isArray(payload?.data) ? payload.data : [];
+      if (!response.ok || tickets.length === 0) {
+        stats.failed += chunk.length;
+        continue;
+      }
+
+      tickets.forEach((ticket, index) => {
+        if (ticket?.status === 'ok') {
+          stats.sent += 1;
+          return;
+        }
+        stats.failed += 1;
+        const detailsError = String(ticket?.details?.error || '');
+        if (detailsError === 'DeviceNotRegistered') {
+          invalidTokens.push(chunk[index]?.to);
+        }
+      });
+    } catch (error) {
+      console.warn('Expo push send failed:', error instanceof Error ? error.message : 'unknown error');
+      stats.failed += chunk.length;
+    }
+  }
+
+  return { ...stats, invalidTokens };
+}
+
 function slugifyPublicValue(value, fallback = 'bulletin') {
   return String(value || fallback)
     .toLowerCase()
@@ -795,6 +907,10 @@ function normalizePublicBulletinSubcategory(section, value) {
 }
 
 async function createPublicBulletinPayload(input, publicUser) {
+  if (await isPublicUserBlocked(publicUser?.id)) {
+    return { error: 'Автор заблокирован модератором. Обратитесь в поддержку.' };
+  }
+
   const title = normalizePublicText(input?.title, 90);
   const description = normalizePublicText(input?.description, 1600);
   const section = normalizePublicBulletinSection(input?.section);
@@ -1335,6 +1451,189 @@ app.get('/api/owner/summary', requireOwner, async (_req, res) => {
   }
 });
 
+app.get('/api/owner/reports', requireOwner, async (_req, res) => {
+  try {
+    const reports = await listOwnerReports();
+    res.json({ ok: true, reports });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to load reports' });
+  }
+});
+
+app.patch('/api/owner/reports/:id', requireOwner, async (req, res) => {
+  try {
+    const action = String(req.body?.action || '').trim();
+    if (!['dismiss', 'hide_bulletin', 'block_author'].includes(action)) {
+      res.status(400).json({ ok: false, message: 'Unknown report action' });
+      return;
+    }
+
+    const report = await updateOwnerReportAction(req.params.id, action, 'owner');
+    if (!report) {
+      res.status(404).json({ ok: false, message: 'Report not found' });
+      return;
+    }
+
+    res.json({ ok: true, report });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to update report' });
+  }
+});
+
+app.get('/api/owner/promotions', requireOwner, async (_req, res) => {
+  try {
+    const promotions = await listOwnerPromotions();
+    res.json({ ok: true, promotions });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to load promotions' });
+  }
+});
+
+app.post('/api/owner/promotions', requireOwner, async (req, res) => {
+  try {
+    const listingId = normalizePublicText(req.body?.listingId || req.body?.listing_id, 180);
+    const title = normalizePublicText(req.body?.title, 120);
+    if (!listingId || !title) {
+      res.status(400).json({ ok: false, message: 'Listing and promotion title are required' });
+      return;
+    }
+
+    const promotion = await saveOwnerPromotion({
+      listingId,
+      title,
+      description: normalizePublicText(req.body?.description, 600),
+      startsAt: normalizePublicText(req.body?.startsAt || req.body?.starts_at, 40),
+      endsAt: normalizePublicText(req.body?.endsAt || req.body?.ends_at, 40),
+      status: normalizePromotionStatus(req.body?.status)
+    });
+    res.status(201).json({ ok: true, promotion });
+  } catch (error) {
+    res.status(400).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to save promotion' });
+  }
+});
+
+app.patch('/api/owner/promotions/:id', requireOwner, async (req, res) => {
+  try {
+    const existing = await getOwnerPromotionById(req.params.id);
+    if (!existing) {
+      res.status(404).json({ ok: false, message: 'Promotion not found' });
+      return;
+    }
+
+    const promotion = await saveOwnerPromotion({
+      ...existing,
+      listingId: normalizePublicText(req.body?.listingId || req.body?.listing_id || existing.listingId, 180),
+      title: normalizePublicText(req.body?.title || existing.title, 120),
+      description: normalizePublicText(req.body?.description ?? existing.description, 600),
+      startsAt: normalizePublicText(req.body?.startsAt ?? req.body?.starts_at ?? existing.startsAt, 40),
+      endsAt: normalizePublicText(req.body?.endsAt ?? req.body?.ends_at ?? existing.endsAt, 40),
+      status: normalizePromotionStatus(req.body?.status || existing.status)
+    });
+    res.json({ ok: true, promotion });
+  } catch (error) {
+    res.status(400).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to update promotion' });
+  }
+});
+
+app.post('/api/owner/promotions/:id/send-push', requireOwner, async (req, res) => {
+  try {
+    const promotion = await getOwnerPromotionById(req.params.id);
+    if (!promotion) {
+      res.status(404).json({ ok: false, message: 'Promotion not found' });
+      return;
+    }
+    if (promotion.status !== 'published') {
+      res.status(400).json({ ok: false, message: 'Only published promotions can be sent' });
+      return;
+    }
+    if (promotion.pushSentAt && req.body?.force !== true) {
+      res.status(409).json({ ok: false, message: 'Promotion push has already been sent', stats: { attempted: 0, sent: 0, failed: 0, skipped: 1 } });
+      return;
+    }
+
+    const push = buildPromotionPushMessage(promotion);
+    const recipients = await getPromotionPushRecipients();
+    const messages = recipients
+      .filter((recipient) => isExpoPushToken(recipient.expoPushToken))
+      .map((recipient) => ({
+        to: recipient.expoPushToken,
+        title: push.title,
+        body: push.body,
+        data: {
+          type: 'promotion',
+          promotion_id: promotion.id,
+          listing_id: promotion.listingId
+        }
+      }));
+    const skipped = recipients.length - messages.length;
+    const result = await sendExpoPushMessages(messages);
+    if (result.invalidTokens.length > 0) {
+      await revokePushTokens(result.invalidTokens);
+    }
+    const updatedPromotion = await markPromotionPushSent(promotion.id, push.title, push.body);
+    res.json({
+      ok: true,
+      promotion: updatedPromotion,
+      stats: {
+        attempted: result.attempted,
+        sent: result.sent,
+        failed: result.failed,
+        skipped
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to send promotion push' });
+  }
+});
+
+
+app.get('/api/me/notification-settings', requirePublicUser, async (req, res) => {
+  try {
+    const settings = await getNotificationSettings(req.publicUser.id);
+    res.json({
+      ok: true,
+      promotions_enabled: Boolean(settings.promotionsEnabled),
+      has_push_token: Boolean(settings.hasPushToken)
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to load notification settings' });
+  }
+});
+
+app.post('/api/me/push-token', requirePublicUser, async (req, res) => {
+  try {
+    const expoPushToken = normalizePublicText(req.body?.expo_push_token || req.body?.expoPushToken, 260);
+    if (!isExpoPushToken(expoPushToken)) {
+      res.status(400).json({ ok: false, message: 'Valid Expo push token is required' });
+      return;
+    }
+
+    await upsertPushToken(req.publicUser.id, {
+      expoPushToken,
+      platform: normalizePushPlatform(req.body?.platform),
+      deviceId: normalizePublicText(req.body?.device_id || req.body?.deviceId, 180),
+      promotionsEnabled: req.body?.promotions_enabled === true || req.body?.promotionsEnabled === true
+    });
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to save push token' });
+  }
+});
+
+app.patch('/api/me/notification-settings', requirePublicUser, async (req, res) => {
+  try {
+    const settings = await updateNotificationSettings(req.publicUser.id, {
+      promotionsEnabled: req.body?.promotions_enabled === true || req.body?.promotionsEnabled === true
+    });
+    res.json({
+      ok: true,
+      promotions_enabled: Boolean(settings.promotionsEnabled),
+      has_push_token: Boolean(settings.hasPushToken)
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to update notification settings' });
+  }
+});
 
 app.get('/api/me/favorites', requirePublicUser, async (req, res) => {
   try {
@@ -1369,6 +1668,88 @@ app.delete('/api/me/favorites/:slug', requirePublicUser, async (req, res) => {
     res.json({ ok: true, slugs });
   } catch (error) {
     res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to remove favorite' });
+  }
+});
+
+app.get('/api/me/hidden-authors', requirePublicUser, async (req, res) => {
+  try {
+    const hiddenAuthorIds = await getHiddenAuthorIds(req.publicUser.id);
+    res.json({ ok: true, hiddenAuthorIds });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to load hidden authors' });
+  }
+});
+
+app.post('/api/me/hidden-authors', requirePublicUser, async (req, res) => {
+  try {
+    const targetId = normalizePublicText(req.body?.targetId || req.body?.target_id, 160);
+    const directAuthorId = normalizePublicText(req.body?.hiddenAuthorUserId || req.body?.hidden_author_user_id, 180);
+    let hiddenAuthorUserId = directAuthorId;
+
+    if (targetId) {
+      const listing = await getPlaceById(targetId);
+      if (!listing || listing.categoryId !== 'bulletin-board') {
+        res.status(404).json({ ok: false, message: 'Объявление не найдено.' });
+        return;
+      }
+      hiddenAuthorUserId = String(listing.createdByUserId || '').trim();
+    }
+
+    if (!hiddenAuthorUserId) {
+      res.status(400).json({ ok: false, message: 'У объявления нет автора для скрытия.' });
+      return;
+    }
+
+    if (hiddenAuthorUserId === req.publicUser.id) {
+      res.status(400).json({ ok: false, message: 'Нельзя скрыть себя.' });
+      return;
+    }
+
+    const hiddenAuthorIds = await hideAuthorForUser(req.publicUser.id, hiddenAuthorUserId);
+    res.json({ ok: true, hiddenAuthorIds });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to hide author' });
+  }
+});
+
+app.post('/api/reports', requirePublicUser, async (req, res) => {
+  try {
+    const targetType = String(req.body?.targetType || req.body?.target_type || '').trim();
+    const targetId = normalizePublicText(req.body?.targetId || req.body?.target_id, 160);
+    const reason = normalizeReportReason(req.body?.reason);
+    const comment = normalizePublicText(req.body?.comment, 500);
+
+    if (targetType !== 'bulletin') {
+      res.status(400).json({ ok: false, message: 'Можно пожаловаться только на объявление.' });
+      return;
+    }
+
+    if (!targetId || !reason) {
+      res.status(400).json({ ok: false, message: 'Выберите объявление и причину жалобы.' });
+      return;
+    }
+
+    const listing = await getPlaceById(targetId);
+    if (!listing || listing.categoryId !== 'bulletin-board') {
+      res.status(404).json({ ok: false, message: 'Объявление не найдено.' });
+      return;
+    }
+
+    const report = await createContentReport({
+      targetType: 'bulletin',
+      targetId: listing.id,
+      reporterUserId: req.publicUser.id,
+      reason,
+      comment
+    });
+
+    res.status(report.duplicate ? 200 : 201).json({
+      ok: true,
+      report: { id: report.id, duplicate: Boolean(report.duplicate) },
+      message: report.duplicate ? 'Жалоба уже отправлена и ожидает проверки.' : 'Жалоба отправлена.'
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to create report' });
   }
 });
 

@@ -5,14 +5,16 @@ import { OwnerBannerManager } from '../components/owner/OwnerBannerManager';
 import { OwnerBulletinModerationPanel } from '../components/owner/OwnerBulletinModerationPanel';
 import { OwnerContactsManager } from '../components/owner/OwnerContactsManager';
 import { OwnerPlacesManager } from '../components/owner/OwnerPlacesManager';
+import { OwnerPromotionsPanel } from '../components/owner/OwnerPromotionsPanel';
 import { OwnerTipsManager } from '../components/owner/OwnerTipsManager';
 import { useGuideContent } from '../hooks/useGuideContent';
 import { OWNER_AUTH_REQUIRED_EVENT } from '../utils/ownerEvents';
 
-type OwnerTabId = 'places' | 'moderation' | 'banners' | 'tips' | 'contacts' | 'analytics';
+type OwnerTabId = 'places' | 'promotions' | 'moderation' | 'banners' | 'tips' | 'contacts' | 'analytics';
 
 const ownerTabs: Array<{ id: OwnerTabId; label: string }> = [
   { id: 'places', label: 'Карточки' },
+  { id: 'promotions', label: 'Акции' },
   { id: 'moderation', label: 'Модерация' },
   { id: 'banners', label: 'Баннеры' },
   { id: 'tips', label: 'Советы' },
@@ -25,6 +27,7 @@ const MemoOwnerBannerManager = memo(OwnerBannerManager);
 const MemoOwnerBulletinModerationPanel = memo(OwnerBulletinModerationPanel);
 const MemoOwnerContactsManager = memo(OwnerContactsManager);
 const MemoOwnerPlacesManager = memo(OwnerPlacesManager);
+const MemoOwnerPromotionsPanel = memo(OwnerPromotionsPanel);
 const MemoOwnerTipsManager = memo(OwnerTipsManager);
 
 function isOwnerTabId(value: string | null): value is OwnerTabId {
@@ -89,6 +92,10 @@ export function OwnerPage() {
 
     if (tabId === 'moderation') {
       return <MemoOwnerBulletinModerationPanel items={places} />;
+    }
+
+    if (tabId === 'promotions') {
+      return <MemoOwnerPromotionsPanel items={places} />;
     }
 
     if (tabId === 'tips') {

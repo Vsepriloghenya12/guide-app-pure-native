@@ -107,7 +107,7 @@ export function ListingCard({
             <Text style={styles.cardMeta} numberOfLines={1}>{place.district || place.kind || place.listingType || place.categoryId}</Text>
           </View>
           <TouchableOpacity activeOpacity={0.78} onPress={onToggleFavorite} style={styles.favoriteButton}>
-            <Text style={styles.favoriteText}>{isFavorite ? '★' : '☆'}</Text>
+            <Text style={styles.favoriteText}>{isFavorite ? '♥' : '♡'}</Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.cardText} numberOfLines={2}>{place.shortDescription || place.description}</Text>

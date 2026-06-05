@@ -91,6 +91,77 @@ export async function deleteAuthProfile() {
   });
 }
 
+export type NotificationSettings = {
+  promotionsEnabled: boolean;
+  hasPushToken: boolean;
+};
+
+function normalizeNotificationSettings(data: { promotions_enabled?: unknown; promotionsEnabled?: unknown; has_push_token?: unknown; hasPushToken?: unknown } | null): NotificationSettings {
+  return {
+    promotionsEnabled: Boolean(data?.promotions_enabled ?? data?.promotionsEnabled),
+    hasPushToken: Boolean(data?.has_push_token ?? data?.hasPushToken)
+  };
+}
+
+export async function getNotificationSettings(): Promise<NotificationSettings> {
+  if (!API_BASE_URL) return { promotionsEnabled: false, hasPushToken: false };
+  try {
+    const data = await requestJson<{ ok: boolean; promotions_enabled?: boolean; has_push_token?: boolean }>('/api/me/notification-settings');
+    return normalizeNotificationSettings(data);
+  } catch {
+    return { promotionsEnabled: false, hasPushToken: false };
+  }
+}
+
+export async function registerPushToken(payload: { expoPushToken: string; platform: 'ios' | 'android' | 'unknown'; promotionsEnabled: boolean }) {
+  return requestJson<{ ok: boolean }>('/api/me/push-token', {
+    method: 'POST',
+    body: JSON.stringify({
+      expo_push_token: payload.expoPushToken,
+      platform: payload.platform,
+      promotions_enabled: payload.promotionsEnabled
+    })
+  });
+}
+
+export async function updateNotificationSettings(promotionsEnabled: boolean): Promise<NotificationSettings> {
+  const data = await requestJson<{ ok: boolean; promotions_enabled?: boolean; has_push_token?: boolean }>('/api/me/notification-settings', {
+    method: 'PATCH',
+    body: JSON.stringify({ promotions_enabled: promotionsEnabled })
+  });
+  return normalizeNotificationSettings(data);
+}
+
+export async function reportBulletin(targetId: string, reason: 'spam' | 'illegal' | 'offensive' | 'misleading' | 'other', comment = '') {
+  return requestJson<{ ok: boolean; report?: { id: string; duplicate?: boolean }; message?: string }>('/api/reports', {
+    method: 'POST',
+    body: JSON.stringify({
+      targetType: 'bulletin',
+      targetId,
+      reason,
+      comment
+    })
+  });
+}
+
+export async function fetchHiddenAuthors() {
+  if (!API_BASE_URL) return [];
+  try {
+    const data = await requestJson<{ ok: boolean; hiddenAuthorIds?: string[] }>('/api/me/hidden-authors');
+    return Array.isArray(data.hiddenAuthorIds) ? data.hiddenAuthorIds : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function hideBulletinAuthor(targetId: string) {
+  const data = await requestJson<{ ok: boolean; hiddenAuthorIds?: string[] }>('/api/me/hidden-authors', {
+    method: 'POST',
+    body: JSON.stringify({ targetId })
+  });
+  return Array.isArray(data.hiddenAuthorIds) ? data.hiddenAuthorIds : [];
+}
+
 export async function fetchAuthStartUrl(provider: 'google' | 'apple' | 'telegram', returnTo: string, authNonce: string) {
   if (!API_BASE_URL) {
     throw new Error('EXPO_PUBLIC_API_BASE_URL is not configured.');

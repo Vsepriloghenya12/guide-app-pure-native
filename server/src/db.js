@@ -14,6 +14,11 @@ const contentStorePath = path.resolve(__dirname, '../../storage/content-store.js
 const supportContentPath = path.resolve(__dirname, '../../storage/support-content.json');
 const mediaFilesPath = path.resolve(__dirname, '../../storage/media-files.json');
 const usersPath = path.resolve(__dirname, '../../storage/users.json');
+const reportsPath = path.resolve(__dirname, '../../storage/reports.json');
+const hiddenAuthorsPath = path.resolve(__dirname, '../../storage/hidden-authors.json');
+const blockedAuthorsPath = path.resolve(__dirname, '../../storage/blocked-authors.json');
+const pushTokensPath = path.resolve(__dirname, '../../storage/push-tokens.json');
+const promotionsPath = path.resolve(__dirname, '../../storage/promotions.json');
 const defaultContent = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
 const categoryLabelOverrides = {
   restaurants: { title: 'Еда', shortTitle: 'Еда' },
@@ -52,6 +57,11 @@ let memoryStore = null;
 let memorySupportContent = null;
 let memoryMediaFiles = null;
 let memoryUsers = null;
+let memoryReports = null;
+let memoryHiddenAuthors = null;
+let memoryBlockedAuthors = null;
+let memoryPushTokens = null;
+let memoryPromotions = null;
 let databaseFallbackReason = '';
 
 function readJsonFile(filePath, fallbackFactory) {
@@ -373,6 +383,202 @@ function removeMemoryUser(userId) {
   }
   writeMemoryUsers(users.filter((item) => item.id !== normalizedUserId));
   return existing;
+}
+
+const reportReasons = new Set(['spam', 'illegal', 'offensive', 'misleading', 'other']);
+const reportStatuses = new Set(['new', 'reviewed', 'dismissed', 'action_taken']);
+const reportActions = new Set(['hidden', 'author_blocked', 'dismissed']);
+
+function normalizeReportRecord(input) {
+  const now = new Date().toISOString();
+  const targetType = String(input?.targetType || input?.target_type || 'bulletin').trim();
+  const reason = String(input?.reason || 'other').trim();
+  const status = String(input?.status || 'new').trim();
+  const action = String(input?.action || '').trim();
+
+  return {
+    id: String(input?.id || crypto.randomUUID()).trim(),
+    targetType: targetType === 'bulletin' ? 'bulletin' : targetType,
+    targetId: String(input?.targetId || input?.target_id || '').trim(),
+    reporterUserId: String(input?.reporterUserId || input?.reporter_user_id || '').trim(),
+    reason: reportReasons.has(reason) ? reason : 'other',
+    comment: String(input?.comment || '').trim().slice(0, 500),
+    status: reportStatuses.has(status) ? status : 'new',
+    createdAt: String(input?.createdAt || input?.created_at || now),
+    updatedAt: String(input?.updatedAt || input?.updated_at || now),
+    reviewedAt: String(input?.reviewedAt || input?.reviewed_at || '').trim(),
+    reviewerId: String(input?.reviewerId || input?.reviewer_id || '').trim(),
+    action: reportActions.has(action) ? action : ''
+  };
+}
+
+function getMemoryReports() {
+  if (!memoryReports) {
+    const rawRecords = readJsonFile(reportsPath, () => []);
+    memoryReports = (Array.isArray(rawRecords) ? rawRecords : [])
+      .map(normalizeReportRecord)
+      .filter((item) => item.id && item.targetType === 'bulletin' && item.targetId)
+      .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));
+  }
+
+  return JSON.parse(JSON.stringify(memoryReports));
+}
+
+function writeMemoryReports(records) {
+  memoryReports = (Array.isArray(records) ? records : [])
+    .map(normalizeReportRecord)
+    .filter((item) => item.id && item.targetType === 'bulletin' && item.targetId)
+    .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));
+  writeJsonFile(reportsPath, memoryReports);
+  return getMemoryReports();
+}
+
+function normalizeHiddenAuthorRecord(input) {
+  return {
+    userId: String(input?.userId || input?.user_id || '').trim(),
+    hiddenAuthorUserId: String(input?.hiddenAuthorUserId || input?.hidden_author_user_id || '').trim(),
+    createdAt: String(input?.createdAt || input?.created_at || new Date().toISOString())
+  };
+}
+
+function getMemoryHiddenAuthors() {
+  if (!memoryHiddenAuthors) {
+    const rawRecords = readJsonFile(hiddenAuthorsPath, () => []);
+    memoryHiddenAuthors = (Array.isArray(rawRecords) ? rawRecords : [])
+      .map(normalizeHiddenAuthorRecord)
+      .filter((item) => item.userId && item.hiddenAuthorUserId);
+  }
+
+  return JSON.parse(JSON.stringify(memoryHiddenAuthors));
+}
+
+function writeMemoryHiddenAuthors(records) {
+  const seen = new Set();
+  memoryHiddenAuthors = (Array.isArray(records) ? records : [])
+    .map(normalizeHiddenAuthorRecord)
+    .filter((item) => {
+      const key = `${item.userId}:${item.hiddenAuthorUserId}`;
+      if (!item.userId || !item.hiddenAuthorUserId || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  writeJsonFile(hiddenAuthorsPath, memoryHiddenAuthors);
+  return getMemoryHiddenAuthors();
+}
+
+function normalizeBlockedAuthorRecord(input) {
+  return {
+    authorUserId: String(input?.authorUserId || input?.author_user_id || '').trim(),
+    createdAt: String(input?.createdAt || input?.created_at || new Date().toISOString())
+  };
+}
+
+function getMemoryBlockedAuthors() {
+  if (!memoryBlockedAuthors) {
+    const rawRecords = readJsonFile(blockedAuthorsPath, () => []);
+    memoryBlockedAuthors = (Array.isArray(rawRecords) ? rawRecords : [])
+      .map(normalizeBlockedAuthorRecord)
+      .filter((item) => item.authorUserId);
+  }
+
+  return JSON.parse(JSON.stringify(memoryBlockedAuthors));
+}
+
+function writeMemoryBlockedAuthors(records) {
+  const seen = new Set();
+  memoryBlockedAuthors = (Array.isArray(records) ? records : [])
+    .map(normalizeBlockedAuthorRecord)
+    .filter((item) => {
+      if (!item.authorUserId || seen.has(item.authorUserId)) return false;
+      seen.add(item.authorUserId);
+      return true;
+    });
+  writeJsonFile(blockedAuthorsPath, memoryBlockedAuthors);
+  return getMemoryBlockedAuthors();
+}
+
+const pushPlatforms = new Set(['ios', 'android', 'unknown']);
+const promotionStatuses = new Set(['draft', 'published', 'archived']);
+
+function normalizePushTokenRecord(input) {
+  const now = new Date().toISOString();
+  const platform = String(input?.platform || 'unknown').trim().toLowerCase();
+  return {
+    id: String(input?.id || crypto.randomUUID()).trim(),
+    userId: String(input?.userId || input?.user_id || '').trim(),
+    expoPushToken: String(input?.expoPushToken || input?.expo_push_token || '').trim().slice(0, 260),
+    platform: pushPlatforms.has(platform) ? platform : 'unknown',
+    deviceId: String(input?.deviceId || input?.device_id || '').trim().slice(0, 180),
+    promotionsEnabled: Boolean(input?.promotionsEnabled ?? input?.promotions_enabled),
+    createdAt: String(input?.createdAt || input?.created_at || now),
+    updatedAt: String(input?.updatedAt || input?.updated_at || now),
+    lastSeenAt: String(input?.lastSeenAt || input?.last_seen_at || now),
+    revokedAt: String(input?.revokedAt || input?.revoked_at || '').trim(),
+    active: input?.active === false ? false : true
+  };
+}
+
+function getMemoryPushTokens() {
+  if (!memoryPushTokens) {
+    const rawRecords = readJsonFile(pushTokensPath, () => []);
+    memoryPushTokens = (Array.isArray(rawRecords) ? rawRecords : [])
+      .map(normalizePushTokenRecord)
+      .filter((item) => item.id && item.userId && item.expoPushToken);
+  }
+
+  return JSON.parse(JSON.stringify(memoryPushTokens));
+}
+
+function writeMemoryPushTokens(records) {
+  const seen = new Set();
+  memoryPushTokens = (Array.isArray(records) ? records : [])
+    .map(normalizePushTokenRecord)
+    .filter((item) => {
+      if (!item.id || !item.userId || !item.expoPushToken || seen.has(item.expoPushToken)) return false;
+      seen.add(item.expoPushToken);
+      return true;
+    });
+  writeJsonFile(pushTokensPath, memoryPushTokens);
+  return getMemoryPushTokens();
+}
+
+function normalizePromotionRecord(input) {
+  const now = new Date().toISOString();
+  const status = String(input?.status || 'draft').trim();
+  return {
+    id: String(input?.id || crypto.randomUUID()).trim(),
+    listingId: String(input?.listingId || input?.listing_id || '').trim(),
+    title: String(input?.title || '').trim().slice(0, 120),
+    description: String(input?.description || '').trim().slice(0, 600),
+    startsAt: String(input?.startsAt || input?.starts_at || '').trim(),
+    endsAt: String(input?.endsAt || input?.ends_at || '').trim(),
+    status: promotionStatuses.has(status) ? status : 'draft',
+    createdAt: String(input?.createdAt || input?.created_at || now),
+    updatedAt: String(input?.updatedAt || input?.updated_at || now),
+    pushSentAt: String(input?.pushSentAt || input?.push_sent_at || '').trim(),
+    pushTitle: String(input?.pushTitle || input?.push_title || '').trim().slice(0, 80),
+    pushBody: String(input?.pushBody || input?.push_body || '').trim().slice(0, 220)
+  };
+}
+
+function getMemoryPromotions() {
+  if (!memoryPromotions) {
+    const rawRecords = readJsonFile(promotionsPath, () => []);
+    memoryPromotions = (Array.isArray(rawRecords) ? rawRecords : [])
+      .map(normalizePromotionRecord)
+      .filter((item) => item.id && item.listingId && item.title);
+  }
+
+  return JSON.parse(JSON.stringify(memoryPromotions));
+}
+
+function writeMemoryPromotions(records) {
+  memoryPromotions = (Array.isArray(records) ? records : [])
+    .map(normalizePromotionRecord)
+    .filter((item) => item.id && item.listingId && item.title)
+    .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));
+  writeJsonFile(promotionsPath, memoryPromotions);
+  return getMemoryPromotions();
 }
 
 
@@ -783,6 +989,92 @@ async function ensureDatabase() {
 
       await db.unsafe(`
         create index if not exists user_favorites_user_id_idx on user_favorites (user_id, created_at desc)
+      `);
+
+      await db.unsafe(`
+        create table if not exists content_reports (
+          id text primary key,
+          target_type text not null check (target_type in ('bulletin')),
+          target_id text not null,
+          reporter_user_id text not null references users(id) on delete cascade,
+          reason text not null check (reason in ('spam','illegal','offensive','misleading','other')),
+          comment text not null default '',
+          status text not null default 'new' check (status in ('new','reviewed','dismissed','action_taken')),
+          created_at timestamptz not null default now(),
+          updated_at timestamptz not null default now(),
+          reviewed_at timestamptz,
+          reviewer_id text not null default '',
+          action text not null default ''
+        )
+      `);
+
+      await db.unsafe(`
+        create unique index if not exists content_reports_open_unique_idx
+          on content_reports (reporter_user_id, target_type, target_id)
+          where status = 'new'
+      `);
+
+      await db.unsafe(`
+        create index if not exists content_reports_status_created_idx
+          on content_reports (status, created_at desc)
+      `);
+
+      await db.unsafe(`
+        create table if not exists hidden_authors (
+          user_id text not null references users(id) on delete cascade,
+          hidden_author_user_id text not null,
+          created_at timestamptz not null default now(),
+          primary key (user_id, hidden_author_user_id)
+        )
+      `);
+
+      await db.unsafe(`
+        create table if not exists blocked_authors (
+          author_user_id text primary key,
+          created_at timestamptz not null default now()
+        )
+      `);
+
+      await db.unsafe(`
+        create table if not exists push_tokens (
+          id text primary key,
+          user_id text not null references users(id) on delete cascade,
+          expo_push_token text not null unique,
+          platform text not null default 'unknown' check (platform in ('ios','android','unknown')),
+          device_id text not null default '',
+          promotions_enabled boolean not null default false,
+          created_at timestamptz not null default now(),
+          updated_at timestamptz not null default now(),
+          last_seen_at timestamptz not null default now(),
+          revoked_at timestamptz,
+          active boolean not null default true
+        )
+      `);
+
+      await db.unsafe(`
+        create index if not exists push_tokens_user_enabled_idx
+          on push_tokens (user_id, promotions_enabled, active)
+      `);
+
+      await db.unsafe(`
+        create table if not exists promotions (
+          id text primary key,
+          listing_id text not null references places(id) on delete cascade,
+          title text not null,
+          description text not null default '',
+          starts_at text not null default '',
+          ends_at text not null default '',
+          status text not null default 'draft' check (status in ('draft','published','archived')),
+          created_at timestamptz not null default now(),
+          updated_at timestamptz not null default now(),
+          push_sent_at timestamptz,
+          push_title text not null default '',
+          push_body text not null default ''
+        )
+      `);
+
+      await db.unsafe(`
+        create index if not exists promotions_status_created_idx on promotions (status, created_at desc)
       `);
 
       await db.unsafe(`
@@ -2200,6 +2492,9 @@ async function deletePublicUserProfile(userId) {
       }))
     });
     writeMemoryMediaFiles(getMemoryMediaFiles(10000).filter((record) => !mediaRecords.some((item) => item.id === record.id)));
+    writeMemoryReports(getMemoryReports().filter((report) => report.reporterUserId !== normalizedUserId));
+    writeMemoryHiddenAuthors(getMemoryHiddenAuthors().filter((item) => item.userId !== normalizedUserId));
+    writeMemoryPushTokens(getMemoryPushTokens().filter((item) => item.userId !== normalizedUserId));
     removeMemoryUser(normalizedUserId);
 
     return {
@@ -2278,6 +2573,7 @@ async function deletePublicUserProfile(userId) {
     }
 
     await tx.unsafe('delete from user_favorites where user_id = $1', [normalizedUserId]);
+    await tx.unsafe('delete from push_tokens where user_id = $1', [normalizedUserId]);
     await tx.unsafe('delete from users where id = $1', [normalizedUserId]);
 
     result = {
@@ -2293,6 +2589,715 @@ async function deletePublicUserProfile(userId) {
   return result;
 }
 
+async function isPublicUserBlocked(userId) {
+  const normalizedUserId = String(userId || '').trim();
+  if (!normalizedUserId) return false;
+
+  const db = await getReadyDb();
+  if (!db) {
+    return getMemoryBlockedAuthors().some((item) => item.authorUserId === normalizedUserId);
+  }
+
+  const rows = await db.unsafe('select author_user_id from blocked_authors where author_user_id = $1 limit 1', [normalizedUserId]);
+  return rows.length > 0;
+}
+
+async function createContentReport(input) {
+  const normalized = normalizeReportRecord(input);
+  if (normalized.targetType !== 'bulletin' || !normalized.targetId || !normalized.reporterUserId) {
+    throw new Error('Report target and reporter are required.');
+  }
+
+  const db = await getReadyDb();
+  if (!db) {
+    const reports = getMemoryReports();
+    const existing = reports.find((item) => (
+      item.status === 'new' &&
+      item.targetType === 'bulletin' &&
+      item.targetId === normalized.targetId &&
+      item.reporterUserId === normalized.reporterUserId
+    ));
+    if (existing) {
+      return { ...existing, duplicate: true };
+    }
+
+    const report = normalizeReportRecord({
+      ...normalized,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+    writeMemoryReports([report, ...reports]);
+    return { ...report, duplicate: false };
+  }
+
+  const existingRows = await db.unsafe(
+    `
+      select id, target_type as "targetType", target_id as "targetId",
+             reporter_user_id as "reporterUserId", reason, comment, status,
+             created_at as "createdAt", updated_at as "updatedAt",
+             reviewed_at as "reviewedAt", reviewer_id as "reviewerId", action
+      from content_reports
+      where status = 'new'
+        and target_type = 'bulletin'
+        and target_id = $1
+        and reporter_user_id = $2
+      limit 1
+    `,
+    [normalized.targetId, normalized.reporterUserId]
+  );
+  if (existingRows[0]) {
+    return { ...normalizeReportRecord(existingRows[0]), duplicate: true };
+  }
+
+  const rows = await db.unsafe(
+    `
+      insert into content_reports (id, target_type, target_id, reporter_user_id, reason, comment, status, created_at, updated_at)
+      values ($1, 'bulletin', $2, $3, $4, $5, 'new', now(), now())
+      returning id, target_type as "targetType", target_id as "targetId",
+        reporter_user_id as "reporterUserId", reason, comment, status,
+        created_at as "createdAt", updated_at as "updatedAt",
+        reviewed_at as "reviewedAt", reviewer_id as "reviewerId", action
+    `,
+    [crypto.randomUUID(), normalized.targetId, normalized.reporterUserId, normalized.reason, normalized.comment]
+  );
+
+  return { ...normalizeReportRecord(rows[0]), duplicate: false };
+}
+
+function enrichReportRecord(report, places, users) {
+  const listing = places.find((item) => item.id === report.targetId || item.slug === report.targetId) || null;
+  const author = listing?.createdByUserId
+    ? users.find((item) => item.id === listing.createdByUserId) || null
+    : null;
+  const reporter = report.reporterUserId
+    ? users.find((item) => item.id === report.reporterUserId) || null
+    : null;
+
+  return {
+    ...report,
+    listing: listing
+      ? {
+          id: listing.id,
+          slug: listing.slug,
+          title: listing.title,
+          description: listing.description,
+          status: listing.status || 'published',
+          authorUserId: listing.createdByUserId || '',
+          authorName: author?.displayName || listing.contactName || ''
+        }
+      : null,
+    reporter: reporter
+      ? {
+          id: reporter.id,
+          displayName: reporter.displayName,
+          email: reporter.email,
+          username: reporter.username
+        }
+      : null
+  };
+}
+
+async function listOwnerReports() {
+  const db = await getReadyDb();
+  if (!db) {
+    const store = getMemoryStore();
+    const users = getMemoryUsers();
+    return getMemoryReports().map((report) => enrichReportRecord(report, store.places, users));
+  }
+
+  const rows = await db.unsafe(
+    `
+      select
+        report.id,
+        report.target_type as "targetType",
+        report.target_id as "targetId",
+        report.reporter_user_id as "reporterUserId",
+        report.reason,
+        report.comment,
+        report.status,
+        report.created_at as "createdAt",
+        report.updated_at as "updatedAt",
+        report.reviewed_at as "reviewedAt",
+        report.reviewer_id as "reviewerId",
+        report.action,
+        place.id as "listingId",
+        place.slug as "listingSlug",
+        place.title as "listingTitle",
+        place.description as "listingDescription",
+        place.status as "listingStatus",
+        place.created_by_user_id as "authorUserId",
+        author.display_name as "authorName",
+        reporter.display_name as "reporterName",
+        reporter.email as "reporterEmail",
+        reporter.username as "reporterUsername"
+      from content_reports report
+      left join places place on place.id = report.target_id
+      left join users author on author.id = place.created_by_user_id
+      left join users reporter on reporter.id = report.reporter_user_id
+      order by report.created_at desc
+      limit 300
+    `
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    targetType: row.targetType,
+    targetId: row.targetId,
+    reporterUserId: row.reporterUserId,
+    reason: row.reason,
+    comment: row.comment,
+    status: row.status,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    reviewedAt: row.reviewedAt || '',
+    reviewerId: row.reviewerId || '',
+    action: row.action || '',
+    listing: row.listingId
+      ? {
+          id: row.listingId,
+          slug: row.listingSlug,
+          title: row.listingTitle,
+          description: row.listingDescription,
+          status: row.listingStatus,
+          authorUserId: row.authorUserId || '',
+          authorName: row.authorName || ''
+        }
+      : null,
+    reporter: row.reporterUserId
+      ? {
+          id: row.reporterUserId,
+          displayName: row.reporterName || '',
+          email: row.reporterEmail || '',
+          username: row.reporterUsername || ''
+        }
+      : null
+  }));
+}
+
+async function updateOwnerReportAction(reportId, ownerAction, reviewerId = 'owner') {
+  const normalizedReportId = String(reportId || '').trim();
+  const action = String(ownerAction || '').trim();
+  if (!normalizedReportId) {
+    return null;
+  }
+
+  const db = await getReadyDb();
+  if (!db) {
+    const reports = getMemoryReports();
+    const report = reports.find((item) => item.id === normalizedReportId) || null;
+    if (!report) return null;
+
+    const store = getMemoryStore();
+    const listing = store.places.find((item) => item.id === report.targetId || item.slug === report.targetId) || null;
+    const now = new Date().toISOString();
+    let nextAction = 'dismissed';
+    let nextStatus = 'dismissed';
+    let nextStore = store;
+
+    if (action === 'hide_bulletin') {
+      nextAction = 'hidden';
+      nextStatus = 'action_taken';
+      if (listing) {
+        nextStore = {
+          ...nextStore,
+          places: nextStore.places.map((item) => (
+            item.id === listing.id
+              ? { ...item, status: 'hidden', visible: false, moderationNote: item.moderationNote || 'Скрыто после жалобы пользователя.' }
+              : item
+          ))
+        };
+      }
+    } else if (action === 'block_author') {
+      nextAction = 'author_blocked';
+      nextStatus = 'action_taken';
+      const authorUserId = String(listing?.createdByUserId || '').trim();
+      if (authorUserId) {
+        writeMemoryBlockedAuthors([{ authorUserId, createdAt: now }, ...getMemoryBlockedAuthors()]);
+        nextStore = {
+          ...nextStore,
+          places: nextStore.places.map((item) => (
+            item.categoryId === 'bulletin-board' && String(item.createdByUserId || '').trim() === authorUserId
+              ? { ...item, status: 'hidden', visible: false, moderationNote: item.moderationNote || 'Автор заблокирован после жалобы пользователя.' }
+              : item
+          ))
+        };
+      }
+    }
+
+    if (nextStore !== store) {
+      setMemoryStore(nextStore);
+    }
+
+    const updatedReport = normalizeReportRecord({
+      ...report,
+      status: nextStatus,
+      action: nextAction,
+      reviewedAt: now,
+      reviewerId,
+      updatedAt: now
+    });
+    writeMemoryReports(reports.map((item) => (item.id === report.id ? updatedReport : item)));
+    return enrichReportRecord(updatedReport, getMemoryStore().places, getMemoryUsers());
+  }
+
+  let updatedRows = [];
+  await db.begin(async (tx) => {
+    const reportRows = await tx.unsafe('select id, target_id as "targetId" from content_reports where id = $1 limit 1', [normalizedReportId]);
+    const report = reportRows[0];
+    if (!report) return;
+
+    const placeRows = await tx.unsafe(
+      'select id, created_by_user_id as "createdByUserId" from places where id = $1 limit 1',
+      [report.targetId]
+    );
+    const place = placeRows[0] || null;
+    let nextAction = 'dismissed';
+    let nextStatus = 'dismissed';
+
+    if (action === 'hide_bulletin') {
+      nextAction = 'hidden';
+      nextStatus = 'action_taken';
+      if (place?.id) {
+        await tx.unsafe(
+          `update places set status = 'hidden', moderation_note = coalesce(nullif(moderation_note, ''), 'Скрыто после жалобы пользователя.'), updated_at = now() where id = $1`,
+          [place.id]
+        );
+      }
+    } else if (action === 'block_author') {
+      nextAction = 'author_blocked';
+      nextStatus = 'action_taken';
+      const authorUserId = String(place?.createdByUserId || '').trim();
+      if (authorUserId) {
+        await tx.unsafe(
+          `insert into blocked_authors (author_user_id, created_at) values ($1, now()) on conflict do nothing`,
+          [authorUserId]
+        );
+        await tx.unsafe(
+          `
+            update places
+            set status = 'hidden',
+                moderation_note = coalesce(nullif(moderation_note, ''), 'Автор заблокирован после жалобы пользователя.'),
+                updated_at = now()
+            where category_id = 'bulletin-board' and created_by_user_id = $1
+          `,
+          [authorUserId]
+        );
+      }
+    }
+
+    updatedRows = await tx.unsafe(
+      `
+        update content_reports
+        set status = $2,
+            action = $3,
+            reviewed_at = now(),
+            reviewer_id = $4,
+            updated_at = now()
+        where id = $1
+        returning id
+      `,
+      [normalizedReportId, nextStatus, nextAction, String(reviewerId || 'owner')]
+    );
+  });
+
+  if (!updatedRows[0]) {
+    return null;
+  }
+
+  return (await listOwnerReports()).find((item) => item.id === normalizedReportId) || null;
+}
+
+async function getHiddenAuthorIds(userId) {
+  const normalizedUserId = String(userId || '').trim();
+  if (!normalizedUserId) return [];
+
+  const db = await getReadyDb();
+  if (!db) {
+    return getMemoryHiddenAuthors()
+      .filter((item) => item.userId === normalizedUserId)
+      .map((item) => item.hiddenAuthorUserId);
+  }
+
+  const rows = await db.unsafe(
+    'select hidden_author_user_id as "hiddenAuthorUserId" from hidden_authors where user_id = $1 order by created_at desc',
+    [normalizedUserId]
+  );
+  return rows.map((row) => String(row.hiddenAuthorUserId || '').trim()).filter(Boolean);
+}
+
+async function hideAuthorForUser(userId, hiddenAuthorUserId) {
+  const normalizedUserId = String(userId || '').trim();
+  const normalizedAuthorId = String(hiddenAuthorUserId || '').trim();
+  if (!normalizedUserId || !normalizedAuthorId || normalizedUserId === normalizedAuthorId) {
+    return getHiddenAuthorIds(normalizedUserId);
+  }
+
+  const db = await getReadyDb();
+  if (!db) {
+    writeMemoryHiddenAuthors([
+      { userId: normalizedUserId, hiddenAuthorUserId: normalizedAuthorId, createdAt: new Date().toISOString() },
+      ...getMemoryHiddenAuthors()
+    ]);
+    return getHiddenAuthorIds(normalizedUserId);
+  }
+
+  await db.unsafe(
+    `
+      insert into hidden_authors (user_id, hidden_author_user_id, created_at)
+      values ($1, $2, now())
+      on conflict do nothing
+    `,
+    [normalizedUserId, normalizedAuthorId]
+  );
+
+  return getHiddenAuthorIds(normalizedUserId);
+}
+
+async function upsertPushToken(userId, input) {
+  const normalizedUserId = String(userId || '').trim();
+  const normalized = normalizePushTokenRecord({
+    ...input,
+    userId: normalizedUserId,
+    promotionsEnabled: Boolean(input?.promotionsEnabled ?? input?.promotions_enabled)
+  });
+  if (!normalizedUserId || !normalized.expoPushToken) {
+    throw new Error('Push token is required.');
+  }
+
+  const db = await getReadyDb();
+  if (!db) {
+    const tokens = getMemoryPushTokens();
+    const existing = tokens.find((item) => item.expoPushToken === normalized.expoPushToken) || null;
+    const now = new Date().toISOString();
+    const nextToken = normalizePushTokenRecord({
+      ...existing,
+      ...normalized,
+      id: existing?.id || normalized.id,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+      lastSeenAt: now,
+      revokedAt: '',
+      active: true
+    });
+    writeMemoryPushTokens([nextToken, ...tokens.filter((item) => item.expoPushToken !== nextToken.expoPushToken)]);
+    return nextToken;
+  }
+
+  await db.unsafe(
+    `
+      insert into push_tokens (
+        id, user_id, expo_push_token, platform, device_id, promotions_enabled,
+        created_at, updated_at, last_seen_at, revoked_at, active
+      )
+      values ($1, $2, $3, $4, $5, $6, now(), now(), now(), null, true)
+      on conflict (expo_push_token) do update set
+        user_id = excluded.user_id,
+        platform = excluded.platform,
+        device_id = excluded.device_id,
+        promotions_enabled = excluded.promotions_enabled,
+        updated_at = now(),
+        last_seen_at = now(),
+        revoked_at = null,
+        active = true
+    `,
+    [
+      normalized.id,
+      normalizedUserId,
+      normalized.expoPushToken,
+      normalized.platform,
+      normalized.deviceId,
+      normalized.promotionsEnabled
+    ]
+  );
+
+  return getNotificationSettings(normalizedUserId);
+}
+
+async function getNotificationSettings(userId) {
+  const normalizedUserId = String(userId || '').trim();
+  if (!normalizedUserId) {
+    return { promotionsEnabled: false, hasPushToken: false };
+  }
+
+  const db = await getReadyDb();
+  if (!db) {
+    const tokens = getMemoryPushTokens().filter((item) => item.userId === normalizedUserId && item.active && !item.revokedAt);
+    return {
+      promotionsEnabled: tokens.some((item) => item.promotionsEnabled),
+      hasPushToken: tokens.length > 0
+    };
+  }
+
+  const rows = await db.unsafe(
+    `
+      select
+        coalesce(bool_or(promotions_enabled), false) as "promotionsEnabled",
+        count(*)::int as "tokenCount"
+      from push_tokens
+      where user_id = $1 and active = true and revoked_at is null
+    `,
+    [normalizedUserId]
+  );
+  return {
+    promotionsEnabled: Boolean(rows[0]?.promotionsEnabled),
+    hasPushToken: Number(rows[0]?.tokenCount || 0) > 0
+  };
+}
+
+async function updateNotificationSettings(userId, input) {
+  const normalizedUserId = String(userId || '').trim();
+  const promotionsEnabled = Boolean(input?.promotionsEnabled ?? input?.promotions_enabled);
+  if (!normalizedUserId) {
+    return { promotionsEnabled: false, hasPushToken: false };
+  }
+
+  const db = await getReadyDb();
+  if (!db) {
+    const tokens = getMemoryPushTokens();
+    writeMemoryPushTokens(tokens.map((item) => (
+      item.userId === normalizedUserId
+        ? { ...item, promotionsEnabled, updatedAt: new Date().toISOString(), lastSeenAt: new Date().toISOString() }
+        : item
+    )));
+    return getNotificationSettings(normalizedUserId);
+  }
+
+  await db.unsafe(
+    'update push_tokens set promotions_enabled = $2, updated_at = now(), last_seen_at = now() where user_id = $1 and active = true',
+    [normalizedUserId, promotionsEnabled]
+  );
+  return getNotificationSettings(normalizedUserId);
+}
+
+function enrichPromotionRecord(promotion, places) {
+  const listing = places.find((item) => item.id === promotion.listingId || item.slug === promotion.listingId) || null;
+  return {
+    ...promotion,
+    listing: listing
+      ? {
+          id: listing.id,
+          slug: listing.slug,
+          title: listing.title,
+          status: listing.status || 'published',
+          categoryId: listing.categoryId
+        }
+      : null
+  };
+}
+
+async function listOwnerPromotions() {
+  const db = await getReadyDb();
+  if (!db) {
+    const store = getMemoryStore();
+    return getMemoryPromotions().map((item) => enrichPromotionRecord(item, store.places));
+  }
+
+  const rows = await db.unsafe(
+    `
+      select
+        promo.id,
+        promo.listing_id as "listingId",
+        promo.title,
+        promo.description,
+        promo.starts_at as "startsAt",
+        promo.ends_at as "endsAt",
+        promo.status,
+        promo.created_at as "createdAt",
+        promo.updated_at as "updatedAt",
+        promo.push_sent_at as "pushSentAt",
+        promo.push_title as "pushTitle",
+        promo.push_body as "pushBody",
+        place.slug as "listingSlug",
+        place.title as "listingTitle",
+        place.status as "listingStatus",
+        place.category_id as "listingCategoryId"
+      from promotions promo
+      left join places place on place.id = promo.listing_id
+      order by promo.created_at desc
+      limit 300
+    `
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    listingId: row.listingId,
+    title: row.title,
+    description: row.description,
+    startsAt: row.startsAt || '',
+    endsAt: row.endsAt || '',
+    status: row.status,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    pushSentAt: row.pushSentAt || '',
+    pushTitle: row.pushTitle || '',
+    pushBody: row.pushBody || '',
+    listing: row.listingId
+      ? {
+          id: row.listingId,
+          slug: row.listingSlug || '',
+          title: row.listingTitle || '',
+          status: row.listingStatus || 'published',
+          categoryId: row.listingCategoryId || ''
+        }
+      : null
+  }));
+}
+
+async function getOwnerPromotionById(promotionId) {
+  const normalizedId = String(promotionId || '').trim();
+  if (!normalizedId) return null;
+  return (await listOwnerPromotions()).find((item) => item.id === normalizedId) || null;
+}
+
+async function saveOwnerPromotion(input) {
+  const normalized = normalizePromotionRecord(input);
+  if (!normalized.listingId || !normalized.title) {
+    throw new Error('Promotion listing and title are required.');
+  }
+
+  const listing = await getPlaceById(normalized.listingId);
+  if (!listing) {
+    throw new Error('Listing not found.');
+  }
+
+  const db = await getReadyDb();
+  if (!db) {
+    const records = getMemoryPromotions();
+    const existing = records.find((item) => item.id === normalized.id) || null;
+    const now = new Date().toISOString();
+    const nextPromotion = normalizePromotionRecord({
+      ...existing,
+      ...normalized,
+      id: existing?.id || normalized.id,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+      pushSentAt: existing?.pushSentAt || normalized.pushSentAt
+    });
+    writeMemoryPromotions([nextPromotion, ...records.filter((item) => item.id !== nextPromotion.id)]);
+    return getOwnerPromotionById(nextPromotion.id);
+  }
+
+  const rows = await db.unsafe(
+    `
+      insert into promotions (
+        id, listing_id, title, description, starts_at, ends_at, status,
+        created_at, updated_at, push_sent_at, push_title, push_body
+      )
+      values ($1, $2, $3, $4, $5, $6, $7, now(), now(), null, $8, $9)
+      on conflict (id) do update set
+        listing_id = excluded.listing_id,
+        title = excluded.title,
+        description = excluded.description,
+        starts_at = excluded.starts_at,
+        ends_at = excluded.ends_at,
+        status = excluded.status,
+        updated_at = now(),
+        push_title = excluded.push_title,
+        push_body = excluded.push_body
+      returning id
+    `,
+    [
+      normalized.id,
+      normalized.listingId,
+      normalized.title,
+      normalized.description,
+      normalized.startsAt,
+      normalized.endsAt,
+      normalized.status,
+      normalized.pushTitle,
+      normalized.pushBody
+    ]
+  );
+
+  return getOwnerPromotionById(rows[0].id);
+}
+
+async function markPromotionPushSent(promotionId, pushTitle, pushBody) {
+  const normalizedId = String(promotionId || '').trim();
+  const normalizedTitle = String(pushTitle || '').trim().slice(0, 80);
+  const normalizedBody = String(pushBody || '').trim().slice(0, 220);
+  if (!normalizedId) return null;
+
+  const db = await getReadyDb();
+  if (!db) {
+    const now = new Date().toISOString();
+    const records = getMemoryPromotions();
+    writeMemoryPromotions(records.map((item) => (
+      item.id === normalizedId
+        ? { ...item, pushSentAt: now, pushTitle: normalizedTitle, pushBody: normalizedBody, updatedAt: now }
+        : item
+    )));
+    return getOwnerPromotionById(normalizedId);
+  }
+
+  await db.unsafe(
+    `
+      update promotions
+      set push_sent_at = now(), push_title = $2, push_body = $3, updated_at = now()
+      where id = $1
+    `,
+    [normalizedId, normalizedTitle, normalizedBody]
+  );
+
+  return getOwnerPromotionById(normalizedId);
+}
+
+async function getPromotionPushRecipients() {
+  const db = await getReadyDb();
+  if (!db) {
+    return getMemoryPushTokens()
+      .filter((item) => item.active && !item.revokedAt && item.promotionsEnabled && item.expoPushToken)
+      .map((item) => ({
+        id: item.id,
+        userId: item.userId,
+        expoPushToken: item.expoPushToken,
+        platform: item.platform
+      }));
+  }
+
+  const rows = await db.unsafe(
+    `
+      select id, user_id as "userId", expo_push_token as "expoPushToken", platform
+      from push_tokens
+      where active = true and revoked_at is null and promotions_enabled = true
+      order by last_seen_at desc
+      limit 10000
+    `
+  );
+  return rows.map((item) => ({
+    id: item.id,
+    userId: item.userId,
+    expoPushToken: item.expoPushToken,
+    platform: item.platform || 'unknown'
+  }));
+}
+
+async function revokePushTokens(expoPushTokens) {
+  const tokens = Array.from(new Set((Array.isArray(expoPushTokens) ? expoPushTokens : [])
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)));
+  if (tokens.length === 0) return 0;
+
+  const db = await getReadyDb();
+  if (!db) {
+    const now = new Date().toISOString();
+    const records = getMemoryPushTokens();
+    writeMemoryPushTokens(records.map((item) => (
+      tokens.includes(item.expoPushToken)
+        ? { ...item, active: false, revokedAt: now, updatedAt: now }
+        : item
+    )));
+    return tokens.length;
+  }
+
+  await db.unsafe(
+    'update push_tokens set active = false, revoked_at = now(), updated_at = now() where expo_push_token = any($1::text[])',
+    [tokens]
+  );
+  return tokens.length;
+}
+
 
 module.exports = {
   appendAnalyticsEvent,
@@ -2300,18 +3305,28 @@ module.exports = {
   deleteCategory,
   deleteMediaFileRecord,
   deletePlace,
+  createContentReport,
   ensureDatabase,
   getCategories,
   getCategoryById,
   getCategoryBySlug,
   getContentStore,
+  getHiddenAuthorIds,
+  getNotificationSettings,
+  getOwnerPromotionById,
   getPlaceById,
   getPlaceBySlug,
   getPlaces,
+  getPromotionPushRecipients,
   getMediaFiles,
   getPublicUserById,
   getSql,
   hasDatabase,
+  hideAuthorForUser,
+  isPublicUserBlocked,
+  listOwnerPromotions,
+  listOwnerReports,
+  markPromotionPushSent,
   normalizeContentStore,
   normalizePlace,
   resetContentStore,
@@ -2328,7 +3343,12 @@ module.exports = {
   setUserFavorite,
   upsertCategory,
   upsertPlace,
+  upsertPushToken,
   upsertPublicUser,
+  revokePushTokens,
+  saveOwnerPromotion,
+  updateOwnerReportAction,
+  updateNotificationSettings,
   deletePublicUserProfile,
   getUserFavorites
 };

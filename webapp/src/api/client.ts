@@ -1,4 +1,4 @@
-import type { BootstrapPayload, Category, Collection, GuideContentStore, Listing, PublicAuthSession } from '../types';
+import type { BootstrapPayload, Category, Collection, ContentReport, GuideContentStore, Listing, Promotion, PromotionPushStats, PublicAuthSession } from '../types';
 import { buildApiUrl } from './url';
 
 async function apiFetch<T>(input: string, init?: RequestInit): Promise<T> {
@@ -97,6 +97,30 @@ export const api = {
     apiFetch<{ ok: true; categories: Category[]; listings: Listing[]; collections: Collection[] }>(
       '/api/owner/bootstrap'
     ),
+  ownerReports: () =>
+    apiFetch<{ ok: true; reports: ContentReport[] }>('/api/owner/reports'),
+  updateOwnerReport: (id: string, action: 'dismiss' | 'hide_bulletin' | 'block_author') =>
+    apiFetch<{ ok: true; report: ContentReport }>(`/api/owner/reports/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action })
+    }),
+  ownerPromotions: () =>
+    apiFetch<{ ok: true; promotions: Promotion[] }>('/api/owner/promotions'),
+  saveOwnerPromotion: (promotion: Partial<Promotion> & Pick<Promotion, 'listingId' | 'title'>) => {
+    const isNew = !promotion.id;
+    return apiFetch<{ ok: true; promotion: Promotion }>(
+      isNew ? '/api/owner/promotions' : `/api/owner/promotions/${encodeURIComponent(promotion.id || '')}`,
+      {
+        method: isNew ? 'POST' : 'PATCH',
+        body: JSON.stringify(promotion)
+      }
+    );
+  },
+  sendOwnerPromotionPush: (id: string, options?: { force?: boolean }) =>
+    apiFetch<{ ok: true; promotion: Promotion; stats: PromotionPushStats }>(`/api/owner/promotions/${encodeURIComponent(id)}/send-push`, {
+      method: 'POST',
+      body: JSON.stringify({ force: options?.force === true })
+    }),
   syncDefaultContent: () =>
     apiFetch<{ ok: true; content: GuideContentStore; seedHash: string; storage: string }>(
       '/api/owner/content/sync-default',
