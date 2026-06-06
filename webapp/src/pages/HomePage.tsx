@@ -81,7 +81,7 @@ export function HomePage() {
   const [tipShuffleSeed] = useState(() => Date.now());
 
   usePageMeta({
-    title: 'Место',
+    title: 'Danang Guide',
     description: 'Главная страница с местами, категориями, советами и программами в Дананге.'
   });
   const { categories, tips, collections, home, loading, error } = useGuideContent();

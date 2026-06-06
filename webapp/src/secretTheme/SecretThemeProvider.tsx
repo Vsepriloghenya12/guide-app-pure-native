@@ -106,7 +106,7 @@ async function loadManifest(): Promise<SecretThemeManifest | null> {
       name: raw.name,
       cssPath: resolveThemePath(raw.cssPath, '/secret-theme/theme.css'),
       logoSrc: resolveThemePath(raw.logoSrc, '/secret-theme/logo-demon-guide.png'),
-      logoAlt: raw.logoAlt || 'Секретный логотип Место',
+      logoAlt: raw.logoAlt || 'Секретный логотип Danang Guide',
       backgroundSrc: resolveThemePath(raw.backgroundSrc, '/secret-theme/secret-bg.png')
     };
   } catch {

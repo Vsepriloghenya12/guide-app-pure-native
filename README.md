@@ -1,6 +1,6 @@
-# Место — mobile app + Railway backend + owner CMS
+# Danang Guide — mobile app + Railway backend + owner CMS
 
-Единая рабочая папка проекта Место.
+Единая рабочая папка проекта Danang Guide.
 
 ## Структура
 
@@ -37,7 +37,7 @@ npm run dev:web
 
 ```text
 EXPO_PUBLIC_API_BASE_URL=https://your-real-railway-backend.up.railway.app
-EXPO_PUBLIC_MAP_TILE_URL=https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png
+EXPO_PUBLIC_MAP_TILE_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
 ```
 
 Запуск:

@@ -1,20 +1,35 @@
-# Code audit v8
+# Code Audit V8
 
-Дата: 2026-06-06
+## Изменение после ошибки уведомлений
 
-## Что исправлено после v7
+Проблема на телефоне: при включении уведомлений показывалось `Network request failed`.
 
-1. Карта возвращена на исходный рабочий API MapLibre v11: `Map`, `GeoJSONSource`, `Layer`, `Camera`. Ошибка `Element type is invalid ... got: undefined` возникала из-за несовместимой переделки карты на v10-компоненты `MapView/ShapeSource/LineLayer/CircleLayer` при текущей сборке.
-2. `@maplibre/maplibre-react-native` возвращён на `^11.3.2`, как в исходной рабочей базе проекта.
-3. `newArchEnabled=true` возвращён в `mobile/android/gradle.properties`, потому что MapLibre v11 работает через New Architecture.
-4. OpenStreetMap volunteer tiles (`tile.openstreetmap.org`) не используются в APK: fallback и env-примеры оставлены на Carto Voyager tiles.
-5. Telegram native auth flow из v7 сохранён: мобильная кнопка открывает `/api/auth/telegram/native?returnTo=danangguide:///auth`, а не Google flow.
-6. `mobile/package-lock.json` очищен от internal registry URLs после локальной проверки.
+Причина: приложение пыталось получить Expo push token в Android APK без гарантированно подключённых Firebase/FCM credentials. В такой сборке `expo-notifications` может падать на сетевом/Firebase-этапе до сохранения токена на backend.
+
+## Исправление
+
+- Добавлен флаг `extra.pushNotificationsEnabled` в `mobile/app.config.js`.
+- По умолчанию флаг выключен: `EXPO_PUBLIC_PUSH_NOTIFICATIONS_ENABLED=false`.
+- Пока Firebase/FCM не настроены, приложение не пытается получать push token и показывает понятное сообщение вместо сырого `Network request failed`.
+- Добавлена обработка сетевых ошибок при получении push token.
 
 ## Проверки
 
-- `npm run build` — OK
-- `cd mobile && npx tsc --noEmit` — OK
-- `cd mobile && npx expo config --type public --json` — OK
+- `npm ci --ignore-scripts` в root — OK.
+- `npm run build` в root — OK.
+- `cd mobile && npm ci --ignore-scripts` — OK.
+- `cd mobile && npx tsc --noEmit` — OK.
+- `cd mobile && npx expo config --type public --json` — OK, `extra.pushNotificationsEnabled=false` виден.
+- `node --check server/src/index.js` — OK.
+- `node --check server/src/publicAuth.js` — OK.
 
-Android Gradle APK в контейнере не запускался: здесь нет Windows Android SDK/NDK. Для локальной сборки на ПК сначала удалить старые кэши `android/app/.cxx`, `android/app/build`, `android/build`, затем собирать release APK.
+## Что нужно для настоящих Android push
+
+Для реальных push-уведомлений нужно:
+
+1. Firebase project.
+2. Android app с package name `com.realone14.guideappnativeconnected`.
+3. `google-services.json` в mobile-проекте.
+4. `android.googleServicesFile` в Expo config.
+5. FCM V1 credentials для Expo/EAS или отдельная отправка напрямую через FCM.
+6. Сборка с `EXPO_PUBLIC_PUSH_NOTIFICATIONS_ENABLED=true`.

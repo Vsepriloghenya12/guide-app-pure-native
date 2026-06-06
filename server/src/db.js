@@ -506,7 +506,7 @@ function normalizePushTokenRecord(input) {
   return {
     id: String(input?.id || crypto.randomUUID()).trim(),
     userId: String(input?.userId || input?.user_id || '').trim(),
-    expoPushToken: String(input?.expoPushToken || input?.expo_push_token || input?.fcmToken || input?.fcm_token || input?.pushToken || input?.push_token || '').trim().slice(0, 900),
+    expoPushToken: String(input?.expoPushToken || input?.expo_push_token || '').trim().slice(0, 260),
     platform: pushPlatforms.has(platform) ? platform : 'unknown',
     deviceId: String(input?.deviceId || input?.device_id || '').trim().slice(0, 180),
     promotionsEnabled: Boolean(input?.promotionsEnabled ?? input?.promotions_enabled),
