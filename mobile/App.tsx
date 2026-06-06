@@ -21,11 +21,9 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import * as Notifications from 'expo-notifications';
-import { Camera, CircleLayer, LineLayer, MapView as MapLibreMap, ShapeSource, type CameraBounds } from '@maplibre/maplibre-react-native';
 import type { BootstrapPayload, GuideCategory, GuideCollection, GuidePlace, GuideTip, SupportContentStore } from './src/types';
 import { fetchBootstrap, fetchSupportContent, fetchAuthSession, fetchAuthStartUrl, logoutAuthSession, deleteAuthProfile, reportBulletin, fetchHiddenAuthors, hideBulletinAuthor, API_BASE_URL, sendAnalytics, submitBulletinListing, fetchMyBulletinListings, deleteMyBulletinListing, getNotificationSettings, registerPushToken, updateNotificationSettings, type NotificationSettings } from './src/api/client';
 import { directionsUrl, openExternalUrl } from './src/utils/links';
@@ -34,7 +32,7 @@ import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
 import { clearAuthToken, getAuthUserAvatarUrl, getCachedAuthUser, readUserFromAuthToken, saveAuthToken } from './src/utils/auth';
 import { EmptyState, AppButton, CategoryCard, ListingCard, LoadingState, Pill } from './src/components/ui';
 import { normalizeImageUrl } from './src/utils/normalizers';
-import { categoryIcons, defaultCategoryIcon, heroBackground, homeHeaderImage, placeVerificationBadge, welcomeBackground, welcomeLogo } from './src/assets';
+import { categoryIcons, defaultCategoryIcon, heroBackground, homeHeaderImage, placeVerificationBadge, profileHeaderImage, welcomeBackground, welcomeLogo } from './src/assets';
 
 type TabKey = 'home' | 'sections' | 'search' | 'favorites' | 'nearby' | 'contacts';
 type Route =
@@ -90,9 +88,14 @@ function openLegalPage(path: string) {
   return openExternalUrl(legalPageUrl(path));
 }
 
-function getExpoProjectId() {
-  const extra = Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined;
-  return Constants.easConfig?.projectId || extra?.eas?.projectId || '';
+async function ensureAndroidNotificationChannel() {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync('promotions', {
+    name: 'Акции заведений',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#ef3b24'
+  });
 }
 
 function notificationPlatform(): 'ios' | 'android' | 'unknown' {
@@ -116,13 +119,17 @@ async function getPromotionPushToken() {
   }
 
   try {
-    const projectId = getExpoProjectId();
-    const tokenResult = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
-    return tokenResult.data;
+    await ensureAndroidNotificationChannel();
+    const tokenResult = await Notifications.getDevicePushTokenAsync();
+    const token = String(tokenResult.data || '').trim();
+    if (!token) {
+      throw new Error('FCM-токен устройства не получен.');
+    }
+    return token;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error || '');
-    if (/firebase|fcm|google-services|Default FirebaseApp/i.test(message)) {
-      throw new Error('Push-уведомления не подключены в этой APK-сборке. Для Android нужен Firebase: файл google-services.json и FCM-настройки.');
+    if (/firebase|fcm|google-services|Default FirebaseApp|FirebaseApp/i.test(message)) {
+      throw new Error('Push-уведомления не подключены в этой APK-сборке. Для Android нужен Firebase: файл google-services.json в mobile/android/app и повторная сборка APK.');
     }
     throw error;
   }
@@ -175,27 +182,10 @@ const filterTextMap: Record<string, string> = {
   beach: 'Пляж'
 };
 
-const DEFAULT_MAP_TILE_URL = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
-const configuredMapTileUrl = String(process.env.EXPO_PUBLIC_MAP_TILE_URL || '').trim();
-const mapTileUrl = configuredMapTileUrl && !/tile\.openstreetmap\.org/i.test(configuredMapTileUrl) ? configuredMapTileUrl : DEFAULT_MAP_TILE_URL;
-const mapLibreStyle: Record<string, unknown> = {
-  version: 8,
-  sources: {
-    carto: {
-      type: 'raster',
-      tiles: [mapTileUrl],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors © CARTO'
-    }
-  },
-  layers: [
-    {
-      id: 'carto',
-      type: 'raster',
-      source: 'carto'
-    }
-  ]
-};
+const DEFAULT_RASTER_TILE_URL = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+const configuredRasterTileUrl = String(process.env.EXPO_PUBLIC_RASTER_TILE_URL || process.env.EXPO_PUBLIC_MAP_TILE_URL || '').trim();
+const rasterTileUrl = configuredRasterTileUrl && !/tile\.openstreetmap\.org|tiles\.openstreetmap\.org/i.test(configuredRasterTileUrl) ? configuredRasterTileUrl : DEFAULT_RASTER_TILE_URL;
+const MAP_TILE_SIZE = 256;
 
 const ANDROID_STATUS_BAR_INSET = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0;
 const ANDROID_NAVIGATION_BAR_INSET = Platform.OS === 'android' ? 34 : 0;
@@ -378,9 +368,9 @@ function placeCoordinate(place: GuidePlace) {
 }
 
 
-function buildMapBounds(points: Array<{ latitude: number; longitude: number }>): CameraBounds {
+function buildMapBounds(points: Array<{ latitude: number; longitude: number }>): [number, number, number, number] {
   if (points.length === 0) {
-    return { ne: [108.2808, 16.1278], sw: [108.1608, 16.0078] };
+    return [108.1608, 16.0078, 108.2808, 16.1278];
   }
 
   const lats = points.map((point) => point.latitude);
@@ -392,10 +382,7 @@ function buildMapBounds(points: Array<{ latitude: number; longitude: number }>):
   const latPadding = Math.max(0.01, (maxLat - minLat) * 0.25);
   const lngPadding = Math.max(0.01, (maxLng - minLng) * 0.25);
 
-  return {
-    ne: [maxLng + lngPadding, maxLat + latPadding],
-    sw: [minLng - lngPadding, minLat - latPadding]
-  };
+  return [minLng - lngPadding, minLat - latPadding, maxLng + lngPadding, maxLat + latPadding];
 }
 
 function contactUrlFromText(value: string) {
@@ -855,7 +842,7 @@ function AppContent() {
   const handleDeleteProfile = useCallback(() => {
     Alert.alert(
       'Удалить данные профиля?',
-      'Будут удалены ваш авторизованный профиль Danang Guide, избранное, ваши объявления и связанные с ними данные. Это не удалит ваш аккаунт Google, Apple или Telegram.',
+      'Будут удалены ваш авторизованный профиль Место, избранное, ваши объявления и связанные с ними данные. Это не удалит ваш аккаунт Google, Apple или Telegram.',
       [
         { text: 'Отмена', style: 'cancel' },
         {
@@ -890,14 +877,14 @@ function AppContent() {
 
     try {
       if (enabled) {
-        const expoPushToken = await getPromotionPushToken();
+        const fcmToken = await getPromotionPushToken();
         await registerPushToken({
-          expoPushToken,
+          fcmToken,
           platform: notificationPlatform(),
           promotionsEnabled: true
         });
         setNotificationSettings({ promotionsEnabled: true, hasPushToken: true });
-        Alert.alert('Уведомления включены', 'Мы будем присылать только акции заведений Danang Guide.');
+        Alert.alert('Уведомления включены', 'Мы будем присылать только акции заведений Место.');
         return;
       }
 
@@ -2000,6 +1987,33 @@ function clampNumber(value: number, min: number, max: number) {
 }
 
 
+
+function longitudeToTileX(longitude: number, zoom: number) {
+  return ((longitude + 180) / 360) * 2 ** zoom;
+}
+
+function latitudeToTileY(latitude: number, zoom: number) {
+  const latRad = (latitude * Math.PI) / 180;
+  return ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * 2 ** zoom;
+}
+
+function buildRasterTileUrl(x: number, y: number, z: number) {
+  const subdomains = ['a', 'b', 'c', 'd'];
+  const safeX = Math.max(0, x);
+  const safeY = Math.max(0, y);
+  const subdomain = subdomains[Math.abs(safeX + safeY + z) % subdomains.length];
+  return rasterTileUrl
+    .replace('{s}', subdomain)
+    .replace('{z}', String(z))
+    .replace('{x}', String(safeX))
+    .replace('{y}', String(safeY));
+}
+
+function openCoordinateMap(latitude: number, longitude: number, zoom = 15) {
+  const url = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(String(latitude))}&mlon=${encodeURIComponent(String(longitude))}#map=${zoom}/${latitude}/${longitude}`;
+  void openExternalUrl(url);
+}
+
 function GuideMap({
   places = [],
   routePoints = [],
@@ -2011,7 +2025,10 @@ function GuideMap({
   onOpenPlace?: (place: GuidePlace) => void;
   height?: number;
 }) {
+  const { width: screenWidth } = useWindowDimensions();
+  const mapWidth = Math.max(280, Math.min(screenWidth - 44, 760));
   const [selectedPlace, setSelectedPlace] = useState<GuidePlace | null>(null);
+  const [mapZoom, setMapZoom] = useState(0);
   const placeMarkers = places
     .map((place) => ({ place, coordinate: placeCoordinate(place) }))
     .filter((item): item is { place: GuidePlace; coordinate: { latitude: number; longitude: number } } => Boolean(item.coordinate));
@@ -2024,53 +2041,10 @@ function GuideMap({
         latitude = longitude;
         longitude = previousLatitude;
       }
-      return { latitude, longitude };
+      return { latitude, longitude, title: toText(point.title, 'Точка маршрута') };
     })
     .filter((point) => isValidLatitude(point.latitude) && isValidLongitude(point.longitude));
   const allCoordinates = [...routeCoordinates, ...placeMarkers.map((item) => item.coordinate)];
-  const mapInitialCamera = allCoordinates.length === 1
-    ? { centerCoordinate: [allCoordinates[0].longitude, allCoordinates[0].latitude], zoomLevel: 15 }
-    : { bounds: buildMapBounds(allCoordinates), padding: { paddingTop: 42, paddingRight: 42, paddingBottom: 42, paddingLeft: 42 } };
-  const routeLineData: GeoJSON.FeatureCollection<GeoJSON.LineString> = {
-    type: 'FeatureCollection',
-    features: routeCoordinates.length > 1 ? [{
-      type: 'Feature',
-      geometry: {
-        type: 'LineString',
-        coordinates: routeCoordinates.map((point) => [point.longitude, point.latitude])
-      },
-      properties: {}
-    }] : []
-  };
-  const routePointData: GeoJSON.FeatureCollection<GeoJSON.Point> = {
-    type: 'FeatureCollection',
-    features: routeCoordinates.map((point, index) => ({
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [point.longitude, point.latitude]
-      },
-      properties: {
-        title: toText(routePoints[index]?.title, 'Точка маршрута'),
-        color: index === 0 ? '#22a06b' : index === routeCoordinates.length - 1 ? '#e05a3f' : '#1f63c7'
-      }
-    }))
-  };
-  const placePointData: GeoJSON.FeatureCollection<GeoJSON.Point> = {
-    type: 'FeatureCollection',
-    features: placeMarkers.map(({ place, coordinate }) => ({
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [coordinate.longitude, coordinate.latitude]
-      },
-      properties: {
-        id: place.id,
-        title: toText(place.title, 'Место'),
-        subtitle: toText(place.address || place.district || place.kind)
-      }
-    }))
-  };
 
   if (allCoordinates.length === 0) {
     return (
@@ -2081,56 +2055,110 @@ function GuideMap({
     );
   }
 
+  const latitudeCenter = allCoordinates.reduce((sum, point) => sum + point.latitude, 0) / allCoordinates.length;
+  const longitudeCenter = allCoordinates.reduce((sum, point) => sum + point.longitude, 0) / allCoordinates.length;
+  const baseZoom = allCoordinates.length === 1 ? 15 : routeCoordinates.length > 1 ? 12 : 13;
+  const zoom = Math.round(clampNumber(baseZoom + mapZoom, 10, 17));
+  const centerTileX = longitudeToTileX(longitudeCenter, zoom);
+  const centerTileY = latitudeToTileY(latitudeCenter, zoom);
+  const centerTileXInt = Math.floor(centerTileX);
+  const centerTileYInt = Math.floor(centerTileY);
+  const tileRadiusX = Math.ceil(mapWidth / MAP_TILE_SIZE / 2) + 1;
+  const tileRadiusY = Math.ceil(height / MAP_TILE_SIZE / 2) + 1;
+  const maxTileIndex = 2 ** zoom - 1;
+  const tiles: Array<{ key: string; x: number; y: number; left: number; top: number; url: string }> = [];
+
+  for (let dx = -tileRadiusX; dx <= tileRadiusX; dx += 1) {
+    for (let dy = -tileRadiusY; dy <= tileRadiusY; dy += 1) {
+      const tileX = centerTileXInt + dx;
+      const tileY = centerTileYInt + dy;
+      if (tileY < 0 || tileY > maxTileIndex) continue;
+      const wrappedX = ((tileX % (maxTileIndex + 1)) + (maxTileIndex + 1)) % (maxTileIndex + 1);
+      tiles.push({
+        key: `${zoom}:${wrappedX}:${tileY}`,
+        x: wrappedX,
+        y: tileY,
+        left: (tileX - centerTileX) * MAP_TILE_SIZE + mapWidth / 2,
+        top: (tileY - centerTileY) * MAP_TILE_SIZE + height / 2,
+        url: buildRasterTileUrl(wrappedX, tileY, zoom)
+      });
+    }
+  }
+
+  const pointToScreen = (latitude: number, longitude: number) => ({
+    x: (longitudeToTileX(longitude, zoom) - centerTileX) * MAP_TILE_SIZE + mapWidth / 2,
+    y: (latitudeToTileY(latitude, zoom) - centerTileY) * MAP_TILE_SIZE + height / 2
+  });
+  const routeScreenPoints = routeCoordinates.map((point) => ({ ...point, ...pointToScreen(point.latitude, point.longitude) }));
+  const selectedCoordinate = selectedPlace ? placeCoordinate(selectedPlace) : null;
+  const firstCoordinate = selectedCoordinate || allCoordinates[0];
+
   return (
     <View style={[styles.nativeMapCard, { height }]}> 
-      <MapLibreMap
-        style={styles.nativeMap}
-        mapStyle={mapLibreStyle}
-        logoEnabled={false}
-        attributionEnabled
-        attributionPosition={{ bottom: 8, left: 8 }}
-        compassEnabled
-        compassViewPosition={1}
-        compassViewMargins={{ x: 10, y: 10 }}
-      >
-        <Camera defaultSettings={mapInitialCamera} />
-        {routeCoordinates.length > 1 ? (
-          <ShapeSource id="route-line-source" shape={routeLineData}>
-            <LineLayer
-              id="route-line"
-              style={{
-                lineCap: 'round',
-                lineJoin: 'round',
-                lineColor: '#1f63c7',
-                lineWidth: 5,
-                lineOpacity: 0.86
-              }}
+      <View style={styles.tileMapViewport}>
+        {tiles.map((tile) => (
+          <Image
+            key={tile.key}
+            source={{ uri: tile.url }}
+            style={[styles.tileMapTile, { left: tile.left, top: tile.top }]}
+          />
+        ))}
+        {routeScreenPoints.length > 1 ? routeScreenPoints.slice(0, -1).map((point, index) => {
+          const nextPoint = routeScreenPoints[index + 1];
+          const dx = nextPoint.x - point.x;
+          const dy = nextPoint.y - point.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const angle = `${Math.atan2(dy, dx)}rad`;
+          return (
+            <View
+              key={`line-${index}`}
+              style={[styles.tileMapRouteLine, {
+                width: distance,
+                left: point.x,
+                top: point.y,
+                transform: [{ rotate: angle }]
+              }]}
             />
-          </ShapeSource>
-        ) : null}
-        {routeCoordinates.length > 0 ? (
-          <ShapeSource id="route-points-source" shape={routePointData}>
-            <CircleLayer id="route-point-halo" style={{ circleRadius: 9, circleColor: '#ffffff', circleOpacity: 0.92 }} />
-            <CircleLayer id="route-point" style={{ circleRadius: 6, circleColor: ['get', 'color'], circleStrokeWidth: 2, circleStrokeColor: '#ffffff' }} />
-          </ShapeSource>
-        ) : null}
-        {placeMarkers.length > 0 ? (
-          <ShapeSource
-            id="place-points-source"
-            shape={placePointData}
-            hitbox={{ width: 44, height: 44 }}
-            onPress={(event) => {
-              const feature = event.features?.[0];
-              const id = String(feature?.properties?.id || '');
-              const nextPlace = placeMarkers.find((item) => item.place.id === id)?.place || null;
-              setSelectedPlace(nextPlace);
-            }}
+          );
+        }) : null}
+        {routeScreenPoints.map((point, index) => (
+          <View
+            key={`route-${index}`}
+            style={[styles.tileMapRouteMarker, {
+              left: point.x - 8,
+              top: point.y - 8,
+              backgroundColor: index === 0 ? '#22a06b' : index === routeScreenPoints.length - 1 ? '#e05a3f' : '#1f63c7'
+            }]}
           >
-            <CircleLayer id="place-point-halo" style={{ circleRadius: 12, circleColor: '#ffffff', circleOpacity: 0.94 }} />
-            <CircleLayer id="place-point" style={{ circleRadius: 8, circleColor: '#e05a3f', circleStrokeWidth: 2, circleStrokeColor: '#ffffff' }} />
-          </ShapeSource>
-        ) : null}
-      </MapLibreMap>
+            <Text style={styles.tileMapRouteMarkerText}>{index + 1}</Text>
+          </View>
+        ))}
+        {placeMarkers.map(({ place, coordinate }) => {
+          const position = pointToScreen(coordinate.latitude, coordinate.longitude);
+          return (
+            <TouchableOpacity
+              key={String(place.id)}
+              activeOpacity={0.82}
+              onPress={() => setSelectedPlace(place)}
+              style={[styles.tileMapPlaceMarker, { left: position.x - 12, top: position.y - 28 }]}
+            >
+              <Text style={styles.tileMapPlaceMarkerText}>●</Text>
+            </TouchableOpacity>
+          );
+        })}
+        <View style={styles.tileMapZoomControls}>
+          <TouchableOpacity activeOpacity={0.82} style={styles.tileMapZoomButton} onPress={() => setMapZoom((value) => clampNumber(value + 1, -2, 4))}>
+            <Text style={styles.tileMapZoomText}>+</Text>
+          </TouchableOpacity>
+          <TouchableOpacity activeOpacity={0.82} style={styles.tileMapZoomButton} onPress={() => setMapZoom((value) => clampNumber(value - 1, -2, 4))}>
+            <Text style={styles.tileMapZoomText}>−</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity activeOpacity={0.82} style={styles.tileMapExternalButton} onPress={() => openCoordinateMap(firstCoordinate.latitude, firstCoordinate.longitude, zoom)}>
+          <Text style={styles.tileMapExternalText}>Открыть карту</Text>
+        </TouchableOpacity>
+        <Text style={styles.tileMapAttribution}>© OpenStreetMap contributors · CARTO</Text>
+      </View>
       {selectedPlace ? (
         <View style={styles.nativeMapPopup}>
           <View style={styles.flex}>
@@ -2599,7 +2627,7 @@ function AuthSheet({
           <View style={styles.tipModalHandle} />
           <View style={styles.authSheetHeader}>
             <View>
-              <Text style={styles.authSheetTitle}>{user ? 'Авторизованный профиль' : 'Войти в Danang Guide'}</Text>
+              <Text style={styles.authSheetTitle}>{user ? 'Авторизованный профиль' : 'Войти в Место'}</Text>
               <Text style={styles.authSheetText}>{user ? 'Данные профиля используются для личных функций приложения.' : 'Авторизация нужна для избранного, объявлений и персональных функций.'}</Text>
             </View>
             <TouchableOpacity style={styles.authCloseButton} onPress={onClose}>
@@ -2609,6 +2637,7 @@ function AuthSheet({
 
           {user ? (
             <>
+              <Image source={profileHeaderImage} style={styles.profileHeaderImage} resizeMode="cover" />
               <View style={styles.profileBlock}>
                 <View style={styles.profileAvatar}>
                   {avatarUrl ? (
@@ -2633,7 +2662,7 @@ function AuthSheet({
               >
                 <View style={styles.flex}>
                   <Text style={styles.profileNotificationTitle}>Уведомления об акциях</Text>
-                  <Text style={styles.profileNotificationText}>Получайте уведомления о специальных предложениях заведений Danang Guide. Можно отключить в любой момент.</Text>
+                  <Text style={styles.profileNotificationText}>Получайте уведомления о специальных предложениях заведений Место. Можно отключить в любой момент.</Text>
                 </View>
                 <View style={[styles.profileNotificationSwitch, notificationSettings.promotionsEnabled && styles.profileNotificationSwitchActive]}>
                   <View style={[styles.profileNotificationKnob, notificationSettings.promotionsEnabled && styles.profileNotificationKnobActive]} />
@@ -2751,7 +2780,7 @@ function DetailScreen({
   const district = toText(place.district);
   const hasMapPoint = Boolean(placeCoordinate(place));
   const hasInfoFields = Boolean(address || hours || phone);
-  const qualityBadgeText = toText(place.qualityBadgeText, 'Это место отмечено знаком качества Danang Guide.');
+  const qualityBadgeText = toText(place.qualityBadgeText, 'Это место отмечено знаком качества Место.');
   const isBulletin = place.categoryId === 'bulletin-board';
   const isOwnBulletin = Boolean(authUser?.id && place.createdByUserId && String(authUser.id) === String(place.createdByUserId));
 
@@ -3115,8 +3144,23 @@ const styles = StyleSheet.create({
   nearbyText: { color: '#fff', fontWeight: '800' },
   nativeMapCard: { width: '100%', borderRadius: 22, overflow: 'hidden', backgroundColor: '#e8f1f8', borderWidth: 1, borderColor: '#d8e0ea', justifyContent: 'center' },
   nativeMap: { ...StyleSheet.absoluteFillObject },
+  tileMapViewport: { ...StyleSheet.absoluteFillObject, overflow: 'hidden', backgroundColor: '#dbeaf4' },
+  tileMapTile: { position: 'absolute', width: MAP_TILE_SIZE, height: MAP_TILE_SIZE, backgroundColor: '#dbeaf4' },
+  tileMapPlaceMarker: { position: 'absolute', width: 24, height: 30, alignItems: 'center', justifyContent: 'center' },
+  tileMapPlaceMarkerText: { color: '#e05a3f', fontSize: 26, lineHeight: 30, textShadowColor: 'rgba(255,255,255,0.92)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  tileMapRouteMarker: { position: 'absolute', width: 17, height: 17, borderRadius: 8.5, borderWidth: 2, borderColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#12213a', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+  tileMapRouteMarkerText: { color: '#ffffff', fontSize: 8, lineHeight: 10, fontWeight: '900' },
+  tileMapRouteLine: { position: 'absolute', height: 4, borderRadius: 3, backgroundColor: '#1f63c7', opacity: 0.86 },
+  tileMapZoomControls: { position: 'absolute', right: 10, top: 10, borderRadius: 14, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.95)', borderWidth: 1, borderColor: '#d8e0ea' },
+  tileMapZoomButton: { width: 36, height: 34, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: '#edf2f7' },
+  tileMapZoomText: { color: '#102a43', fontSize: 20, lineHeight: 22, fontWeight: '900' },
+  tileMapExternalButton: { position: 'absolute', left: 10, top: 10, minHeight: 34, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.95)', borderWidth: 1, borderColor: '#d8e0ea', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  tileMapExternalText: { color: '#1f63c7', fontSize: 11.5, lineHeight: 14, fontWeight: '900' },
+  tileMapAttribution: { position: 'absolute', left: 8, bottom: 6, color: '#102a43', fontSize: 9, lineHeight: 11, fontWeight: '800', backgroundColor: 'rgba(255,255,255,0.82)', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 6 },
   nativeMapEmptyTitle: { color: '#162640', fontSize: 17, fontWeight: '900', textAlign: 'center' },
   nativeMapEmptyText: { color: '#60718a', fontSize: 13, lineHeight: 18, fontWeight: '700', textAlign: 'center', marginTop: 6, paddingHorizontal: 18 },
+  nativeMapWarning: { position: 'absolute', left: 12, right: 12, top: 12, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.94)', borderWidth: 1, borderColor: '#d8e0ea', paddingHorizontal: 12, paddingVertical: 9 },
+  nativeMapWarningText: { color: '#102a43', fontSize: 11.5, lineHeight: 15, fontWeight: '800', textAlign: 'center' },
   nativeMapPopup: { position: 'absolute', left: 12, right: 12, bottom: 12, minHeight: 58, borderRadius: 16, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', padding: 10, flexDirection: 'row', alignItems: 'center', gap: 10, shadowColor: '#12213a', shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
   nativeMapPopupTitle: { color: '#162640', fontSize: 13, lineHeight: 17, fontWeight: '900' },
   nativeMapPopupText: { color: '#60718a', fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
@@ -3299,6 +3343,7 @@ const styles = StyleSheet.create({
   authLegalTextLink: { color: '#1f63c7', fontWeight: '900', textDecorationLine: 'underline' },
   authLegalLinks: { paddingHorizontal: 4, gap: 8 },
   authLegalLinkText: { color: '#1f63c7', fontSize: 12.5, lineHeight: 17, fontWeight: '900', textDecorationLine: 'underline' },
+  profileHeaderImage: { width: '100%', height: 118, borderRadius: 22, borderWidth: 1, borderColor: '#d8e0ea', backgroundColor: '#dbeaf4' },
   profileBlock: { minHeight: 76, borderRadius: 22, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e0e8f2', flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
   profileAvatar: { width: 46, height: 46, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7', overflow: 'hidden' },
   profileAvatarImage: { width: 46, height: 46 },

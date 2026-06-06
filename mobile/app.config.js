@@ -1,6 +1,10 @@
+const fs = require('fs');
+const googleServicesFile = './android/app/google-services.json';
+const hasGoogleServicesFile = fs.existsSync(require('path').join(__dirname, googleServicesFile));
+
 module.exports = {
   expo: {
-    name: 'Da Nang Guide',
+    name: 'Место',
     slug: 'guide-app-native-connected',
     scheme: 'danangguide',
     version: '1.0.17',
@@ -17,6 +21,7 @@ module.exports = {
     },
     android: {
       package: 'com.realone14.guideappnativeconnected',
+      ...(hasGoogleServicesFile ? { googleServicesFile } : {}),
       versionCode: 8,
       permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'POST_NOTIFICATIONS'],
       blockedPermissions: [
@@ -55,7 +60,7 @@ module.exports = {
         projectId: '5d3c1adc-6568-443d-9eb1-b1a829d388ec'
       },
       apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://guide-app-pure-native-production.up.railway.app',
-      mapTileUrl: process.env.EXPO_PUBLIC_MAP_TILE_URL || 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+      rasterTileUrl: process.env.EXPO_PUBLIC_RASTER_TILE_URL || 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
       telegramBotId: process.env.EXPO_PUBLIC_TELEGRAM_BOT_ID || ''
     }
   }

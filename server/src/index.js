@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const express = require('express');
+const firebaseAdmin = require('firebase-admin');
 const path = require('path');
 
 loadEnvFile(path.resolve(__dirname, '../../.env'));
@@ -233,7 +234,7 @@ function renderLegalPage({ title, description, sections }) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${title} · Danang Guide</title>
+  <title>${title} · Место</title>
   <style>
     :root { color-scheme: light; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #102a43; background: #f4f8fc; }
     * { box-sizing: border-box; }
@@ -257,7 +258,7 @@ function renderLegalPage({ title, description, sections }) {
 <body>
   <main>
     <header>
-      <p class="brand">Danang Guide</p>
+      <p class="brand">Место</p>
       <h1>${title}</h1>
       <p>${description}</p>
       <p class="updated">Дата обновления: ${LEGAL_UPDATED_AT}</p>
@@ -273,19 +274,19 @@ function renderLegalPage({ title, description, sections }) {
 const legalPages = {
   '/terms': {
     title: 'Пользовательское соглашение',
-    description: 'Правила использования Danang Guide, публичного гида по Данангу для туристов, жителей и владельцев заведений.',
+    description: 'Правила использования Место, публичного гида по Данангу для туристов, жителей и владельцев заведений.',
     sections: [
       {
         title: 'Назначение сервиса',
-        text: 'Danang Guide помогает находить места, заведения, маршруты, объявления, контакты и полезную информацию о Дананге и Вьетнаме.'
+        text: 'Место помогает находить места, заведения, маршруты, объявления, контакты и полезную информацию о Дананге и Вьетнаме.'
       },
       {
         title: 'Авторизация и профиль',
         items: [
           'В приложении может использоваться вход через Google, Apple или Telegram.',
           'Отдельной ручной авторизации с логином и паролем может не быть.',
-          'При входе может создаваться технический авторизованный профиль Danang Guide для избранного, объявлений, сессий и личных функций.',
-          'Профиль Danang Guide не является аккаунтом Google, Apple или Telegram.'
+          'При входе может создаваться технический авторизованный профиль Место для избранного, объявлений, сессий и личных функций.',
+          'Профиль Место не является аккаунтом Google, Apple или Telegram.'
         ]
       },
       {
@@ -306,7 +307,7 @@ const legalPages = {
       },
       {
         title: 'Модерация и ограничения',
-        text: 'Danang Guide может проверять, скрывать, отклонять, редактировать или удалять контент, если он нарушает правила сервиса, законы, права третьих лиц или качество приложения.'
+        text: 'Место может проверять, скрывать, отклонять, редактировать или удалять контент, если он нарушает правила сервиса, законы, права третьих лиц или качество приложения.'
       },
       {
         title: 'Запрещённый контент',
@@ -321,7 +322,7 @@ const legalPages = {
       },
       {
         title: 'Сторонние сервисы и ссылки',
-        text: 'Приложение может открывать сторонние сервисы авторизации, карты, сайты заведений, мессенджеры, почту или другие внешние ресурсы. Danang Guide не управляет их условиями, доступностью и безопасностью.'
+        text: 'Приложение может открывать сторонние сервисы авторизации, карты, сайты заведений, мессенджеры, почту или другие внешние ресурсы. Место не управляет их условиями, доступностью и безопасностью.'
       },
       {
         title: 'Уведомления об акциях',
@@ -329,11 +330,11 @@ const legalPages = {
       },
       {
         title: 'Отказ от гарантий',
-        text: 'Сервис предоставляется как есть. Danang Guide не гарантирует непрерывную работу, полную точность данных, доступность сторонних сервисов или соответствие информации ожиданиям пользователя.'
+        text: 'Сервис предоставляется как есть. Место не гарантирует непрерывную работу, полную точность данных, доступность сторонних сервисов или соответствие информации ожиданиям пользователя.'
       },
       {
         title: 'Ограничение ответственности',
-        text: 'Danang Guide не несёт ответственности за решения пользователя, действия третьих лиц, качество услуг заведений, расходы, убытки, ошибки в данных или последствия использования внешних ссылок, кроме случаев, когда ответственность прямо требуется законом.'
+        text: 'Место не несёт ответственности за решения пользователя, действия третьих лиц, качество услуг заведений, расходы, убытки, ошибки в данных или последствия использования внешних ссылок, кроме случаев, когда ответственность прямо требуется законом.'
       },
       {
         title: 'Поддержка и связанные страницы',
@@ -343,7 +344,7 @@ const legalPages = {
   },
   '/privacy': {
     title: 'Политика конфиденциальности',
-    description: 'Как Danang Guide может обрабатывать данные пользователя в мобильном приложении, web-интерфейсе и backend API.',
+    description: 'Как Место может обрабатывать данные пользователя в мобильном приложении, web-интерфейсе и backend API.',
     sections: [
       {
         title: 'Какие данные могут обрабатываться',
@@ -357,7 +358,7 @@ const legalPages = {
       },
       {
         title: 'Авторизация через Google, Apple и Telegram',
-        text: 'Для входа приложение может перенаправлять пользователя к внешнему провайдеру авторизации. Danang Guide получает только данные, необходимые для создания технического профиля и работы функций приложения.'
+        text: 'Для входа приложение может перенаправлять пользователя к внешнему провайдеру авторизации. Место получает только данные, необходимые для создания технического профиля и работы функций приложения.'
       },
       {
         title: 'Геолокация',
@@ -379,11 +380,11 @@ const legalPages = {
       },
       {
         title: 'Push-уведомления',
-        text: 'Если пользователь включает уведомления об акциях, Danang Guide может сохранить push token устройства и использовать его только для отправки выбранных уведомлений. Push-уведомления не обязательны для работы приложения и могут быть отключены в настройках профиля.'
+        text: 'Если пользователь включает уведомления об акциях, Место может сохранить push token устройства и использовать его только для отправки выбранных уведомлений. Push-уведомления не обязательны для работы приложения и могут быть отключены в настройках профиля.'
       },
       {
         title: 'Хранение и защита',
-        text: 'Данные хранятся в backend-инфраструктуре Danang Guide и защищаются разумными техническими и организационными мерами. Мы не раскрываем внутренние ключи, переменные окружения и технические секреты.'
+        text: 'Данные хранятся в backend-инфраструктуре Место и защищаются разумными техническими и организационными мерами. Мы не раскрываем внутренние ключи, переменные окружения и технические секреты.'
       },
       {
         title: 'Передача третьим лицам',
@@ -391,7 +392,7 @@ const legalPages = {
       },
       {
         title: 'Удаление профиля и данных',
-        text: 'Пользователь может запросить удаление авторизованного профиля Danang Guide и связанных данных по инструкции на странице <a href="/delete-profile">Удаление данных профиля</a>.'
+        text: 'Пользователь может запросить удаление авторизованного профиля Место и связанных данных по инструкции на странице <a href="/delete-profile">Удаление данных профиля</a>.'
       },
       {
         title: 'Контакты по privacy-вопросам',
@@ -401,34 +402,34 @@ const legalPages = {
   },
   '/delete-profile': {
     title: 'Удаление авторизованного профиля и данных',
-    description: 'Инструкция для запроса удаления технического профиля Danang Guide и связанных пользовательских данных.',
+    description: 'Инструкция для запроса удаления технического профиля Место и связанных пользовательских данных.',
     sections: [
       {
         title: 'Как устроен профиль',
-        text: 'В Danang Guide нет обязательной отдельной ручной авторизации с логином и паролем. При входе через Google, Apple или Telegram может создаваться технический авторизованный профиль Danang Guide.'
+        text: 'В Место нет обязательной отдельной ручной авторизации с логином и паролем. При входе через Google, Apple или Telegram может создаваться технический авторизованный профиль Место.'
       },
       {
         title: 'Что можно удалить',
         items: [
-          'технический профиль Danang Guide;',
+          'технический профиль Место;',
           'избранные места;',
           'объявления пользователя;',
           'фото объявлений;',
           'контактные данные, указанные в объявлениях;',
-          'активные сессии Danang Guide.'
+          'активные сессии Место.'
         ]
       },
       {
         title: 'Что не удаляется',
-        text: 'Удаление профиля Danang Guide не удаляет аккаунт Google, Apple или Telegram и не удаляет данные, которые хранятся у этих сторонних провайдеров.'
+        text: 'Удаление профиля Место не удаляет аккаунт Google, Apple или Telegram и не удаляет данные, которые хранятся у этих сторонних провайдеров.'
       },
       {
         title: 'Как удалить данные в приложении',
-        text: 'Откройте Danang Guide и выберите: Профиль → Удалить данные профиля. После подтверждения приложение удалит данные Danang Guide, связанные с вашим авторизованным профилем.'
+        text: 'Откройте Место и выберите: Профиль → Удалить данные профиля. После подтверждения приложение удалит данные Место, связанные с вашим авторизованным профилем.'
       },
       {
         title: 'Запрос через поддержку',
-        text: `Если доступ к приложению потерян или нужна помощь, напишите на <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>. Укажите провайдер входа, email или username, примерную дату входа и просьбу удалить профиль Danang Guide.`
+        text: `Если доступ к приложению потерян или нужна помощь, напишите на <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>. Укажите провайдер входа, email или username, примерную дату входа и просьбу удалить профиль Место.`
       },
       {
         title: 'Связанные страницы',
@@ -759,9 +760,44 @@ function normalizePushPlatform(value) {
   return ['ios', 'android'].includes(platform) ? platform : 'unknown';
 }
 
-function isExpoPushToken(value) {
+function isFcmPushToken(value) {
   const token = String(value || '').trim();
-  return /^ExponentPushToken\[[^\]]+\]$/.test(token) || /^ExpoPushToken\[[^\]]+\]$/.test(token);
+  return token.length >= 20 && token.length <= 900 && !/^https?:\/\//i.test(token);
+}
+
+function readFirebaseServiceAccount() {
+  const rawJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '';
+  if (rawJson.trim()) {
+    try {
+      return JSON.parse(rawJson);
+    } catch (error) {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON содержит невалидный JSON.');
+    }
+  }
+
+  const filePath = process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.FIREBASE_SERVICE_ACCOUNT_FILE || '';
+  if (filePath.trim()) {
+    try {
+      return require(filePath);
+    } catch (error) {
+      throw new Error(`Не удалось прочитать Firebase service account file: ${filePath}`);
+    }
+  }
+
+  return null;
+}
+
+function getFirebaseMessaging() {
+  if (!firebaseAdmin.apps.length) {
+    const serviceAccount = readFirebaseServiceAccount();
+    if (!serviceAccount) {
+      return null;
+    }
+    firebaseAdmin.initializeApp({
+      credential: firebaseAdmin.credential.cert(serviceAccount)
+    });
+  }
+  return firebaseAdmin.messaging();
 }
 
 function normalizePromotionStatus(value) {
@@ -793,49 +829,58 @@ function chunkArray(items, size) {
   return chunks;
 }
 
-async function sendExpoPushMessages(messages) {
+async function sendFcmPushMessages(messages) {
   const stats = { attempted: messages.length, sent: 0, failed: 0, skipped: 0 };
   const invalidTokens = [];
   if (messages.length === 0) {
     return { ...stats, invalidTokens };
   }
 
-  for (const chunk of chunkArray(messages, 100)) {
-    try {
-      const response = await fetch('https://exp.host/--/api/v2/push/send', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(chunk)
-      });
-      const payload = await response.json().catch(() => ({}));
-      const tickets = Array.isArray(payload?.data) ? payload.data : [];
-      if (!response.ok || tickets.length === 0) {
-        stats.failed += chunk.length;
-        continue;
-      }
+  const messaging = getFirebaseMessaging();
+  if (!messaging) {
+    throw new Error('Firebase service account не настроен на backend. Добавьте FIREBASE_SERVICE_ACCOUNT_JSON в Railway.');
+  }
 
-      tickets.forEach((ticket, index) => {
-        if (ticket?.status === 'ok') {
-          stats.sent += 1;
-          return;
+  for (const chunk of chunkArray(messages, 500)) {
+    const tokens = chunk.map((item) => item.token).filter(Boolean);
+    if (tokens.length === 0) continue;
+
+    try {
+      const response = await messaging.sendEachForMulticast({
+        tokens,
+        notification: {
+          title: chunk[0]?.title || 'Место',
+          body: chunk[0]?.body || ''
+        },
+        data: Object.fromEntries(Object.entries(chunk[0]?.data || {}).map(([key, value]) => [key, String(value || '')])),
+        android: {
+          priority: 'high',
+          notification: {
+            channelId: 'promotions',
+            icon: 'ic_launcher',
+            color: '#ef3b24'
+          }
         }
-        stats.failed += 1;
-        const detailsError = String(ticket?.details?.error || '');
-        if (detailsError === 'DeviceNotRegistered') {
-          invalidTokens.push(chunk[index]?.to);
+      });
+
+      stats.sent += response.successCount || 0;
+      stats.failed += response.failureCount || 0;
+      response.responses.forEach((item, index) => {
+        if (item.success) return;
+        const code = String(item.error?.code || '');
+        if (['messaging/invalid-registration-token', 'messaging/registration-token-not-registered', 'messaging/invalid-argument'].includes(code)) {
+          invalidTokens.push(tokens[index]);
         }
       });
     } catch (error) {
-      console.warn('Expo push send failed:', error instanceof Error ? error.message : 'unknown error');
-      stats.failed += chunk.length;
+      console.warn('FCM push send failed:', error instanceof Error ? error.message : 'unknown error');
+      stats.failed += tokens.length;
     }
   }
 
   return { ...stats, invalidTokens };
 }
+
 
 function slugifyPublicValue(value, fallback = 'bulletin') {
   return String(value || fallback)
@@ -1554,9 +1599,9 @@ app.post('/api/owner/promotions/:id/send-push', requireOwner, async (req, res) =
     const push = buildPromotionPushMessage(promotion);
     const recipients = await getPromotionPushRecipients();
     const messages = recipients
-      .filter((recipient) => isExpoPushToken(recipient.expoPushToken))
+      .filter((recipient) => isFcmPushToken(recipient.expoPushToken))
       .map((recipient) => ({
-        to: recipient.expoPushToken,
+        token: recipient.expoPushToken,
         title: push.title,
         body: push.body,
         data: {
@@ -1566,7 +1611,7 @@ app.post('/api/owner/promotions/:id/send-push', requireOwner, async (req, res) =
         }
       }));
     const skipped = recipients.length - messages.length;
-    const result = await sendExpoPushMessages(messages);
+    const result = await sendFcmPushMessages(messages);
     if (result.invalidTokens.length > 0) {
       await revokePushTokens(result.invalidTokens);
     }
@@ -1602,14 +1647,14 @@ app.get('/api/me/notification-settings', requirePublicUser, async (req, res) => 
 
 app.post('/api/me/push-token', requirePublicUser, async (req, res) => {
   try {
-    const expoPushToken = normalizePublicText(req.body?.expo_push_token || req.body?.expoPushToken, 260);
-    if (!isExpoPushToken(expoPushToken)) {
-      res.status(400).json({ ok: false, message: 'Valid Expo push token is required' });
+    const fcmToken = normalizePublicText(req.body?.fcm_token || req.body?.fcmToken || req.body?.push_token || req.body?.pushToken || req.body?.expo_push_token || req.body?.expoPushToken, 900);
+    if (!isFcmPushToken(fcmToken)) {
+      res.status(400).json({ ok: false, message: 'Valid FCM device token is required' });
       return;
     }
 
     await upsertPushToken(req.publicUser.id, {
-      expoPushToken,
+      expoPushToken: fcmToken,
       platform: normalizePushPlatform(req.body?.platform),
       deviceId: normalizePublicText(req.body?.device_id || req.body?.deviceId, 180),
       promotionsEnabled: req.body?.promotions_enabled === true || req.body?.promotionsEnabled === true
@@ -2166,7 +2211,7 @@ app.get('*', (req, res) => {
     return;
   }
 
-  res.status(200).send('Danang Guide backend is running. Build the webapp to enable /owner-login and /owner.');
+  res.status(200).send('Место backend is running. Build the webapp to enable /owner-login and /owner.');
 });
 
 const server = app.listen(PORT, async () => {

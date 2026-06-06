@@ -36,7 +36,7 @@ function normalizeMedia(media: HomeLogoMedia | null | undefined): LogoCandidate 
   };
 }
 
-export function AppLogo({ className, alt = 'Логотип Danang Guide', media }: AppLogoProps) {
+export function AppLogo({ className, alt = 'Логотип Место', media }: AppLogoProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [brokenMediaSrc, setBrokenMediaSrc] = useState('');
 

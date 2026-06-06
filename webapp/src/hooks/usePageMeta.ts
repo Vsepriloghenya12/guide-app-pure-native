@@ -5,7 +5,7 @@ type PageMetaOptions = {
   description?: string;
 };
 
-const APP_NAME = 'Danang Guide';
+const APP_NAME = 'Место';
 const DEFAULT_DESCRIPTION = 'Гид по местам, маршрутам, ресторанам, событиям и отдыху в Дананге.';
 
 function ensureMeta(selector: string, attrs: Record<string, string>) {

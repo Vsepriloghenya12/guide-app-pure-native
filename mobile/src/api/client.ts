@@ -121,11 +121,12 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
   }
 }
 
-export async function registerPushToken(payload: { expoPushToken: string; platform: 'ios' | 'android' | 'unknown'; promotionsEnabled: boolean }) {
+export async function registerPushToken(payload: { fcmToken: string; platform: 'ios' | 'android' | 'unknown'; promotionsEnabled: boolean }) {
   return requestJson<{ ok: boolean }>('/api/me/push-token', {
     method: 'POST',
     body: JSON.stringify({
-      expo_push_token: payload.expoPushToken,
+      fcm_token: payload.fcmToken,
+      token_type: 'fcm',
       platform: payload.platform,
       promotions_enabled: payload.promotionsEnabled
     })
