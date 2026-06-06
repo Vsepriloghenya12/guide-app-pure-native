@@ -137,7 +137,7 @@ export function ProgramsPage() {
                   style={{
                     backgroundImage: collection.imageSrc
                       ? `url(${collection.imageSrc})`
-                      : 'url(/home-hero-background.png)'
+                      : 'url(/icons/icon-512.png)'
                   }}
                   aria-hidden="true"
                 />

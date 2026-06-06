@@ -281,7 +281,7 @@ function getOwnerPreviewImage(item: GuidePlace) {
     getPlaceImages(item)[0] ||
     (item.categoryId === "bulletin-board"
       ? "/home-icons/custom/bulletin-board.png"
-      : "/home-hero-background.png")
+      : "/icons/icon-512.png")
   );
 }
 

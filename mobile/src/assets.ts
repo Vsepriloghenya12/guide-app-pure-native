@@ -2,12 +2,8 @@ import type { ImageSourcePropType } from 'react-native';
 
 declare const require: (path: string) => ImageSourcePropType;
 
-export const heroBackground = require('../assets/home/home-hero-background.png') as ImageSourcePropType;
-export const heroLogo = require('../assets/home/home-hero-logo-custom.png') as ImageSourcePropType;
-export const homeHeaderImage = require('../assets/home/home-header-mesto.png') as ImageSourcePropType;
+export const appLogo = require('../assets/icon.png') as ImageSourcePropType;
 export const placeVerificationBadge = require('../assets/home/place-verification-badge.png') as ImageSourcePropType;
-export const welcomeBackground = require('../assets/home/welcome-background.png') as ImageSourcePropType;
-export const welcomeLogo = require('../assets/home/welcome-logo.png') as ImageSourcePropType;
 
 export const categoryIcons: Record<string, ImageSourcePropType> = {
   restaurants: require('../assets/home/home-icons/custom/food.png'),

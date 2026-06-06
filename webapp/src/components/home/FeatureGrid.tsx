@@ -92,7 +92,7 @@ export function FeatureGrid({
                 className="travel-home-banner-peek travel-home-banner-peek--left"
                 aria-label={`Показать баннер: ${leftHeroBanner.title}`}
                 style={{
-                  backgroundImage: `linear-gradient(180deg, rgba(9, 19, 38, 0.18) 0%, rgba(9, 19, 38, 0.68) 100%), url(${leftHeroBanner.imageSrc || '/home-hero-background.png'})`
+                  backgroundImage: `linear-gradient(180deg, rgba(9, 19, 38, 0.18) 0%, rgba(9, 19, 38, 0.68) 100%), url(${leftHeroBanner.imageSrc || '/icons/icon-512.png'})`
                 }}
                 onClick={() => moveHeroBanner('prev')}
               />
@@ -104,7 +104,7 @@ export function FeatureGrid({
               className={`travel-home-hero-banner travel-home-hero-banner--${heroMotion}`}
               data-tone="bridge"
               style={{
-                backgroundImage: `linear-gradient(180deg, rgba(9, 19, 38, 0.2) 0%, rgba(9, 19, 38, 0.76) 100%), url(${activeHeroBanner.imageSrc || '/home-hero-background.png'})`
+                backgroundImage: `linear-gradient(180deg, rgba(9, 19, 38, 0.2) 0%, rgba(9, 19, 38, 0.76) 100%), url(${activeHeroBanner.imageSrc || '/icons/icon-512.png'})`
               }}
               onClick={(event) => {
                 if (blockHeroClick.current) {
@@ -130,7 +130,7 @@ export function FeatureGrid({
                 className="travel-home-banner-peek travel-home-banner-peek--right"
                 aria-label={`Показать баннер: ${rightHeroBanner.title}`}
                 style={{
-                  backgroundImage: `linear-gradient(180deg, rgba(9, 19, 38, 0.18) 0%, rgba(9, 19, 38, 0.68) 100%), url(${rightHeroBanner.imageSrc || '/home-hero-background.png'})`
+                  backgroundImage: `linear-gradient(180deg, rgba(9, 19, 38, 0.18) 0%, rgba(9, 19, 38, 0.68) 100%), url(${rightHeroBanner.imageSrc || '/icons/icon-512.png'})`
                 }}
                 onClick={() => moveHeroBanner('next')}
               />
@@ -232,7 +232,7 @@ export function FeatureGrid({
               >
                 <span
                   className="travel-story-row__thumb"
-                  style={{ backgroundImage: 'url(/home-hero-background.png)' }}
+                  style={{ backgroundImage: 'url(/icons/icon-512.png)' }}
                   aria-hidden="true"
                 />
                 <span className="travel-story-row__body">

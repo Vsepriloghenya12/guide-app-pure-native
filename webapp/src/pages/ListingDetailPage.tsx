@@ -198,7 +198,7 @@ export function ListingDetailPage() {
     [listing],
   );
   const activeImage =
-    gallery[activeImageIndex] || gallery[0] || "/home-hero-background.png";
+    gallery[activeImageIndex] || gallery[0] || "/icons/icon-512.png";
   const formattedHours = formatOpeningHours(listing?.hours);
 
   const distanceKm = useMemo(() => {

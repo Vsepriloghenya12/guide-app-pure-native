@@ -34,7 +34,7 @@ import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
 import { clearAuthToken, getAuthUserAvatarUrl, getCachedAuthUser, readUserFromAuthToken, saveAuthToken } from './src/utils/auth';
 import { EmptyState, AppButton, CategoryCard, ListingCard, LoadingState, Pill } from './src/components/ui';
 import { normalizeImageUrl } from './src/utils/normalizers';
-import { categoryIcons, defaultCategoryIcon, heroBackground, homeHeaderImage, placeVerificationBadge, welcomeBackground, welcomeLogo } from './src/assets';
+import { appLogo, categoryIcons, defaultCategoryIcon, placeVerificationBadge } from './src/assets';
 
 type TabKey = 'home' | 'sections' | 'search' | 'favorites' | 'nearby' | 'contacts';
 type Route =
@@ -1282,7 +1282,7 @@ function HomeScreen({
 
   return (
     <View style={[styles.homeRoot, { width: viewportWidth, maxWidth: viewportWidth }]}>
-      <ImageBackground source={homeHeaderImage} style={[styles.homeHero, { width: viewportWidth }]} imageStyle={styles.homeHeroImage}>
+      <View style={[styles.homeHero, { width: viewportWidth }]}>
         <View style={styles.homeHeroOverlay} />
         <TouchableOpacity activeOpacity={0.86} onPress={onOpenAuth} style={styles.heroAuthButton}>
           {heroAvatarUrl ? (
@@ -1293,7 +1293,7 @@ function HomeScreen({
             <Text style={styles.heroAuthIcon}>👤</Text>
           )}
         </TouchableOpacity>
-      </ImageBackground>
+      </View>
 
       <View style={[styles.homeBody, { width: viewportWidth }]}> 
         {activeBanners.length > 0 ? (
@@ -1310,18 +1310,27 @@ function HomeScreen({
               onMomentumScrollEnd={handleBannerMomentumEnd}
               contentContainerStyle={[styles.bannerScrollerContent, { paddingHorizontal: bannerSideInset, gap: bannerGap }]}
             >
-              {loopedBanners.map((banner, index) => (
-                <TouchableOpacity
-                  key={`${banner.id}-${index}`}
-                  activeOpacity={0.9}
-                  onPress={() => openBannerLink(banner)}
-                  style={[styles.homeBanner, styles.homeBannerSlide, { width: bannerCardWidth }]}
-                >
-                  <ImageBackground source={bannerImageSource(banner)} style={styles.full} imageStyle={styles.homeBannerImage}>
-                    <View style={styles.bannerOverlay} />
-                  </ImageBackground>
-                </TouchableOpacity>
-              ))}
+              {loopedBanners.map((banner, index) => {
+                const bannerSource = bannerImageSource(banner);
+                return (
+                  <TouchableOpacity
+                    key={`${banner.id}-${index}`}
+                    activeOpacity={0.9}
+                    onPress={() => openBannerLink(banner)}
+                    style={[styles.homeBanner, styles.homeBannerSlide, { width: bannerCardWidth }]}
+                  >
+                    {bannerSource ? (
+                      <ImageBackground source={bannerSource} style={styles.full} imageStyle={styles.homeBannerImage}>
+                        <View style={styles.bannerOverlay} />
+                      </ImageBackground>
+                    ) : (
+                      <View style={[styles.full, styles.homeBannerFallback]}>
+                        <View style={styles.bannerOverlay} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
             {activeBanners.length > 1 ? (
               <View style={styles.bannerDots}>
@@ -1365,7 +1374,7 @@ function HomeScreen({
             </View>
             {visibleTips.map((tip) => (
               <TouchableOpacity key={tip.id} activeOpacity={0.78} onPress={() => setSelectedTip(tip)} style={styles.tipRow}>
-                <Image source={heroBackground} style={styles.tipThumb} />
+                <View style={styles.tipThumbPlaceholder}><Text style={styles.tipThumbGlyph}>i</Text></View>
                 <View style={styles.flex}>
                   <Text style={styles.tipTitle} numberOfLines={1}>{tip.title}</Text>
                   <Text style={styles.tipText} numberOfLines={2}>{tip.text}</Text>
@@ -1398,7 +1407,7 @@ function HomeScreen({
 
 function bannerImageSource(collection: GuideCollection) {
   const image = normalizeImageUrl(collection.imageSrc, API_BASE_URL);
-  return image ? { uri: image } : heroBackground;
+  return image ? { uri: image } : null;
 }
 
 function HomeCategoryIcon({ category, index, onPress }: { category: GuideCategory; index: number; onPress: () => void }) {
@@ -2464,7 +2473,7 @@ function TipsScreen({ tips, onBack }: { tips: GuideTip[]; onBack: () => void }) 
         {tips.length === 0 ? <EmptyState title="Советов пока нет" text="Добавь советы в CMS, и они появятся здесь." /> : null}
         {tips.map((tip) => (
           <TouchableOpacity key={tip.id} activeOpacity={0.78} onPress={() => setSelectedTip(tip)} style={styles.tipRow}>
-            <Image source={heroBackground} style={styles.tipThumb} />
+            <View style={styles.tipThumbPlaceholder}><Text style={styles.tipThumbGlyph}>i</Text></View>
             <View style={styles.flex}>
               <Text style={styles.tipTitle} numberOfLines={1}>{tip.title}</Text>
               <Text style={styles.tipText} numberOfLines={2}>{tip.text}</Text>
@@ -2512,11 +2521,11 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
   const insets = useMobileInsets();
 
   return (
-    <ImageBackground source={welcomeBackground} style={styles.welcomeScreen} imageStyle={styles.welcomeBackgroundImage}>
+    <View style={styles.welcomeScreen}>
       <StatusBar translucent barStyle="light-content" backgroundColor="transparent" />
       <View style={[styles.welcomeOverlay, { paddingTop: insets.top + 34, paddingBottom: insets.bottom + 24 }]}>
         <View style={styles.welcomeCenter}>
-          <Image source={welcomeLogo} resizeMode="contain" style={styles.welcomeLogo} />
+          <Image source={appLogo} style={styles.welcomeLogo} resizeMode="contain" />
           <Text style={styles.welcomeText}>наше приложение создано туристами для туристов</Text>
           <TouchableOpacity activeOpacity={0.88} onPress={onStart} style={styles.welcomeButton}>
             <Text style={styles.welcomeButtonText}>Войти</Text>
@@ -2533,7 +2542,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
           </Text>
         </Text>
       </View>
-    </ImageBackground>
+    </View>
   );
 }
 
@@ -3008,6 +3017,7 @@ const styles = StyleSheet.create({
   homeBannerPreviewLeft: { left: -8 },
   homeBannerPreviewRight: { right: -8 },
   homeBannerImage: { borderRadius: 20 },
+  homeBannerFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#173f82' },
   bannerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'transparent' },
   homeBannerTextWrap: { position: 'absolute', left: 18, right: 18, bottom: 16, paddingHorizontal: 0, paddingVertical: 0 },
   homeBannerTitle: { color: '#ffffff', fontSize: 15, lineHeight: 19, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.72)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
@@ -3040,6 +3050,8 @@ const styles = StyleSheet.create({
   homeSectionLink: { color: '#3764a8', fontSize: 13, fontWeight: '900' },
   tipRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingHorizontal: 0, borderRadius: 0, backgroundColor: 'transparent', borderBottomWidth: 1, borderBottomColor: 'rgba(23, 37, 64, 0.08)' },
   tipThumb: { width: 52, height: 52, borderRadius: 14 },
+  tipThumbPlaceholder: { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e4edf7' },
+  tipThumbGlyph: { color: '#1f63c7', fontSize: 20, fontWeight: '900' },
   tipTitle: { color: '#102a43', fontSize: 14, fontWeight: '900' },
   tipText: { color: '#62748b', fontSize: 12, lineHeight: 16, marginTop: 3 },
   tipChevron: { color: '#96a6bb', fontSize: 24, lineHeight: 26, fontWeight: '500' },
@@ -3052,7 +3064,6 @@ const styles = StyleSheet.create({
   tipModalButton: { minHeight: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7', marginTop: 18 },
   tipModalButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
   welcomeScreen: { flex: 1, width: '100%', backgroundColor: '#156db2' },
-  welcomeBackgroundImage: { resizeMode: 'cover' },
   welcomeOverlay: { flex: 1, justifyContent: 'space-between', paddingHorizontal: 22, backgroundColor: 'rgba(8, 24, 48, 0.18)' },
   welcomeCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18 },
   welcomeLogo: { width: 190, height: 190 },

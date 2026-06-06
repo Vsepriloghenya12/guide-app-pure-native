@@ -2,10 +2,10 @@ import { AppLogo } from '../common/AppLogo';
 import { UserAuthTrigger } from '../auth/UserAuthTrigger';
 
 export function HomeHero() {
-  const heroImage = '/home-hero-background.png';
+  const heroImage = '/icons/icon-512.png';
   const heroLogo = {
     type: 'image' as const,
-    src: '/home-hero-logo-custom.png',
+    src: '/icons/icon-512.png',
     alt: 'Городской гид Дананг'
   };
 

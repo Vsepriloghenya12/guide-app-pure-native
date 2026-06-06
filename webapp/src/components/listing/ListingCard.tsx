@@ -192,7 +192,7 @@ function handleCardImageError(event: SyntheticEvent<HTMLImageElement>) {
   }
 
   image.dataset.fallbackApplied = "true";
-  image.src = "/home-hero-background.png";
+  image.src = "/icons/icon-512.png";
 }
 
 export function ListingCard({
@@ -210,7 +210,7 @@ export function ListingCard({
       : [
           listing.categoryId === "bulletin-board"
             ? "/home-icons/custom/bulletin-board.png"
-            : "/home-hero-background.png",
+            : "/icons/icon-512.png",
         ];
   const detailPath = `/place/${listing.slug}`;
   const meta = buildMeta(listing);

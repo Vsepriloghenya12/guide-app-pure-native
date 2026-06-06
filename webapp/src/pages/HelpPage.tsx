@@ -57,7 +57,7 @@ export function HelpPage() {
             >
               <span
                 className="travel-story-row__thumb"
-                style={{ backgroundImage: 'url(/home-hero-background.png)' }}
+                style={{ backgroundImage: 'url(/icons/icon-512.png)' }}
                 aria-hidden="true"
               />
               <span className="travel-story-row__body">

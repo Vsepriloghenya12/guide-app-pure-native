@@ -4,8 +4,8 @@ import { setBootReady } from './bootState';
 let warmupPromise: Promise<void> | null = null;
 
 const bootAssets = [
-  '/home-hero-background.png',
-  '/home-hero-logo-custom.png',
+  '/icons/icon-512.png',
+  '/icons/icon-512.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png'
 ];

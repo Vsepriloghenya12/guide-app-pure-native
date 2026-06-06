@@ -28,8 +28,8 @@ const orderedQuickIcons = [
 ];
 
 const accentFallback: Record<string, string> = {
-  coast: '/home-hero-background.png',
-  sunset: '/home-hero-background.png',
+  coast: '/icons/icon-512.png',
+  sunset: '/icons/icon-512.png',
   bridge: '/home-icons/custom/programs.png',
   emerald: '/home-icons/custom/wellness.png'
 };
@@ -58,7 +58,7 @@ export function getQuickMenuImage(category: GuideCategory, index: number): strin
 }
 
 export function getQuickMenuFallbackImage(index: number): string {
-  return orderedQuickIcons[(index + 1) % orderedQuickIcons.length] || '/logo-placeholder.svg';
+  return orderedQuickIcons[(index + 1) % orderedQuickIcons.length] || '/icons/icon-512.png';
 }
 
 export function getCategoryListImage(category: GuideCategory, index: number): string {
