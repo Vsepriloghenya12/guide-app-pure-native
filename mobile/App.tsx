@@ -34,7 +34,7 @@ import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
 import { clearAuthToken, getAuthUserAvatarUrl, getCachedAuthUser, readUserFromAuthToken, saveAuthToken } from './src/utils/auth';
 import { EmptyState, AppButton, CategoryCard, ListingCard, LoadingState, Pill } from './src/components/ui';
 import { normalizeImageUrl } from './src/utils/normalizers';
-import { appLogo, categoryIcons, defaultCategoryIcon, placeVerificationBadge } from './src/assets';
+import { appLogo, categoryIcons, defaultCategoryIcon, homeHeaderImage, placeVerificationBadge, welcomeBackground } from './src/assets';
 
 type TabKey = 'home' | 'sections' | 'search' | 'favorites' | 'nearby' | 'contacts';
 type Route =
@@ -1283,7 +1283,9 @@ function HomeScreen({
   return (
     <View style={[styles.homeRoot, { width: viewportWidth, maxWidth: viewportWidth }]}>
       <View style={[styles.homeHero, { width: viewportWidth }]}>
-        <View style={styles.homeHeroOverlay} />
+        <ImageBackground source={homeHeaderImage} style={styles.full} imageStyle={styles.homeHeroImage}>
+          <View style={styles.homeHeroOverlay} />
+        </ImageBackground>
         <TouchableOpacity activeOpacity={0.86} onPress={onOpenAuth} style={styles.heroAuthButton}>
           {heroAvatarUrl ? (
             <Image source={{ uri: heroAvatarUrl }} style={styles.heroAuthAvatar} />
@@ -2523,25 +2525,27 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
   return (
     <View style={styles.welcomeScreen}>
       <StatusBar translucent barStyle="light-content" backgroundColor="transparent" />
-      <View style={[styles.welcomeOverlay, { paddingTop: insets.top + 34, paddingBottom: insets.bottom + 24 }]}>
-        <View style={styles.welcomeCenter}>
-          <Image source={appLogo} style={styles.welcomeLogo} resizeMode="contain" />
-          <Text style={styles.welcomeText}>наше приложение создано туристами для туристов</Text>
-          <TouchableOpacity activeOpacity={0.88} onPress={onStart} style={styles.welcomeButton}>
-            <Text style={styles.welcomeButtonText}>Войти</Text>
-          </TouchableOpacity>
+      <ImageBackground source={welcomeBackground} style={styles.full} imageStyle={styles.welcomeBackgroundImage}>
+        <View style={[styles.welcomeOverlay, { paddingTop: insets.top + 34, paddingBottom: insets.bottom + 24 }]}>
+          <View style={styles.welcomeCenter}>
+            <Image source={appLogo} style={styles.welcomeLogo} resizeMode="contain" />
+            <Text style={styles.welcomeText}>наше приложение создано туристами для туристов</Text>
+            <TouchableOpacity activeOpacity={0.88} onPress={onStart} style={styles.welcomeButton}>
+              <Text style={styles.welcomeButtonText}>Войти</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.welcomePolicyText}>
+            авторизуясь, вы соглашаетесь с{' '}
+            <Text onPress={() => void openLegalPage('/terms')} style={styles.welcomePolicyLink}>
+              пользовательским соглашением
+            </Text>
+            {' '}и{' '}
+            <Text onPress={() => void openLegalPage('/privacy')} style={styles.welcomePolicyLink}>
+              политикой конфиденциальности
+            </Text>
+          </Text>
         </View>
-        <Text style={styles.welcomePolicyText}>
-          авторизуясь, вы соглашаетесь с{' '}
-          <Text onPress={() => void openLegalPage('/terms')} style={styles.welcomePolicyLink}>
-            пользовательским соглашением
-          </Text>
-          {' '}и{' '}
-          <Text onPress={() => void openLegalPage('/privacy')} style={styles.welcomePolicyLink}>
-            политикой конфиденциальности
-          </Text>
-        </Text>
-      </View>
+      </ImageBackground>
     </View>
   );
 }
@@ -3064,7 +3068,8 @@ const styles = StyleSheet.create({
   tipModalButton: { minHeight: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7', marginTop: 18 },
   tipModalButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
   welcomeScreen: { flex: 1, width: '100%', backgroundColor: '#156db2' },
-  welcomeOverlay: { flex: 1, justifyContent: 'space-between', paddingHorizontal: 22, backgroundColor: 'rgba(8, 24, 48, 0.18)' },
+  welcomeBackgroundImage: { resizeMode: 'cover' },
+  welcomeOverlay: { flex: 1, justifyContent: 'space-between', paddingHorizontal: 22, backgroundColor: 'rgba(8, 24, 48, 0.28)' },
   welcomeCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18 },
   welcomeLogo: { width: 190, height: 190 },
   welcomeText: { maxWidth: 310, color: '#ffffff', fontSize: 21, lineHeight: 28, fontWeight: '900', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.36)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
