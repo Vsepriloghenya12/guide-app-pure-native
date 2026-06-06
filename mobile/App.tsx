@@ -25,6 +25,7 @@ import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import * as Notifications from 'expo-notifications';
+import { Camera, CircleLayer, LineLayer, MapView as MapLibreMap, ShapeSource, type CameraBounds } from '@maplibre/maplibre-react-native';
 import type { BootstrapPayload, GuideCategory, GuideCollection, GuidePlace, GuideTip, SupportContentStore } from './src/types';
 import { fetchBootstrap, fetchSupportContent, fetchAuthSession, fetchAuthStartUrl, logoutAuthSession, deleteAuthProfile, reportBulletin, fetchHiddenAuthors, hideBulletinAuthor, API_BASE_URL, sendAnalytics, submitBulletinListing, fetchMyBulletinListings, deleteMyBulletinListing, getNotificationSettings, registerPushToken, updateNotificationSettings, type NotificationSettings } from './src/api/client';
 import { directionsUrl, openExternalUrl } from './src/utils/links';
@@ -174,8 +175,27 @@ const filterTextMap: Record<string, string> = {
   beach: 'Пляж'
 };
 
-const mapTileUrl = String(process.env.EXPO_PUBLIC_MAP_TILE_URL || '').trim() || 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
-const staticMapTileSize = 256;
+const DEFAULT_MAP_TILE_URL = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+const configuredMapTileUrl = String(process.env.EXPO_PUBLIC_MAP_TILE_URL || '').trim();
+const mapTileUrl = configuredMapTileUrl && !/tile\.openstreetmap\.org/i.test(configuredMapTileUrl) ? configuredMapTileUrl : DEFAULT_MAP_TILE_URL;
+const mapLibreStyle: Record<string, unknown> = {
+  version: 8,
+  sources: {
+    carto: {
+      type: 'raster',
+      tiles: [mapTileUrl],
+      tileSize: 256,
+      attribution: '© OpenStreetMap contributors © CARTO'
+    }
+  },
+  layers: [
+    {
+      id: 'carto',
+      type: 'raster',
+      source: 'carto'
+    }
+  ]
+};
 
 const ANDROID_STATUS_BAR_INSET = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0;
 const ANDROID_NAVIGATION_BAR_INSET = Platform.OS === 'android' ? 34 : 0;
@@ -357,6 +377,26 @@ function placeCoordinate(place: GuidePlace) {
   return { latitude: lat, longitude: lng };
 }
 
+
+function buildMapBounds(points: Array<{ latitude: number; longitude: number }>): CameraBounds {
+  if (points.length === 0) {
+    return { ne: [108.2808, 16.1278], sw: [108.1608, 16.0078] };
+  }
+
+  const lats = points.map((point) => point.latitude);
+  const lngs = points.map((point) => point.longitude);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const latPadding = Math.max(0.01, (maxLat - minLat) * 0.25);
+  const lngPadding = Math.max(0.01, (maxLng - minLng) * 0.25);
+
+  return {
+    ne: [maxLng + lngPadding, maxLat + latPadding],
+    sw: [minLng - lngPadding, minLat - latPadding]
+  };
+}
 
 function contactUrlFromText(value: string) {
   const contact = value.trim();
@@ -1959,38 +1999,6 @@ function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function longitudeToTileX(longitude: number, zoom: number) {
-  return ((longitude + 180) / 360) * 2 ** zoom;
-}
-
-function latitudeToTileY(latitude: number, zoom: number) {
-  const safeLatitude = clampNumber(latitude, -85.05112878, 85.05112878);
-  const rad = safeLatitude * Math.PI / 180;
-  return ((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * 2 ** zoom;
-}
-
-function mapTileImageUrl(zoom: number, x: number, y: number) {
-  const maxTile = 2 ** zoom;
-  const wrappedX = ((x % maxTile) + maxTile) % maxTile;
-  const clampedY = clampNumber(y, 0, maxTile - 1);
-  return mapTileUrl
-    .replace('{z}', String(zoom))
-    .replace('{x}', String(wrappedX))
-    .replace('{y}', String(clampedY));
-}
-
-function chooseStaticMapZoom(points: Array<{ latitude: number; longitude: number }>) {
-  if (points.length <= 1) return 15;
-  const lats = points.map((point) => point.latitude);
-  const lngs = points.map((point) => point.longitude);
-  const spread = Math.max(Math.max(...lats) - Math.min(...lats), Math.max(...lngs) - Math.min(...lngs));
-  if (spread > 0.35) return 10;
-  if (spread > 0.16) return 11;
-  if (spread > 0.08) return 12;
-  if (spread > 0.035) return 13;
-  if (spread > 0.015) return 14;
-  return 15;
-}
 
 function GuideMap({
   places = [],
@@ -2004,8 +2012,6 @@ function GuideMap({
   height?: number;
 }) {
   const [selectedPlace, setSelectedPlace] = useState<GuidePlace | null>(null);
-  const { width } = useWindowDimensions();
-  const mapWidth = Math.max(280, Math.min(width - 32, 640));
   const placeMarkers = places
     .map((place) => ({ place, coordinate: placeCoordinate(place) }))
     .filter((item): item is { place: GuidePlace; coordinate: { latitude: number; longitude: number } } => Boolean(item.coordinate));
@@ -2018,10 +2024,53 @@ function GuideMap({
         latitude = longitude;
         longitude = previousLatitude;
       }
-      return { latitude, longitude, title: toText(point.title, 'Точка маршрута') };
+      return { latitude, longitude };
     })
     .filter((point) => isValidLatitude(point.latitude) && isValidLongitude(point.longitude));
   const allCoordinates = [...routeCoordinates, ...placeMarkers.map((item) => item.coordinate)];
+  const mapInitialCamera = allCoordinates.length === 1
+    ? { centerCoordinate: [allCoordinates[0].longitude, allCoordinates[0].latitude], zoomLevel: 15 }
+    : { bounds: buildMapBounds(allCoordinates), padding: { paddingTop: 42, paddingRight: 42, paddingBottom: 42, paddingLeft: 42 } };
+  const routeLineData: GeoJSON.FeatureCollection<GeoJSON.LineString> = {
+    type: 'FeatureCollection',
+    features: routeCoordinates.length > 1 ? [{
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: routeCoordinates.map((point) => [point.longitude, point.latitude])
+      },
+      properties: {}
+    }] : []
+  };
+  const routePointData: GeoJSON.FeatureCollection<GeoJSON.Point> = {
+    type: 'FeatureCollection',
+    features: routeCoordinates.map((point, index) => ({
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [point.longitude, point.latitude]
+      },
+      properties: {
+        title: toText(routePoints[index]?.title, 'Точка маршрута'),
+        color: index === 0 ? '#22a06b' : index === routeCoordinates.length - 1 ? '#e05a3f' : '#1f63c7'
+      }
+    }))
+  };
+  const placePointData: GeoJSON.FeatureCollection<GeoJSON.Point> = {
+    type: 'FeatureCollection',
+    features: placeMarkers.map(({ place, coordinate }) => ({
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [coordinate.longitude, coordinate.latitude]
+      },
+      properties: {
+        id: place.id,
+        title: toText(place.title, 'Место'),
+        subtitle: toText(place.address || place.district || place.kind)
+      }
+    }))
+  };
 
   if (allCoordinates.length === 0) {
     return (
@@ -2032,72 +2081,56 @@ function GuideMap({
     );
   }
 
-  const zoom = chooseStaticMapZoom(allCoordinates);
-  const center = {
-    latitude: allCoordinates.reduce((sum, point) => sum + point.latitude, 0) / allCoordinates.length,
-    longitude: allCoordinates.reduce((sum, point) => sum + point.longitude, 0) / allCoordinates.length
-  };
-  const centerTileX = longitudeToTileX(center.longitude, zoom);
-  const centerTileY = latitudeToTileY(center.latitude, zoom);
-  const baseTileX = Math.floor(centerTileX) - 1;
-  const baseTileY = Math.floor(centerTileY) - 1;
-  const offsetX = mapWidth / 2 - (centerTileX - baseTileX) * staticMapTileSize;
-  const offsetY = height / 2 - (centerTileY - baseTileY) * staticMapTileSize;
-  const tiles = Array.from({ length: 9 }, (_, index) => {
-    const dx = index % 3;
-    const dy = Math.floor(index / 3);
-    return {
-      id: `${zoom}-${baseTileX + dx}-${baseTileY + dy}`,
-      x: baseTileX + dx,
-      y: baseTileY + dy,
-      left: dx * staticMapTileSize + offsetX,
-      top: dy * staticMapTileSize + offsetY
-    };
-  });
-  const markerPosition = (coordinate: { latitude: number; longitude: number }) => ({
-    left: (longitudeToTileX(coordinate.longitude, zoom) - baseTileX) * staticMapTileSize + offsetX,
-    top: (latitudeToTileY(coordinate.latitude, zoom) - baseTileY) * staticMapTileSize + offsetY
-  });
-
   return (
     <View style={[styles.nativeMapCard, { height }]}> 
-      <View style={styles.nativeStaticMapLayer} pointerEvents="none">
-        {tiles.map((tile) => (
-          <Image
-            key={tile.id}
-            source={{ uri: mapTileImageUrl(zoom, tile.x, tile.y) }}
-            style={[styles.nativeStaticMapTile, { left: tile.left, top: tile.top }]}
-          />
-        ))}
-      </View>
-      {routeCoordinates.map((coordinate, index) => {
-        const position = markerPosition(coordinate);
-        return (
-          <View
-            key={`route-${index}-${coordinate.latitude}-${coordinate.longitude}`}
-            pointerEvents="none"
-            style={[styles.nativeRouteMarker, { left: position.left - 12, top: position.top - 12 }]}
+      <MapLibreMap
+        style={styles.nativeMap}
+        mapStyle={mapLibreStyle}
+        logoEnabled={false}
+        attributionEnabled
+        attributionPosition={{ bottom: 8, left: 8 }}
+        compassEnabled
+        compassViewPosition={1}
+        compassViewMargins={{ x: 10, y: 10 }}
+      >
+        <Camera defaultSettings={mapInitialCamera} />
+        {routeCoordinates.length > 1 ? (
+          <ShapeSource id="route-line-source" shape={routeLineData}>
+            <LineLayer
+              id="route-line"
+              style={{
+                lineCap: 'round',
+                lineJoin: 'round',
+                lineColor: '#1f63c7',
+                lineWidth: 5,
+                lineOpacity: 0.86
+              }}
+            />
+          </ShapeSource>
+        ) : null}
+        {routeCoordinates.length > 0 ? (
+          <ShapeSource id="route-points-source" shape={routePointData}>
+            <CircleLayer id="route-point-halo" style={{ circleRadius: 9, circleColor: '#ffffff', circleOpacity: 0.92 }} />
+            <CircleLayer id="route-point" style={{ circleRadius: 6, circleColor: ['get', 'color'], circleStrokeWidth: 2, circleStrokeColor: '#ffffff' }} />
+          </ShapeSource>
+        ) : null}
+        {placeMarkers.length > 0 ? (
+          <ShapeSource
+            id="place-points-source"
+            shape={placePointData}
+            hitbox={{ width: 44, height: 44 }}
+            onPress={(event) => {
+              const feature = event.features?.[0];
+              const id = String(feature?.properties?.id || '');
+              const nextPlace = placeMarkers.find((item) => item.place.id === id)?.place || null;
+              setSelectedPlace(nextPlace);
+            }}
           >
-            <Text style={styles.nativeRouteMarkerText}>{index + 1}</Text>
-          </View>
-        );
-      })}
-      {placeMarkers.map(({ place, coordinate }) => {
-        const position = markerPosition(coordinate);
-        return (
-          <TouchableOpacity
-            key={place.id}
-            activeOpacity={0.82}
-            onPress={() => setSelectedPlace(place)}
-            style={[styles.nativePlaceMarker, { left: position.left - 13, top: position.top - 30 }]}
-          >
-            <Text style={styles.nativePlaceMarkerText}>●</Text>
-          </TouchableOpacity>
-        );
-      })}
-      <TouchableOpacity activeOpacity={0.84} onPress={() => void openExternalUrl('https://www.openstreetmap.org/copyright')} style={styles.nativeMapAttribution}>
-        <Text style={styles.nativeMapAttributionText}>© OpenStreetMap · © CARTO</Text>
-      </TouchableOpacity>
+            <CircleLayer id="place-point-halo" style={{ circleRadius: 12, circleColor: '#ffffff', circleOpacity: 0.94 }} />
+            <CircleLayer id="place-point" style={{ circleRadius: 8, circleColor: '#e05a3f', circleStrokeWidth: 2, circleStrokeColor: '#ffffff' }} />
+          </ShapeSource>
+        ) : null}
+      </MapLibreMap>
       {selectedPlace ? (
         <View style={styles.nativeMapPopup}>
           <View style={styles.flex}>
@@ -2451,31 +2484,16 @@ function getApiOriginForAuth() {
   return raw || API_BASE_URL;
 }
 
-function buildTelegramNativeOAuthUrl(providers: NativeAuthProviders, returnTo: string) {
-  const botId = String(providers.telegramBotId || process.env.EXPO_PUBLIC_TELEGRAM_BOT_ID || '').trim();
-  if (!/^\d+$/.test(botId)) return '';
 
-  const origin = getApiOriginForAuth();
-  const callbackUrl = `${origin}/api/auth/telegram/callback?returnTo=${encodeURIComponent(returnTo)}`;
-  const query = [
-    `bot_id=${encodeURIComponent(botId)}`,
-    `origin=${encodeURIComponent(origin)}`,
-    `return_to=${encodeURIComponent(callbackUrl)}`,
-    'request_access=write'
-  ].join('&');
-
-  return `https://oauth.telegram.org/auth?${query}`;
-}
-
-function buildTelegramServerStartUrl(returnTo: string) {
+function buildTelegramNativeLoginUrl(returnTo: string, authNonce = '') {
   const origin = getApiOriginForAuth();
   const searchParams = new URLSearchParams({
     returnTo,
     mode: 'native',
-    source: 'mobile',
-    prefer: 'oauth'
+    source: 'mobile'
   });
-  return `${origin}/api/auth/telegram/start?${searchParams.toString()}`;
+  if (authNonce) searchParams.set('authNonce', authNonce);
+  return `${origin}/api/auth/telegram/native?${searchParams.toString()}`;
 }
 
 function WelcomeScreen({ onStart }: { onStart: () => void }) {
@@ -2543,9 +2561,11 @@ function AuthSheet({
     setOpeningProvider(provider);
     const authNonce = `${provider}-${Date.now().toString(36)}`;
     try {
-      const authUrl = await fetchAuthStartUrl(provider, authReturnTo, authNonce);
+      const authUrl = provider === 'telegram'
+        ? buildTelegramNativeLoginUrl(authReturnTo, authNonce)
+        : await fetchAuthStartUrl(provider, authReturnTo, authNonce);
       if (provider === 'telegram' && /accounts\.google\.com|google\.com\/o\/oauth|provider=google|auth\/google/i.test(authUrl)) {
-        throw new Error('Сервер вернул Google-ссылку для кнопки Telegram. Нужно задеплоить свежий server на Railway и проверить TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, TELEGRAM_BOT_ID.');
+        throw new Error('Telegram-кнопка получила Google-ссылку. Обнови APK из текущего архива и backend на Railway.');
       }
       onClose();
       await openExternalUrl(authUrl);
@@ -2731,7 +2751,7 @@ function DetailScreen({
   const district = toText(place.district);
   const hasMapPoint = Boolean(placeCoordinate(place));
   const hasInfoFields = Boolean(address || hours || phone);
-  const qualityBadgeText = toText(place.qualityBadgeText, 'привет,молодцы что посмотрели');
+  const qualityBadgeText = toText(place.qualityBadgeText, 'Это место отмечено знаком качества Danang Guide.');
   const isBulletin = place.categoryId === 'bulletin-board';
   const isOwnBulletin = Boolean(authUser?.id && place.createdByUserId && String(authUser.id) === String(place.createdByUserId));
 
@@ -3095,14 +3115,6 @@ const styles = StyleSheet.create({
   nearbyText: { color: '#fff', fontWeight: '800' },
   nativeMapCard: { width: '100%', borderRadius: 22, overflow: 'hidden', backgroundColor: '#e8f1f8', borderWidth: 1, borderColor: '#d8e0ea', justifyContent: 'center' },
   nativeMap: { ...StyleSheet.absoluteFillObject },
-  nativeStaticMapLayer: { ...StyleSheet.absoluteFillObject, backgroundColor: '#dfeaf2' },
-  nativeStaticMapTile: { position: 'absolute', width: staticMapTileSize, height: staticMapTileSize, backgroundColor: '#dfeaf2' },
-  nativePlaceMarker: { position: 'absolute', width: 26, height: 34, alignItems: 'center', justifyContent: 'center' },
-  nativePlaceMarkerText: { color: '#e05a3f', fontSize: 31, lineHeight: 32, textShadowColor: 'rgba(255,255,255,0.95)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
-  nativeRouteMarker: { position: 'absolute', width: 24, height: 24, borderRadius: 12, backgroundColor: '#1f63c7', borderWidth: 2, borderColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
-  nativeRouteMarkerText: { color: '#ffffff', fontSize: 11, lineHeight: 14, fontWeight: '900' },
-  nativeMapAttribution: { position: 'absolute', left: 8, bottom: 8, borderRadius: 9, backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 7, paddingVertical: 4 },
-  nativeMapAttributionText: { color: '#50627a', fontSize: 9, lineHeight: 11, fontWeight: '800' },
   nativeMapEmptyTitle: { color: '#162640', fontSize: 17, fontWeight: '900', textAlign: 'center' },
   nativeMapEmptyText: { color: '#60718a', fontSize: 13, lineHeight: 18, fontWeight: '700', textAlign: 'center', marginTop: 6, paddingHorizontal: 18 },
   nativeMapPopup: { position: 'absolute', left: 12, right: 12, bottom: 12, minHeight: 58, borderRadius: 16, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', padding: 10, flexDirection: 'row', alignItems: 'center', gap: 10, shadowColor: '#12213a', shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3 },

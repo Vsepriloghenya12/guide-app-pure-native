@@ -939,32 +939,18 @@ function registerPublicAuthRoutes(app) {
     }
   });
 
-  app.get('/api/auth/telegram/start', (req, res) => {
+
+  app.get('/api/auth/telegram/native', (req, res) => {
     const returnTo = normalizeReturnTo(req.query.returnTo);
     try {
       const providerStatus = getProviderStatus();
       assertProviderAvailable('telegram');
       const botUsername = String(providerStatus.telegramBotUsername || '').replace(/^@/g, '').trim();
+      if (!botUsername) {
+        throw new Error('TELEGRAM_BOT_USERNAME не настроен.');
+      }
       const authUrl = `${getRequestOrigin(req)}/api/auth/telegram/callback?returnTo=${encodeURIComponent(returnTo)}`;
-      const botId = String(providerStatus.telegramBotId || '').trim();
-      const preferOAuth = String(req.query.prefer || '').toLowerCase() === 'oauth' || String(req.query.mode || '').toLowerCase() === 'native';
-      if (/^\d+$/.test(botId)) {
-        const telegramOAuthUrl = new URL('https://oauth.telegram.org/auth');
-        telegramOAuthUrl.searchParams.set('bot_id', botId);
-        telegramOAuthUrl.searchParams.set('origin', getRequestOrigin(req));
-        telegramOAuthUrl.searchParams.set('return_to', authUrl);
-        telegramOAuthUrl.searchParams.set('request_access', 'write');
-        if (String(req.query.format || '').toLowerCase() === 'json') {
-          res.json({ ok: true, provider: 'telegram', url: telegramOAuthUrl.toString() });
-          return;
-        }
-        res.redirect(telegramOAuthUrl.toString());
-        return;
-      }
-
-      if (preferOAuth) {
-        throw new Error('Для native-входа Telegram добавь на Railway TELEGRAM_BOT_ID — это цифры до двоеточия в TELEGRAM_BOT_TOKEN. Также проверь TELEGRAM_BOT_TOKEN и TELEGRAM_BOT_USERNAME.');
-      }
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.type('html').send(`<!doctype html>
 <html lang="ru">
 <head>
@@ -972,20 +958,46 @@ function registerPublicAuthRoutes(app) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Вход через Telegram</title>
   <style>
-    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f7ff; color: #102a43; }
-    .card { width: min(420px, calc(100vw - 32px)); padding: 28px; border-radius: 24px; background: #fff; box-shadow: 0 18px 50px rgba(16, 42, 67, .14); text-align: center; }
-    h1 { margin: 0 0 10px; font-size: 24px; }
-    p { margin: 0 0 22px; color: #62748b; line-height: 1.5; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f7ff; color: #102a43; padding: 20px; }
+    .card { width: min(440px, 100%); padding: 28px 22px; border-radius: 24px; background: #fff; box-shadow: 0 18px 50px rgba(16, 42, 67, .14); text-align: center; }
+    h1 { margin: 0 0 10px; font-size: 24px; line-height: 1.16; }
+    p { margin: 0 0 22px; color: #62748b; line-height: 1.5; font-size: 15px; }
+    .widget { display: flex; justify-content: center; min-height: 48px; }
+    .fallback { margin-top: 18px; font-size: 13px; color: #62748b; }
+    .fallback a { color: #1f63c7; font-weight: 800; text-decoration: none; }
   </style>
 </head>
 <body>
   <main class="card">
     <h1>Вход через Telegram</h1>
-    <p>Подтверди вход, после этого приложение откроется обратно автоматически.</p>
-    <script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="${botUsername}" data-size="large" data-auth-url="${authUrl}" data-request-access="write"></script>
+    <p>Нажми кнопку Telegram, подтверди вход, затем приложение откроется обратно автоматически.</p>
+    <div class="widget">
+      <script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="${escapeHtml(botUsername)}" data-size="large" data-auth-url="${escapeHtml(authUrl)}" data-request-access="write"></script>
+    </div>
+    <div class="fallback">Если кнопка не появилась, открой страницу ещё раз или проверь, что Telegram доступен на устройстве.</div>
   </main>
 </body>
 </html>`);
+    } catch (error) {
+      redirectToReturnTo(res, returnTo, {
+        auth: 'error',
+        provider: 'telegram',
+        message: error instanceof Error ? error.message : 'Telegram вход пока недоступен.'
+      });
+    }
+  });
+
+  app.get('/api/auth/telegram/start', (req, res) => {
+    const returnTo = normalizeReturnTo(req.query.returnTo);
+    try {
+      assertProviderAvailable('telegram');
+      const nativeLoginUrl = `${getRequestOrigin(req)}/api/auth/telegram/native?returnTo=${encodeURIComponent(returnTo)}&mode=native&source=mobile`;
+      if (String(req.query.format || '').toLowerCase() === 'json') {
+        res.json({ ok: true, provider: 'telegram', url: nativeLoginUrl });
+        return;
+      }
+      res.redirect(nativeLoginUrl);
     } catch (error) {
       redirectToReturnTo(res, returnTo, {
         auth: 'error',

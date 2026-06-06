@@ -11,7 +11,7 @@ Use this skill for Railway backend/API work.
 
 - Railway deploys the repository root and starts the Express backend.
 - Keep `railway.json` build/start commands compatible with the root scripts.
-- The web frontend has been removed; do not restore `webapp`, Vite, PWA, or static HTML serving.
+- The webapp/CMS is active in this repository. Railway builds `webapp` and `server`; the Express server serves `webapp/dist` when it exists. Do not remove `webapp`, Vite, or static serving unless explicitly requested.
 - Preserve file fallback when `DATABASE_URL` is missing.
 - Preserve PostgreSQL behavior when `DATABASE_URL` exists.
 - Never print real `.env` values or secrets.

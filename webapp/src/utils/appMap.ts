@@ -177,7 +177,7 @@ export function projectTileMapPointToLatLng(
 }
 
 export function getOsmTileUrl(x: number, y: number, zoom: number) {
-  return `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+  return `https://a.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${x}/${y}.png`;
 }
 
 export function getOsmTiles(

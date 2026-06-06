@@ -15,7 +15,7 @@ Use this skill for backend/API changes.
 - Do not require third-party API keys for basic startup.
 - Do not expose secrets from `.env`.
 - Keep uploads/storage paths safe and Railway-compatible.
-- The backend is API-only; do not restore web static serving.
+- The backend exposes API routes and also serves `webapp/dist` for the public web/CMS when the build exists. Preserve API routes and web static serving together.
 
 ## Checks
 

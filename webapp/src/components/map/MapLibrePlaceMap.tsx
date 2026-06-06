@@ -19,7 +19,7 @@ type MapLibrePlaceMapProps = {
 };
 
 const defaultCenter: [number, number] = [108.20623, 16.047079];
-const defaultTileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const defaultTileUrl = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
 
 function isValidCoordinate(lat: unknown, lng: unknown) {
   return (
