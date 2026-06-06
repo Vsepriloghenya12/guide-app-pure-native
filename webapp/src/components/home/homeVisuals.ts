@@ -3,7 +3,7 @@ import type { GuideCategory } from '../../types';
 const quickIconsById: Partial<Record<GuideCategory['id'], string>> = {
   restaurants: '/home-icons/custom/food.png',
   programs: '/home-icons/custom/programs.png',
-  events: '/home-icons/custom/leisure.png',
+  events: '/home-icons/custom/programs.png',
   wellness: '/home-icons/custom/wellness.png',
   hotels: '/home-icons/custom/hotels.png',
   'active-rest': '/home-icons/custom/active-rest.png',
@@ -21,7 +21,7 @@ const quickIconsById: Partial<Record<GuideCategory['id'], string>> = {
 
 const orderedQuickIcons = [
   '/home-icons/custom/food.png',
-  '/home-icons/custom/leisure.png',
+  '/home-icons/custom/programs.png',
   '/home-icons/custom/photo-spots.png',
   '/home-icons/custom/wellness.png',
   '/home-icons/custom/shopping.png'
@@ -30,8 +30,8 @@ const orderedQuickIcons = [
 const accentFallback: Record<string, string> = {
   coast: '/home-hero-background.png',
   sunset: '/home-hero-background.png',
-  bridge: '/home-icons/attractions.png',
-  emerald: '/home-icons/leisure.png'
+  bridge: '/home-icons/custom/programs.png',
+  emerald: '/home-icons/custom/wellness.png'
 };
 
 const toneByCategoryId: Partial<Record<GuideCategory['id'], string>> = {

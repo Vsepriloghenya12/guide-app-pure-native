@@ -6,15 +6,8 @@ let warmupPromise: Promise<void> | null = null;
 const bootAssets = [
   '/home-hero-background.png',
   '/home-hero-logo-custom.png',
-  '/home-hero-logo.png',
-  '/logo.png',
-  '/logo.svg',
-  '/boot-logo/mountains.png',
-  '/boot-logo/tower.png',
-  '/boot-logo/bridge.png',
-  '/boot-logo/wheel.png',
-  '/boot-logo/wave.png',
-  '/boot-logo/wordmark.png'
+  '/icons/icon-192.png',
+  '/icons/icon-512.png'
 ];
 
 function preloadAsset(url: string) {

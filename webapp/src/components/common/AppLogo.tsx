@@ -15,9 +15,7 @@ type LogoCandidate = {
 
 const LOGO_CANDIDATES: LogoCandidate[] = [
   { type: 'image', src: '/home-hero-logo-custom.png' },
-  { type: 'image', src: '/home-hero-logo.png' },
-  { type: 'image', src: '/logo.png' },
-  { type: 'image', src: '/logo.svg' }
+  { type: 'image', src: '/icons/icon-512.png' }
 ];
 
 function isVideoSource(src: string) {
