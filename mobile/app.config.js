@@ -13,11 +13,14 @@ module.exports = {
       usesAppleSignIn: true,
       infoPlist: {
         NSLocationWhenInUseUsageDescription: 'Приложение использует геолокацию, чтобы показывать места рядом с вами.'
+      },
+      config: {
+        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyDTDtz5ZdNanN19XgrAULyCeBSOe948qaU'
       }
     },
     android: {
       package: 'com.realone14.guideappnativeconnected',
-      versionCode: 8,
+      versionCode: 10,
       permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'POST_NOTIFICATIONS'],
       blockedPermissions: [
         'android.permission.RECORD_AUDIO',
@@ -30,8 +33,13 @@ module.exports = {
         foregroundImage: './assets/icon.png',
         backgroundColor: '#ffffff'
       },
-      edgeToEdgeEnabled: false,
-      softwareKeyboardLayoutMode: 'pan'
+      edgeToEdgeEnabled: true,
+      softwareKeyboardLayoutMode: 'pan',
+      config: {
+        googleMaps: {
+          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyDTDtz5ZdNanN19XgrAULyCeBSOe948qaU'
+        }
+      }
     },
     plugins: [
       'expo-location',
@@ -55,7 +63,6 @@ module.exports = {
         projectId: '5d3c1adc-6568-443d-9eb1-b1a829d388ec'
       },
       apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://guide-app-pure-native-production.up.railway.app',
-      mapTileUrl: process.env.EXPO_PUBLIC_MAP_TILE_URL || 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
       telegramBotId: process.env.EXPO_PUBLIC_TELEGRAM_BOT_ID || '',
       pushNotificationsEnabled: process.env.EXPO_PUBLIC_PUSH_NOTIFICATIONS_ENABLED === 'true'
     }

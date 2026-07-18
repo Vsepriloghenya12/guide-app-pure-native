@@ -25,7 +25,7 @@ import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import * as Notifications from 'expo-notifications';
-import { Camera, CircleLayer, LineLayer, MapView as MapLibreMap, ShapeSource, type CameraBounds } from '@maplibre/maplibre-react-native';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import type { BootstrapPayload, GuideCategory, GuideCollection, GuidePlace, GuideTip, SupportContentStore } from './src/types';
 import { fetchBootstrap, fetchSupportContent, fetchAuthSession, fetchAuthStartUrl, logoutAuthSession, deleteAuthProfile, reportBulletin, fetchHiddenAuthors, hideBulletinAuthor, API_BASE_URL, sendAnalytics, submitBulletinListing, fetchMyBulletinListings, deleteMyBulletinListing, getNotificationSettings, registerPushToken, updateNotificationSettings, type NotificationSettings } from './src/api/client';
 import { directionsUrl, openExternalUrl } from './src/utils/links';
@@ -185,28 +185,6 @@ const filterTextMap: Record<string, string> = {
   coworking: 'Коворкинг',
   resort: 'Курорт',
   beach: 'Пляж'
-};
-
-const DEFAULT_MAP_TILE_URL = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
-const configuredMapTileUrl = String(process.env.EXPO_PUBLIC_MAP_TILE_URL || '').trim();
-const mapTileUrl = configuredMapTileUrl && !/tile\.openstreetmap\.org/i.test(configuredMapTileUrl) ? configuredMapTileUrl : DEFAULT_MAP_TILE_URL;
-const mapLibreStyle: Record<string, unknown> = {
-  version: 8,
-  sources: {
-    carto: {
-      type: 'raster',
-      tiles: [mapTileUrl],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors © CARTO'
-    }
-  },
-  layers: [
-    {
-      id: 'carto',
-      type: 'raster',
-      source: 'carto'
-    }
-  ]
 };
 
 const ANDROID_STATUS_BAR_INSET = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0;
@@ -390,9 +368,10 @@ function placeCoordinate(place: GuidePlace) {
 }
 
 
-function buildMapBounds(points: Array<{ latitude: number; longitude: number }>): CameraBounds {
+function buildMapRegion(points: Array<{ latitude: number; longitude: number }>) {
   if (points.length === 0) {
-    return { ne: [108.2808, 16.1278], sw: [108.1608, 16.0078] };
+    // Центр Дананга по умолчанию.
+    return { latitude: 16.0678, longitude: 108.2208, latitudeDelta: 0.12, longitudeDelta: 0.12 };
   }
 
   const lats = points.map((point) => point.latitude);
@@ -401,12 +380,12 @@ function buildMapBounds(points: Array<{ latitude: number; longitude: number }>):
   const maxLat = Math.max(...lats);
   const minLng = Math.min(...lngs);
   const maxLng = Math.max(...lngs);
-  const latPadding = Math.max(0.01, (maxLat - minLat) * 0.25);
-  const lngPadding = Math.max(0.01, (maxLng - minLng) * 0.25);
 
   return {
-    ne: [maxLng + lngPadding, maxLat + latPadding],
-    sw: [minLng - lngPadding, minLat - latPadding]
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLng + maxLng) / 2,
+    latitudeDelta: Math.max(0.012, (maxLat - minLat) * 1.4),
+    longitudeDelta: Math.max(0.012, (maxLng - minLng) * 1.4)
   };
 }
 
@@ -1158,6 +1137,7 @@ function HomeScreen({
   const bannerScrollRef = useRef<ScrollView | null>(null);
   const activeHeroIndexRef = useRef(0);
   const { width: viewportWidth } = useWindowDimensions();
+  const { top: topInset } = useSafeAreaInsets();
   const visibleCategories = useMemo(
     () => dedupeHomeCategories(
       withRoutesShortcut(payload.categories.filter((category) => category.visible && !hiddenHomeCategoryIds.has(category.id)))
@@ -1282,11 +1262,11 @@ function HomeScreen({
 
   return (
     <View style={[styles.homeRoot, { width: viewportWidth, maxWidth: viewportWidth }]}>
-      <View style={[styles.homeHero, { width: viewportWidth }]}>
+      <View style={[styles.homeHero, { width: viewportWidth, height: 150 + topInset }]}>
         <ImageBackground source={homeHeaderImage} style={styles.full} imageStyle={styles.homeHeroImage}>
           <View style={styles.homeHeroOverlay} />
         </ImageBackground>
-        <TouchableOpacity activeOpacity={0.86} onPress={onOpenAuth} style={styles.heroAuthButton}>
+        <TouchableOpacity activeOpacity={0.86} onPress={onOpenAuth} style={[styles.heroAuthButton, { top: topInset + 8 }]}>
           {heroAvatarUrl ? (
             <Image source={{ uri: heroAvatarUrl }} style={styles.heroAuthAvatar} />
           ) : authUser ? (
@@ -2051,49 +2031,9 @@ function GuideMap({
     })
     .filter((point) => isValidLatitude(point.latitude) && isValidLongitude(point.longitude));
   const allCoordinates = [...routeCoordinates, ...placeMarkers.map((item) => item.coordinate)];
-  const mapInitialCamera = allCoordinates.length === 1
-    ? { centerCoordinate: [allCoordinates[0].longitude, allCoordinates[0].latitude], zoomLevel: 15 }
-    : { bounds: buildMapBounds(allCoordinates), padding: { paddingTop: 42, paddingRight: 42, paddingBottom: 42, paddingLeft: 42 } };
-  const routeLineData: GeoJSON.FeatureCollection<GeoJSON.LineString> = {
-    type: 'FeatureCollection',
-    features: routeCoordinates.length > 1 ? [{
-      type: 'Feature',
-      geometry: {
-        type: 'LineString',
-        coordinates: routeCoordinates.map((point) => [point.longitude, point.latitude])
-      },
-      properties: {}
-    }] : []
-  };
-  const routePointData: GeoJSON.FeatureCollection<GeoJSON.Point> = {
-    type: 'FeatureCollection',
-    features: routeCoordinates.map((point, index) => ({
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [point.longitude, point.latitude]
-      },
-      properties: {
-        title: toText(routePoints[index]?.title, 'Точка маршрута'),
-        color: index === 0 ? '#22a06b' : index === routeCoordinates.length - 1 ? '#e05a3f' : '#1f63c7'
-      }
-    }))
-  };
-  const placePointData: GeoJSON.FeatureCollection<GeoJSON.Point> = {
-    type: 'FeatureCollection',
-    features: placeMarkers.map(({ place, coordinate }) => ({
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [coordinate.longitude, coordinate.latitude]
-      },
-      properties: {
-        id: place.id,
-        title: toText(place.title, 'Место'),
-        subtitle: toText(place.address || place.district || place.kind)
-      }
-    }))
-  };
+  const mapRegion = allCoordinates.length === 1
+    ? { latitude: allCoordinates[0].latitude, longitude: allCoordinates[0].longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }
+    : buildMapRegion(allCoordinates);
 
   if (allCoordinates.length === 0) {
     return (
@@ -2106,54 +2046,48 @@ function GuideMap({
 
   return (
     <View style={[styles.nativeMapCard, { height }]}> 
-      <MapLibreMap
+      <MapView
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         style={styles.nativeMap}
-        mapStyle={mapLibreStyle}
-        logoEnabled={false}
-        attributionEnabled
-        attributionPosition={{ bottom: 8, left: 8 }}
-        compassEnabled
-        compassViewPosition={1}
-        compassViewMargins={{ x: 10, y: 10 }}
+        initialRegion={mapRegion}
+        showsCompass
+        toolbarEnabled={false}
       >
-        <Camera defaultSettings={mapInitialCamera} />
         {routeCoordinates.length > 1 ? (
-          <ShapeSource id="route-line-source" shape={routeLineData}>
-            <LineLayer
-              id="route-line"
-              style={{
-                lineCap: 'round',
-                lineJoin: 'round',
-                lineColor: '#1f63c7',
-                lineWidth: 5,
-                lineOpacity: 0.86
-              }}
-            />
-          </ShapeSource>
+          <Polyline coordinates={routeCoordinates} strokeColor="#1f63c7" strokeWidth={5} />
         ) : null}
-        {routeCoordinates.length > 0 ? (
-          <ShapeSource id="route-points-source" shape={routePointData}>
-            <CircleLayer id="route-point-halo" style={{ circleRadius: 9, circleColor: '#ffffff', circleOpacity: 0.92 }} />
-            <CircleLayer id="route-point" style={{ circleRadius: 6, circleColor: ['get', 'color'], circleStrokeWidth: 2, circleStrokeColor: '#ffffff' }} />
-          </ShapeSource>
-        ) : null}
-        {placeMarkers.length > 0 ? (
-          <ShapeSource
-            id="place-points-source"
-            shape={placePointData}
-            hitbox={{ width: 44, height: 44 }}
-            onPress={(event) => {
-              const feature = event.features?.[0];
-              const id = String(feature?.properties?.id || '');
-              const nextPlace = placeMarkers.find((item) => item.place.id === id)?.place || null;
-              setSelectedPlace(nextPlace);
-            }}
+        {routeCoordinates.map((point, index) => (
+          <Marker
+            key={`route-point-${index}`}
+            coordinate={point}
+            title={toText(routePoints[index]?.title, 'Точка маршрута')}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}
           >
-            <CircleLayer id="place-point-halo" style={{ circleRadius: 12, circleColor: '#ffffff', circleOpacity: 0.94 }} />
-            <CircleLayer id="place-point" style={{ circleRadius: 8, circleColor: '#e05a3f', circleStrokeWidth: 2, circleStrokeColor: '#ffffff' }} />
-          </ShapeSource>
-        ) : null}
-      </MapLibreMap>
+            <View style={styles.nativeMapMarkerHalo}>
+              <View
+                style={[
+                  styles.nativeMapMarkerRouteDot,
+                  { backgroundColor: index === 0 ? '#22a06b' : index === routeCoordinates.length - 1 ? '#e05a3f' : '#1f63c7' }
+                ]}
+              />
+            </View>
+          </Marker>
+        ))}
+        {placeMarkers.map(({ place, coordinate }) => (
+          <Marker
+            key={`place-${place.id}`}
+            coordinate={coordinate}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}
+            onPress={() => setSelectedPlace(place)}
+          >
+            <View style={styles.nativeMapMarkerHaloLarge}>
+              <View style={styles.nativeMapMarkerPlaceDot} />
+            </View>
+          </Marker>
+        ))}
+      </MapView>
       {selectedPlace ? (
         <View style={styles.nativeMapPopup}>
           <View style={styles.flex}>
@@ -2983,9 +2917,9 @@ function BottomTabs({ active, onChange, bottomInset }: { active: TabKey; onChang
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, width: '100%', minWidth: '100%', backgroundColor: '#ffffff', margin: 0, padding: 0, alignSelf: 'stretch' },
-  appHeader: { paddingHorizontal: 14, paddingTop: Platform.OS === 'android' ? ANDROID_STATUS_BAR_INSET + 10 : 8, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#e3eaf2', backgroundColor: '#f5f7fb' },
-  logoText: { color: '#102a43', fontSize: 22, fontWeight: '900' },
-  logoSubtext: { color: '#718096', fontSize: 12, marginTop: 2 },
+  appHeader: { paddingHorizontal: 14, paddingTop: Platform.OS === 'android' ? ANDROID_STATUS_BAR_INSET + 10 : 8, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#d8e0ea', backgroundColor: '#f5f7fb' },
+  logoText: { color: '#1f63c7', fontSize: 22, fontWeight: '900' },
+  logoSubtext: { color: '#62748b', fontSize: 12, marginTop: 2 },
   headerBackButton: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 14, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea' },
   headerBackText: { color: '#102a43', fontWeight: '800' },
   content: { flex: 1, width: '100%', minWidth: '100%', margin: 0, padding: 0, backgroundColor: '#ffffff' },
@@ -2997,31 +2931,31 @@ const styles = StyleSheet.create({
   full: { width: '100%', height: '100%' },
   errorScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, backgroundColor: '#ffffff' },
   errorTitle: { color: '#102a43', fontSize: 22, lineHeight: 27, fontWeight: '900', textAlign: 'center' },
-  errorText: { color: '#60718a', fontSize: 14, lineHeight: 20, fontWeight: '700', textAlign: 'center', marginTop: 10 },
+  errorText: { color: '#62748b', fontSize: 14, lineHeight: 20, fontWeight: '700', textAlign: 'center', marginTop: 10 },
   errorButton: { minHeight: 46, borderRadius: 16, backgroundColor: '#1f63c7', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18, marginTop: 18 },
   errorButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
 
   homeRoot: { flex: 1, width: '100%', alignSelf: 'center', backgroundColor: '#ffffff' },
-  homeHero: { width: '100%', minWidth: '100%', alignSelf: 'stretch', height: Platform.OS === 'android' ? 150 + ANDROID_STATUS_BAR_INSET : 150, paddingTop: ANDROID_STATUS_BAR_INSET, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', backgroundColor: '#1c65a0' },
+  homeHero: { width: '100%', minWidth: '100%', alignSelf: 'stretch', height: 150, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', backgroundColor: '#1c65a0' },
   homeHeroImage: { resizeMode: 'cover' },
   homeHeroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5, 18, 38, 0.08)' },
   homeUtilityDot: { position: 'absolute', right: 18, top: 6, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.18)' },
-  heroAuthButton: { position: 'absolute', right: 14, top: Platform.OS === 'android' ? ANDROID_STATUS_BAR_INSET + 10 : 12, zIndex: 4, width: 46, height: 46, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(8, 18, 37, 0.36)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
+  heroAuthButton: { position: 'absolute', right: 14, top: 12, zIndex: 4, width: 46, height: 46, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(8, 18, 37, 0.36)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
   heroAuthAvatar: { width: 42, height: 42, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.22)' },
   heroAuthIcon: { color: '#ffffff', fontSize: 20, lineHeight: 23, fontWeight: '900' },
   homeBody: { width: '100%', minWidth: '100%', alignSelf: 'stretch', marginTop: -18, paddingHorizontal: 0, paddingLeft: 0, paddingRight: 0, gap: 14, backgroundColor: '#ffffff' },
   bannerStack: { width: '100%', minWidth: '100%', height: 168, justifyContent: 'center', overflow: 'hidden' },
   bannerCarousel: { height: 136, width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   bannerScrollerContent: { alignItems: 'center' },
-  homeBanner: { height: 126, borderRadius: 20, overflow: 'hidden', backgroundColor: '#173f82' },
-  homeBannerSlide: { height: 134, borderRadius: 22, backgroundColor: '#173f82', shadowColor: '#26436b', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.16, shadowRadius: 18, elevation: 8 },
+  homeBanner: { height: 126, borderRadius: 20, overflow: 'hidden', backgroundColor: '#1f63c7' },
+  homeBannerSlide: { height: 134, borderRadius: 22, backgroundColor: '#1f63c7', shadowColor: '#293d5d', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.16, shadowRadius: 18, elevation: 8 },
   homeBannerCenterHalo: { width: '78%', height: 134, borderRadius: 24, padding: 4, backgroundColor: 'rgba(255,255,255,0.86)', shadowColor: '#ffffff', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 20, elevation: 12, zIndex: 4 },
   homeBannerCenter: { width: '100%', height: '100%', zIndex: 5, borderRadius: 20 },
   homeBannerPreview: { position: 'absolute', width: '30%', height: 108, opacity: 0.72, zIndex: 1 },
   homeBannerPreviewLeft: { left: -8 },
   homeBannerPreviewRight: { right: -8 },
   homeBannerImage: { borderRadius: 20 },
-  homeBannerFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#173f82' },
+  homeBannerFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7' },
   bannerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'transparent' },
   homeBannerTextWrap: { position: 'absolute', left: 18, right: 18, bottom: 16, paddingHorizontal: 0, paddingVertical: 0 },
   homeBannerTitle: { color: '#ffffff', fontSize: 15, lineHeight: 19, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.72)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
@@ -3037,7 +2971,7 @@ const styles = StyleSheet.create({
   quickItem: { width: '25%', alignItems: 'center', paddingHorizontal: 2 },
   quickIcon: { width: 68, height: 68, borderRadius: 18, backgroundColor: '#dbe7ef' },
   quickLabel: { color: '#102a43', fontSize: 10.5, lineHeight: 12.5, fontWeight: '900', textAlign: 'center', marginTop: 7, minHeight: 26 },
-  programSpotlight: { position: 'relative', overflow: 'hidden', borderRadius: 24, backgroundColor: '#214f9c', paddingHorizontal: 22, paddingTop: 18, paddingBottom: 8, alignItems: 'center', marginHorizontal: 14, marginTop: 2 },
+  programSpotlight: { position: 'relative', overflow: 'hidden', borderRadius: 24, backgroundColor: '#1f63c7', paddingHorizontal: 22, paddingTop: 18, paddingBottom: 8, alignItems: 'center', marginHorizontal: 14, marginTop: 2 },
   programBlob: { position: 'absolute', top: -32, right: -26, width: 130, height: 96, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.13)' },
   programEyebrow: { color: '#ffffff', opacity: 0.82, fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.4 },
   programTitle: { color: '#ffffff', fontSize: 20, lineHeight: 23, fontWeight: '900', textAlign: 'center', marginTop: 8, maxWidth: 260 },
@@ -3051,7 +2985,7 @@ const styles = StyleSheet.create({
   homeSectionHeaderSide: { width: 44, height: 32 },
   homeSectionTitle: { flex: 1, color: '#102a43', fontSize: 20, fontWeight: '900', textAlign: 'center' },
   homeSectionAllButton: { width: 44, minHeight: 32, alignItems: 'flex-end', justifyContent: 'center' },
-  homeSectionLink: { color: '#3764a8', fontSize: 13, fontWeight: '900' },
+  homeSectionLink: { color: '#1f63c7', fontSize: 13, fontWeight: '900' },
   tipRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingHorizontal: 0, borderRadius: 0, backgroundColor: 'transparent', borderBottomWidth: 1, borderBottomColor: 'rgba(23, 37, 64, 0.08)' },
   tipThumb: { width: 52, height: 52, borderRadius: 14 },
   tipThumbPlaceholder: { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e4edf7' },
@@ -3061,10 +2995,10 @@ const styles = StyleSheet.create({
   tipChevron: { color: '#96a6bb', fontSize: 24, lineHeight: 26, fontWeight: '500' },
   tipModalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(9, 19, 38, 0.36)' },
   tipModalCard: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 30 : 18, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#ffffff' },
-  tipModalHandle: { alignSelf: 'center', width: 44, height: 4, borderRadius: 999, backgroundColor: '#d4deeb', marginBottom: 14 },
+  tipModalHandle: { alignSelf: 'center', width: 44, height: 4, borderRadius: 999, backgroundColor: '#d8e0ea', marginBottom: 14 },
   tipModalEyebrow: { color: '#1f63c7', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
   tipModalTitle: { color: '#102a43', fontSize: 23, lineHeight: 28, fontWeight: '900', marginTop: 8 },
-  tipModalText: { color: '#53657c', fontSize: 15, lineHeight: 22, fontWeight: '700', marginTop: 10 },
+  tipModalText: { color: '#62748b', fontSize: 15, lineHeight: 22, fontWeight: '700', marginTop: 10 },
   tipModalButton: { minHeight: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7', marginTop: 18 },
   tipModalButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
   welcomeScreen: { flex: 1, width: '100%', backgroundColor: '#156db2' },
@@ -3084,10 +3018,10 @@ const styles = StyleSheet.create({
   screenText: { color: '#62748b', fontSize: 14, lineHeight: 20, fontWeight: '700' },
   searchInput: { minHeight: 50, paddingHorizontal: 16, borderRadius: 18, backgroundColor: '#fff', borderWidth: 1, borderColor: '#d8e0ea', color: '#102a43', fontSize: 15, fontWeight: '700' },
   noteText: { color: '#62748b', fontSize: 14, lineHeight: 20, fontWeight: '700' },
-  contactCard: { padding: 16, borderRadius: 22, backgroundColor: '#fff', borderWidth: 1, borderColor: '#d8e0ea', shadowColor: '#263856', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.06, shadowRadius: 14, elevation: 2 },
+  contactCard: { padding: 16, borderRadius: 22, backgroundColor: '#fff', borderWidth: 1, borderColor: '#d8e0ea', shadowColor: '#293d5d', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.06, shadowRadius: 14, elevation: 2 },
   contactCardTitle: { color: '#102a43', fontSize: 18, lineHeight: 22, fontWeight: '900' },
   contactCardText: { color: '#62748b', fontSize: 14, lineHeight: 20, marginTop: 5, fontWeight: '700' },
-  contactValue: { color: '#155ea6', fontSize: 16, fontWeight: '900', marginTop: 10 },
+  contactValue: { color: '#1f63c7', fontSize: 16, fontWeight: '900', marginTop: 10 },
   legalLinksCard: { padding: 14, borderRadius: 20, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', gap: 4 },
   legalLinksTitle: { color: '#102a43', fontSize: 15, lineHeight: 19, fontWeight: '900', marginBottom: 4 },
   legalLinkRow: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
@@ -3104,9 +3038,9 @@ const styles = StyleSheet.create({
   detailPlainHeader: { gap: 12, paddingHorizontal: 2, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
   detailPlainSection: { gap: 10, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
   detailMapSection: { gap: 10, paddingTop: 2, paddingBottom: 4 },
-  detailMapFallback: { minHeight: 128, borderRadius: 22, alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: '#f3f7ff', borderWidth: 1, borderColor: '#d8e4f2' },
+  detailMapFallback: { minHeight: 128, borderRadius: 22, alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: '#eaf3ff', borderWidth: 1, borderColor: '#d8e4f2' },
   detailMapFallbackTitle: { color: '#102a43', fontSize: 15, lineHeight: 20, fontWeight: '900', textAlign: 'center' },
-  detailMapFallbackText: { color: '#60718a', fontSize: 12.5, lineHeight: 18, fontWeight: '700', textAlign: 'center', marginTop: 4 },
+  detailMapFallbackText: { color: '#62748b', fontSize: 12.5, lineHeight: 18, fontWeight: '700', textAlign: 'center', marginTop: 4 },
   fullscreenImageBackdrop: { flex: 1, backgroundColor: 'rgba(2, 8, 23, 0.94)' },
   fullscreenImageCloseArea: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
   fullscreenImage: { width: '100%', height: '86%' },
@@ -3115,15 +3049,15 @@ const styles = StyleSheet.create({
   detailInfoList: { borderTopWidth: 1, borderTopColor: 'rgba(214, 223, 235, 0.92)' },
   detailTitleRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   detailTitle: { color: '#102a43', fontSize: 29, lineHeight: 34, fontWeight: '900', marginTop: 5 },
-  detailSubtitle: { color: '#53739b', fontSize: 15, fontWeight: '800', marginTop: 6 },
+  detailSubtitle: { color: '#62748b', fontSize: 15, fontWeight: '800', marginTop: 6 },
   detailVerificationButton: { width: 48, height: 48, borderRadius: 18, backgroundColor: '#fff7e5', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#f2d58a' },
   detailVerificationImage: { width: 38, height: 38 },
   detailFavorite: { width: 48, height: 48, borderRadius: 18, backgroundColor: '#f1f5fa', alignItems: 'center', justifyContent: 'center' },
   detailFavoriteText: { color: '#2f78d6', fontSize: 24, lineHeight: 26, fontWeight: '900' },
   detailPillsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  detailText: { color: '#486581', fontSize: 16, lineHeight: 24 },
+  detailText: { color: '#62748b', fontSize: 16, lineHeight: 24 },
   infoBlock: { paddingVertical: 13, paddingHorizontal: 2, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)', gap: 4 },
-  infoLabel: { color: '#53739b', fontSize: 13, fontWeight: '900', textTransform: 'uppercase' },
+  infoLabel: { color: '#62748b', fontSize: 13, fontWeight: '900', textTransform: 'uppercase' },
   infoValue: { color: '#102a43', fontSize: 16, lineHeight: 22, fontWeight: '700' },
   infoValueLink: { color: '#1f63c7' },
   actionsGrid: { gap: 10 },
@@ -3134,20 +3068,24 @@ const styles = StyleSheet.create({
   verificationModalCard: { width: '100%', maxWidth: 340, borderRadius: 24, backgroundColor: '#ffffff', alignItems: 'center', paddingHorizontal: 20, paddingTop: 22, paddingBottom: 18 },
   verificationModalImage: { width: 88, height: 88 },
   verificationModalTitle: { color: '#102a43', fontSize: 20, lineHeight: 25, fontWeight: '900', marginTop: 10, textAlign: 'center' },
-  verificationModalText: { color: '#53657c', fontSize: 15, lineHeight: 22, fontWeight: '700', marginTop: 8, textAlign: 'center' },
+  verificationModalText: { color: '#62748b', fontSize: 15, lineHeight: 22, fontWeight: '700', marginTop: 8, textAlign: 'center' },
   verificationModalButton: { minHeight: 46, borderRadius: 15, backgroundColor: '#1f63c7', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, marginTop: 18 },
   verificationModalButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
-  bulletText: { color: '#486581', fontSize: 15, lineHeight: 22 },
+  bulletText: { color: '#62748b', fontSize: 15, lineHeight: 22 },
   nearbyCardWrap: { gap: 8 },
   nearbyBadge: { alignSelf: 'flex-start', marginLeft: 12, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: '#102a43' },
   nearbyText: { color: '#fff', fontWeight: '800' },
   nativeMapCard: { width: '100%', borderRadius: 22, overflow: 'hidden', backgroundColor: '#e8f1f8', borderWidth: 1, borderColor: '#d8e0ea', justifyContent: 'center' },
   nativeMap: { ...StyleSheet.absoluteFillObject },
-  nativeMapEmptyTitle: { color: '#162640', fontSize: 17, fontWeight: '900', textAlign: 'center' },
-  nativeMapEmptyText: { color: '#60718a', fontSize: 13, lineHeight: 18, fontWeight: '700', textAlign: 'center', marginTop: 6, paddingHorizontal: 18 },
-  nativeMapPopup: { position: 'absolute', left: 12, right: 12, bottom: 12, minHeight: 58, borderRadius: 16, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', padding: 10, flexDirection: 'row', alignItems: 'center', gap: 10, shadowColor: '#12213a', shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
-  nativeMapPopupTitle: { color: '#162640', fontSize: 13, lineHeight: 17, fontWeight: '900' },
-  nativeMapPopupText: { color: '#60718a', fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
+  nativeMapMarkerHalo: { width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255, 255, 255, 0.92)', alignItems: 'center', justifyContent: 'center' },
+  nativeMapMarkerHaloLarge: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255, 255, 255, 0.94)', alignItems: 'center', justifyContent: 'center' },
+  nativeMapMarkerRouteDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: '#ffffff' },
+  nativeMapMarkerPlaceDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#ffffff', backgroundColor: '#e05a3f' },
+  nativeMapEmptyTitle: { color: '#102a43', fontSize: 17, fontWeight: '900', textAlign: 'center' },
+  nativeMapEmptyText: { color: '#62748b', fontSize: 13, lineHeight: 18, fontWeight: '700', textAlign: 'center', marginTop: 6, paddingHorizontal: 18 },
+  nativeMapPopup: { position: 'absolute', left: 12, right: 12, bottom: 12, minHeight: 58, borderRadius: 16, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', padding: 10, flexDirection: 'row', alignItems: 'center', gap: 10, shadowColor: '#102a43', shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
+  nativeMapPopupTitle: { color: '#102a43', fontSize: 13, lineHeight: 17, fontWeight: '900' },
+  nativeMapPopupText: { color: '#62748b', fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
   nativeMapPopupButton: { minHeight: 36, borderRadius: 12, backgroundColor: '#1f63c7', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   nativeMapPopupButtonText: { color: '#ffffff', fontSize: 11, lineHeight: 14, fontWeight: '900' },
   nearbyMapFallbackCard: { minHeight: 178 },
@@ -3183,8 +3121,8 @@ const styles = StyleSheet.create({
   restaurantCardBody: { flex: 1, minWidth: 0, maxWidth: '100%', justifyContent: 'center', gap: 4, paddingTop: 0, paddingRight: 2, overflow: 'hidden' },
   restaurantCardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
   restaurantCardQualityBadge: { width: 22, height: 22, flexShrink: 0 },
-  restaurantCardTitle: { flex: 1, minWidth: 0, color: '#162640', fontSize: 14.2, lineHeight: 17, fontWeight: '900', letterSpacing: -0.2 },
-  restaurantCardSubtitle: { color: '#60718a', fontSize: 11.8, lineHeight: 15, fontWeight: '500' },
+  restaurantCardTitle: { flex: 1, minWidth: 0, color: '#102a43', fontSize: 14.2, lineHeight: 17, fontWeight: '900', letterSpacing: -0.2 },
+  restaurantCardSubtitle: { color: '#62748b', fontSize: 11.8, lineHeight: 15, fontWeight: '500' },
   restaurantFacts: { gap: 4, marginTop: 3 },
   restaurantFactRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   restaurantFactText: { flex: 1, minWidth: 0, color: '#24364f', fontSize: 11.6, lineHeight: 16, fontWeight: '800' },
@@ -3204,17 +3142,17 @@ const styles = StyleSheet.create({
   bulletinContentInner: { paddingTop: Platform.OS === 'android' ? ANDROID_STATUS_BAR_INSET + 18 : 18 },
   bulletinToolbar: { alignItems: 'center' },
   bulletinSearchBar: { flex: 1, minHeight: 42, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(214, 223, 235, 0.94)', backgroundColor: '#ffffff', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 8 },
-  bulletinSearchIcon: { color: '#6e7f97', fontSize: 16, fontWeight: '900' },
-  bulletinSearchInput: { flex: 1, minHeight: 40, color: '#162640', fontSize: 13, fontWeight: '700', padding: 0 },
+  bulletinSearchIcon: { color: '#62748b', fontSize: 16, fontWeight: '900' },
+  bulletinSearchInput: { flex: 1, minHeight: 40, color: '#102a43', fontSize: 13, fontWeight: '700', padding: 0 },
   bulletinClearButton: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#edf3fb' },
   bulletinClearText: { color: '#50627a', fontSize: 20, lineHeight: 22, fontWeight: '800' },
   bulletinPostButton: { minHeight: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7', marginTop: 2 },
   bulletinPostText: { color: '#ffffff', fontSize: 13, fontWeight: '900' },
-  myBulletinsBlock: { gap: 8, padding: 12, borderRadius: 18, backgroundColor: '#fff', borderWidth: 1, borderColor: '#dfe7f1' },
+  myBulletinsBlock: { gap: 8, padding: 12, borderRadius: 18, backgroundColor: '#fff', borderWidth: 1, borderColor: '#d8e0ea' },
   myBulletinsTitle: { color: '#102a43', fontSize: 15, fontWeight: '900' },
   myBulletinCard: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#edf3fb' },
   myBulletinTitle: { color: '#102a43', fontSize: 14, fontWeight: '800' },
-  myBulletinStatus: { color: '#53739b', fontSize: 12, fontWeight: '800', marginTop: 2 },
+  myBulletinStatus: { color: '#62748b', fontSize: 12, fontWeight: '800', marginTop: 2 },
   myBulletinNote: { color: '#8f1d1d', fontSize: 12, lineHeight: 16, marginTop: 4 },
   myBulletinDeleteButton: { minHeight: 34, paddingHorizontal: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff1f1', borderWidth: 1, borderColor: '#ffd1d1' },
   myBulletinDeleteText: { color: '#8f1d1d', fontSize: 12, fontWeight: '900' },
@@ -3222,7 +3160,7 @@ const styles = StyleSheet.create({
   bulletinMosaicCard: { width: '48.8%', minHeight: 92, overflow: 'hidden', borderRadius: 22, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e9f2', padding: 12, justifyContent: 'space-between' },
   bulletinMosaicCardActive: { backgroundColor: '#1f63c7', borderColor: '#1f63c7' },
   bulletinMosaicOrb: { position: 'absolute', right: -16, top: -18, width: 70, height: 70, borderRadius: 35, backgroundColor: 'rgba(31, 99, 199, 0.10)' },
-  bulletinMosaicText: { color: '#162640', fontSize: 15, lineHeight: 18, fontWeight: '900', marginTop: 44 },
+  bulletinMosaicText: { color: '#102a43', fontSize: 15, lineHeight: 18, fontWeight: '900', marginTop: 44 },
   bulletinMosaicTextActive: { color: '#ffffff' },
   bulletinQuickRow: { gap: 8, paddingVertical: 2 },
   bulletinQuickButton: { minHeight: 34, paddingHorizontal: 13, borderRadius: 999, borderWidth: 1, borderColor: '#d8e0ea', backgroundColor: '#ffffff', justifyContent: 'center' },
@@ -3230,13 +3168,13 @@ const styles = StyleSheet.create({
   bulletinQuickText: { color: '#52667f', fontSize: 12, fontWeight: '900' },
   bulletinQuickTextActive: { color: '#ffffff' },
   bulletinFeedHead: { paddingTop: 4, paddingBottom: 2 },
-  bulletinFeedTitle: { color: '#162640', fontSize: 20, lineHeight: 24, fontWeight: '900' },
-  bulletinPostSheet: { maxHeight: '82%', borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#f8fbff' },
+  bulletinFeedTitle: { color: '#102a43', fontSize: 20, lineHeight: 24, fontWeight: '900' },
+  bulletinPostSheet: { maxHeight: '82%', borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#ffffff' },
   bulletinPostSheetContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: Platform.OS === 'ios' ? 28 : 18 + ANDROID_NAVIGATION_BAR_INSET, gap: 10 },
-  bulletinPostInput: { minHeight: 46, borderRadius: 16, borderWidth: 1, borderColor: '#d8e0ea', backgroundColor: '#ffffff', paddingHorizontal: 13, color: '#162640', fontSize: 13.5, lineHeight: 18, fontWeight: '700' },
+  bulletinPostInput: { minHeight: 46, borderRadius: 16, borderWidth: 1, borderColor: '#d8e0ea', backgroundColor: '#ffffff', paddingHorizontal: 13, color: '#102a43', fontSize: 13.5, lineHeight: 18, fontWeight: '700' },
   bulletinPostInputMultiline: { minHeight: 104, paddingTop: 12, paddingBottom: 12 },
   bulletinPhotoHeader: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  bulletinPhotoTitle: { color: '#162640', fontSize: 15, fontWeight: '900' },
+  bulletinPhotoTitle: { color: '#102a43', fontSize: 15, fontWeight: '900' },
   bulletinAddPhotoButton: { minHeight: 34, borderRadius: 13, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea' },
   bulletinAddPhotoText: { color: '#1f63c7', fontSize: 12, fontWeight: '900' },
   bulletinPhotoRow: { gap: 8, paddingRight: 6 },
@@ -3247,15 +3185,15 @@ const styles = StyleSheet.create({
 
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(9, 19, 38, 0.36)' },
   modalBackdropTouch: { ...StyleSheet.absoluteFillObject },
-  filterSheet: { maxHeight: '74%', paddingHorizontal: 16, paddingTop: 16, paddingBottom: Platform.OS === 'ios' ? 28 : 18, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#f8fbff', gap: 14 },
+  filterSheet: { maxHeight: '74%', paddingHorizontal: 16, paddingTop: 16, paddingBottom: Platform.OS === 'ios' ? 28 : 18, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#ffffff', gap: 14 },
   filterSheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   filterSheetTitle: { color: '#102a43', fontSize: 22, fontWeight: '900' },
   filterSheetMeta: { color: '#6c7b90', fontSize: 12, fontWeight: '800', marginTop: 3 },
   filterCloseButton: { width: 38, height: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea' },
   filterCloseText: { color: '#102a43', fontSize: 24, lineHeight: 26, fontWeight: '700' },
-  filterGroupLabel: { color: '#6e7f97', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.4 },
+  filterGroupLabel: { color: '#62748b', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.4 },
   filterChipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  filterChip: { minHeight: 38, paddingHorizontal: 14, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#ccd8e8' },
+  filterChip: { minHeight: 38, paddingHorizontal: 14, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea' },
   filterChipActive: { backgroundColor: '#1f63c7', borderColor: '#1f63c7' },
   filterChipText: { color: '#4e6078', fontSize: 12, fontWeight: '900' },
   filterChipTextActive: { color: '#ffffff' },
@@ -3265,7 +3203,7 @@ const styles = StyleSheet.create({
   filterApplyButton: { flex: 1.2, minHeight: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7' },
   filterApplyText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
 
-  routesIntroCard: { position: 'relative', overflow: 'hidden', borderRadius: 24, backgroundColor: '#214f9c', paddingHorizontal: 20, paddingVertical: 18 },
+  routesIntroCard: { position: 'relative', overflow: 'hidden', borderRadius: 24, backgroundColor: '#1f63c7', paddingHorizontal: 20, paddingVertical: 18 },
   routesIntroEyebrow: { color: '#ffffff', opacity: 0.82, fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
   routesIntroTitle: { color: '#ffffff', fontSize: 22, lineHeight: 27, fontWeight: '900', marginTop: 8 },
   routesIntroText: { color: '#edf5ff', fontSize: 13, lineHeight: 19, fontWeight: '700', marginTop: 8 },
@@ -3273,25 +3211,25 @@ const styles = StyleSheet.create({
   routeListRow: { minHeight: 96, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
   routeListIcon: { width: 54, height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#eaf3ff' },
   routeListIconText: { color: '#1f63c7', fontSize: 24, lineHeight: 28, fontWeight: '900' },
-  routeListTitle: { color: '#162640', fontSize: 15.5, lineHeight: 19, fontWeight: '900' },
-  routeListSubtitle: { color: '#60718a', fontSize: 12.5, lineHeight: 17, fontWeight: '600', marginTop: 4 },
+  routeListTitle: { color: '#102a43', fontSize: 15.5, lineHeight: 19, fontWeight: '900' },
+  routeListSubtitle: { color: '#62748b', fontSize: 12.5, lineHeight: 17, fontWeight: '600', marginTop: 4 },
   routeMetaRow: { flexDirection: 'row', gap: 8, marginTop: 9 },
-  routeMetaPill: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, overflow: 'hidden', backgroundColor: '#eef4fb', color: '#3764a8', fontSize: 10.5, fontWeight: '900' },
+  routeMetaPill: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, overflow: 'hidden', backgroundColor: '#eef4fb', color: '#1f63c7', fontSize: 10.5, fontWeight: '900' },
   routeChevron: { color: '#9aaabd', fontSize: 28, lineHeight: 30, fontWeight: '500' },
-  routeDetailHero: { borderRadius: 24, backgroundColor: '#214f9c', paddingHorizontal: 20, paddingVertical: 18 },
+  routeDetailHero: { borderRadius: 24, backgroundColor: '#1f63c7', paddingHorizontal: 20, paddingVertical: 18 },
   routeDetailEyebrow: { color: '#edf5ff', opacity: 0.85, fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.4 },
   routeDetailTitle: { color: '#ffffff', fontSize: 24, lineHeight: 29, fontWeight: '900', marginTop: 8 },
   routeDetailText: { color: '#edf5ff', fontSize: 13.5, lineHeight: 20, fontWeight: '700', marginTop: 10 },
   routeDetailBlock: { paddingVertical: 4, gap: 9 },
-  routeBlockTitle: { color: '#162640', fontSize: 18, lineHeight: 22, fontWeight: '900' },
+  routeBlockTitle: { color: '#102a43', fontSize: 18, lineHeight: 22, fontWeight: '900' },
   routeSeeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   routeSeeDot: { color: '#1f63c7', fontSize: 18, lineHeight: 20, fontWeight: '900' },
-  routeSeeText: { flex: 1, color: '#53657c', fontSize: 13.5, lineHeight: 20, fontWeight: '700' },
+  routeSeeText: { flex: 1, color: '#62748b', fontSize: 13.5, lineHeight: 20, fontWeight: '700' },
   routePointRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 11, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
   routePointIndex: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7' },
   routePointIndexText: { color: '#ffffff', fontSize: 12, lineHeight: 14, fontWeight: '900' },
-  routePointTitle: { color: '#162640', fontSize: 14.5, lineHeight: 18, fontWeight: '900' },
-  routePointText: { color: '#60718a', fontSize: 12.5, lineHeight: 18, fontWeight: '700', marginTop: 3 },
+  routePointTitle: { color: '#102a43', fontSize: 14.5, lineHeight: 18, fontWeight: '900' },
+  routePointText: { color: '#62748b', fontSize: 12.5, lineHeight: 18, fontWeight: '700', marginTop: 3 },
   routeMapCard: { borderRadius: 24, overflow: 'hidden', backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', padding: 14, gap: 12 },
   routeMapCanvas: { height: 190, borderRadius: 20, overflow: 'hidden', backgroundColor: '#eaf4f6', position: 'relative' },
   routeMapLine: { position: 'absolute', left: '12%', right: '12%', top: '46%', height: 4, borderRadius: 999, backgroundColor: 'rgba(31, 99, 199, 0.30)', transform: [{ rotate: '-8deg' }] },
@@ -3300,16 +3238,16 @@ const styles = StyleSheet.create({
   routeMapButton: { minHeight: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7', paddingHorizontal: 12 },
   routeMapButtonText: { color: '#ffffff', fontSize: 13, lineHeight: 17, fontWeight: '900', textAlign: 'center' },
 
-  programsHeroCard: { position: 'relative', overflow: 'hidden', borderRadius: 24, backgroundColor: '#214f9c', paddingHorizontal: 22, paddingVertical: 20, alignItems: 'center' },
+  programsHeroCard: { position: 'relative', overflow: 'hidden', borderRadius: 24, backgroundColor: '#1f63c7', paddingHorizontal: 22, paddingVertical: 20, alignItems: 'center' },
   programsList: { gap: 10 },
-  programCard: { padding: 16, borderRadius: 22, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e2e8f2', shadowColor: '#263856', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.06, shadowRadius: 14, elevation: 2 },
+  programCard: { padding: 16, borderRadius: 22, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e2e8f2', shadowColor: '#293d5d', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.06, shadowRadius: 14, elevation: 2 },
   programCardStay: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, overflow: 'hidden', backgroundColor: 'rgba(31, 99, 199, 0.10)', color: '#1f63c7', fontSize: 11, fontWeight: '900' },
   programCardTitle: { color: '#102a43', fontSize: 18, lineHeight: 22, fontWeight: '900', marginTop: 10 },
   programCardText: { color: '#607086', fontSize: 13, lineHeight: 19, fontWeight: '700', marginTop: 6 },
   programCardAction: { color: '#1f63c7', fontSize: 13, fontWeight: '900', marginTop: 12 },
 
   authModalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(9, 19, 38, 0.36)' },
-  authSheet: { maxHeight: '92%', borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#f8fbff' },
+  authSheet: { maxHeight: '92%', borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: '#ffffff' },
   authSheetContent: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 30 : 18 + ANDROID_NAVIGATION_BAR_INSET, gap: 10 },
   authSheetHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 4 },
   authSheetTitle: { color: '#102a43', fontSize: 22, lineHeight: 27, fontWeight: '900' },
@@ -3318,26 +3256,26 @@ const styles = StyleSheet.create({
   authCloseText: { color: '#102a43', fontSize: 24, lineHeight: 26, fontWeight: '700' },
   authNotice: { padding: 12, borderRadius: 16, backgroundColor: '#fff8e7', borderWidth: 1, borderColor: '#f0dfb8' },
   authNoticeText: { color: '#80611c', fontSize: 12, lineHeight: 17, fontWeight: '800' },
-  authProviderButton: { minHeight: 62, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e0e8f2' },
+  authProviderButton: { minHeight: 62, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea' },
   authProviderButtonDisabled: { opacity: 0.48 },
-  authProviderBrand: { width: 38, height: 38, borderRadius: 14, overflow: 'hidden', backgroundColor: '#edf4ff', color: '#1f63c7', textAlign: 'center', textAlignVertical: 'center', fontSize: 17, lineHeight: 38, fontWeight: '900' },
+  authProviderBrand: { width: 38, height: 38, borderRadius: 14, overflow: 'hidden', backgroundColor: '#eaf3ff', color: '#1f63c7', textAlign: 'center', textAlignVertical: 'center', fontSize: 17, lineHeight: 38, fontWeight: '900' },
   authProviderTitle: { color: '#102a43', fontSize: 14.5, lineHeight: 18, fontWeight: '900' },
-  authProviderSub: { color: '#718096', fontSize: 11.5, lineHeight: 15, fontWeight: '700', marginTop: 2 },
-  authLegalText: { color: '#718096', fontSize: 11.5, lineHeight: 17, fontWeight: '700', textAlign: 'center', paddingHorizontal: 8 },
+  authProviderSub: { color: '#62748b', fontSize: 11.5, lineHeight: 15, fontWeight: '700', marginTop: 2 },
+  authLegalText: { color: '#62748b', fontSize: 11.5, lineHeight: 17, fontWeight: '700', textAlign: 'center', paddingHorizontal: 8 },
   authLegalTextLink: { color: '#1f63c7', fontWeight: '900', textDecorationLine: 'underline' },
   authLegalLinks: { paddingHorizontal: 4, gap: 8 },
   authLegalLinkText: { color: '#1f63c7', fontSize: 12.5, lineHeight: 17, fontWeight: '900', textDecorationLine: 'underline' },
-  profileBlock: { minHeight: 76, borderRadius: 22, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e0e8f2', flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
+  profileBlock: { minHeight: 76, borderRadius: 22, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
   profileAvatar: { width: 46, height: 46, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7', overflow: 'hidden' },
   profileAvatarImage: { width: 46, height: 46 },
   profileAvatarText: { color: '#ffffff', fontSize: 18, lineHeight: 22, fontWeight: '900' },
   profileName: { color: '#102a43', fontSize: 15, lineHeight: 19, fontWeight: '900' },
-  profileEmail: { color: '#718096', fontSize: 11.5, lineHeight: 15, fontWeight: '700', marginTop: 2 },
+  profileEmail: { color: '#62748b', fontSize: 11.5, lineHeight: 15, fontWeight: '700', marginTop: 2 },
   profileLogoutButton: { minHeight: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5fa', paddingHorizontal: 12 },
   profileLogoutText: { color: '#1f63c7', fontSize: 12, lineHeight: 15, fontWeight: '900' },
-  profileNotificationRow: { minHeight: 82, borderRadius: 18, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e0e8f2', flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
+  profileNotificationRow: { minHeight: 82, borderRadius: 18, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
   profileNotificationTitle: { color: '#102a43', fontSize: 14, lineHeight: 18, fontWeight: '900' },
-  profileNotificationText: { color: '#718096', fontSize: 11.5, lineHeight: 16, fontWeight: '700', marginTop: 4 },
+  profileNotificationText: { color: '#62748b', fontSize: 11.5, lineHeight: 16, fontWeight: '700', marginTop: 4 },
   profileNotificationSwitch: { width: 48, height: 28, borderRadius: 14, backgroundColor: '#d8e0ea', padding: 3, justifyContent: 'center' },
   profileNotificationSwitchActive: { backgroundColor: '#1f63c7' },
   profileNotificationKnob: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#ffffff' },
@@ -3352,6 +3290,6 @@ const styles = StyleSheet.create({
   activeTabIconWrap: { backgroundColor: '#1f63c7' },
   tabIconText: { color: '#8d9bad', fontSize: 16, fontWeight: '900' },
   activeTabIconText: { color: '#ffffff' },
-  tabText: { color: '#6b788c', fontWeight: '800', fontSize: 10.5, lineHeight: 12, marginTop: 0 },
+  tabText: { color: '#62748b', fontWeight: '800', fontSize: 10.5, lineHeight: 12, marginTop: 0 },
   activeTabText: { color: '#1f63c7' }
 });

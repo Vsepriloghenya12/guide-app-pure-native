@@ -5,7 +5,13 @@ const USER_SESSION_COOKIE_NAME = 'guide_user_session';
 const AUTH_STATE_COOKIE_NAME = 'guide_user_auth_state';
 const USER_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const AUTH_STATE_TTL_SECONDS = 60 * 15;
-const USER_SESSION_SECRET = process.env.AUTH_SESSION_SECRET || (process.env.NODE_ENV === 'production' ? '' : process.env.OWNER_SESSION_SECRET || 'dev-guide-public-auth-secret');
+const USER_SESSION_SECRET = (() => {
+  const secret = process.env.AUTH_SESSION_SECRET || (process.env.NODE_ENV === 'production' ? '' : process.env.OWNER_SESSION_SECRET || 'dev-guide-public-auth-secret');
+  if (!secret && process.env.NODE_ENV === 'production') {
+    throw new Error('AUTH_SESSION_SECRET is required in production. Set the environment variable before starting the server.');
+  }
+  return secret;
+})();
 
 function normalizeSameSite(value) {
   const candidate = String(value || '').trim().toLowerCase();
