@@ -762,17 +762,47 @@ body {
 }
 
 .travel-list-card__save {
-  width: 28px;
-  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
   border: 0;
   background: transparent;
-  color: #97a6bc;
-  font-size: 1.05rem;
+  color: #b0bec5;
   padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color 0.18s ease, transform 0.15s ease, background 0.18s ease;
+  flex-shrink: 0;
+}
+
+.travel-list-card__save:hover {
+  color: #e56a72;
+  background: rgba(229, 106, 114, 0.08);
+}
+
+.travel-list-card__save:active {
+  transform: scale(0.82);
+}
+
+.travel-list-card__save .heart-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .travel-list-card__save.is-active {
-  color: #e56a72;
+  color: #e5404a;
+}
+
+.travel-list-card__save.is-active .heart-icon {
+  transform: scale(1.18);
+}
+
+.travel-list-card__save.is-active:hover {
+  background: rgba(229, 64, 74, 0.1);
 }
 
 .travel-map-card {
@@ -1025,6 +1055,11 @@ body {
   width: 24px;
   height: 24px;
   display: block;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.travel-detail-action__icon-wrap--active svg {
+  transform: scale(1.15);
 }
 
 .travel-detail-action__label {

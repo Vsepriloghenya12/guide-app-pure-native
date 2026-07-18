@@ -27,17 +27,20 @@ function toMapPlace(place: AppMapListing): MapPlace {
   };
 }
 
-export function AppMap({ places, selectedPlaceId, emptyMessage }: AppMapProps) {
+export function AppMap({ places, selectedPlaceId, userLocation, emptyMessage, onSelectPlace, onClearSelectedPlace }: AppMapProps) {
   const mapPlaces = places.map(toMapPlace);
-  const selectedPlace = selectedPlaceId ? mapPlaces.find((place) => place.id === selectedPlaceId) : null;
+  const hasSelected = selectedPlaceId != null && mapPlaces.some((p) => p.id === selectedPlaceId);
 
   return (
-    <section className={`app-map-shell app-map-shell--maplibre${selectedPlace ? ' has-selected-place' : ''}`} aria-label="Карта приложения">
+    <section className={`app-map-shell app-map-shell--maplibre${hasSelected ? ' has-selected-place' : ''}`} aria-label="Карта приложения">
       {mapPlaces.length === 0 && emptyMessage ? <div className="app-map-empty-note app-map-empty-note--maplibre">{emptyMessage}</div> : null}
       <MapLibrePlaceMap
         places={mapPlaces}
-        center={selectedPlace ? [selectedPlace.lng, selectedPlace.lat] : undefined}
+        selectedPlaceId={selectedPlaceId}
+        userLocation={userLocation}
         className="app-map-canvas app-map-canvas--maplibre"
+        onSelectPlace={onSelectPlace}
+        onClearSelectedPlace={onClearSelectedPlace}
       />
     </section>
   );

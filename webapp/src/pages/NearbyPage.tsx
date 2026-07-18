@@ -19,24 +19,6 @@ import {
 import { hasAppMapCoordinates } from '../utils/appMap';
 import type { GuideCategoryId } from '../types';
 
-const nearbyCategoryOptions: Array<{ value: 'all' | GuideCategoryId; label: string }> = [
-  { value: 'all', label: 'Все категории' },
-  { value: 'restaurants', label: 'Еда' },
-  { value: 'events', label: 'Досуг' },
-  { value: 'wellness', label: 'Оздоровление' },
-  { value: 'hotels', label: 'Резорты' },
-  { value: 'active-rest', label: 'Активный отдых' },
-  { value: 'car-rental', label: 'Транспорт' },
-  { value: 'atm', label: 'Финансы' },
-  { value: 'shops', label: 'Покупки' },
-  { value: 'culture', label: 'Культура и искусство' },
-  { value: 'kids', label: 'Детям' },
-  { value: 'medicine', label: 'Медицина' },
-  { value: 'photo-spots', label: 'Виды города' },
-  { value: 'coworkings', label: 'Коворкинги' },
-  { value: 'misc', label: 'Разное' }
-];
-
 const nearbyRadiusOptions = [
   { value: 2, label: '2 км' },
   { value: 5, label: '5 км' },
@@ -51,6 +33,11 @@ export function NearbyPage() {
   });
   const { isFavorite, toggleFavorite } = useFavorites();
   const { places, categories, loading, error } = useGuideContent();
+
+  const visibleCategories = useMemo(
+    () => categories.filter((c) => c.visible).sort((a, b) => (a.sortOrder ?? 100) - (b.sortOrder ?? 100)),
+    [categories]
+  );
   const { location: userLocation, state: geoState, message: geoMessage, requestLocation, clearLocation } = useUserLocation();
   const [radiusKm, setRadiusKm] = useState(5);
   const [categoryFilter, setCategoryFilter] = useState<'all' | GuideCategoryId>('all');
@@ -104,14 +91,21 @@ export function NearbyPage() {
         <div className="client-filter-group">
           <span className="client-filter-group__label">Категория</span>
           <div className="client-chip-scroll" role="list" aria-label="Категории nearby">
-            {nearbyCategoryOptions.map((option) => (
+            <button
+              type="button"
+              className={`client-filter-chip${categoryFilter === 'all' ? ' is-active' : ''}`}
+              onClick={() => setCategoryFilter('all')}
+            >
+              Все категории
+            </button>
+            {visibleCategories.map((category) => (
               <button
-                key={option.value}
+                key={category.id}
                 type="button"
-                className={`client-filter-chip${categoryFilter === option.value ? ' is-active' : ''}`}
-                onClick={() => setCategoryFilter(option.value)}
+                className={`client-filter-chip${categoryFilter === category.id ? ' is-active' : ''}`}
+                onClick={() => setCategoryFilter(category.id)}
               >
-                {option.label}
+                {category.shortTitle || category.title}
               </button>
             ))}
           </div>
