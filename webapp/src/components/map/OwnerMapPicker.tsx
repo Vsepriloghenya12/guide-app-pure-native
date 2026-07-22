@@ -145,20 +145,27 @@ const OwnerMapPickerComponent = function OwnerMapPicker({
 
       {!isLoaded ? (
         <div
-          className="owner-map-picker__canvas"
+          className="owner-map-picker__gmap"
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '400px' }}
         >
           <span>Загрузка карты...</span>
         </div>
       ) : (
         <GoogleMap
-          mapContainerClassName={`owner-map-picker__canvas${disabled ? ' is-disabled' : ''}`}
+          mapContainerClassName={`owner-map-picker__gmap${disabled ? ' is-disabled' : ''}`}
           mapContainerStyle={MAP_CONTAINER_STYLE}
           center={DANANG_MAP_CENTER}
           zoom={DEFAULT_ZOOM}
           onLoad={onLoad}
           onUnmount={onUnmount}
           onClick={disabled ? undefined : handleMapClick}
+          options={{
+            gestureHandling: 'greedy',
+            clickableIcons: false,
+            streetViewControl: false,
+            mapTypeControl: false,
+            fullscreenControl: false
+          }}
         >
           {value && <MarkerF position={{ lat: value.lat, lng: value.lng }} />}
         </GoogleMap>

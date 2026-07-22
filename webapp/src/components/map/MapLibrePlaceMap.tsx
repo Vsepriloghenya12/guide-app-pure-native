@@ -88,6 +88,24 @@ export function MapLibrePlaceMap({
     setMapInstance(null);
   }, []);
 
+  // Refit the view when the set of places changes (e.g. category filter on the map page)
+  useEffect(() => {
+    if (!mapInstance || selectedPlaceId) return;
+    if (safePlaces.length === 0) {
+      mapInstance.setCenter(DEFAULT_CENTER);
+      mapInstance.setZoom(zoom);
+      return;
+    }
+    if (safePlaces.length === 1) {
+      mapInstance.setCenter({ lat: safePlaces[0].lat, lng: safePlaces[0].lng });
+      mapInstance.setZoom(Math.max(zoom, 15));
+      return;
+    }
+    const bounds = new google.maps.LatLngBounds();
+    safePlaces.forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }));
+    mapInstance.fitBounds(bounds, 42);
+  }, [safePlaces, mapInstance, zoom, selectedPlaceId]);
+
   // Pan to selected place and open its info window
   useEffect(() => {
     if (!mapInstance) return;
@@ -141,6 +159,13 @@ export function MapLibrePlaceMap({
       onLoad={onLoad}
       onUnmount={onUnmount}
       onClick={handleMapClick}
+      options={{
+        gestureHandling: 'greedy',
+        clickableIcons: false,
+        streetViewControl: false,
+        mapTypeControl: false,
+        fullscreenControl: false
+      }}
     >
       {safePlaces.map((place) => (
         <MarkerF

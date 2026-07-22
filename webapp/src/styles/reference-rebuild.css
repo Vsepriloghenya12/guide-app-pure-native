@@ -5059,6 +5059,34 @@ body:not(.secret-theme-active) .app-shell.reference-shell .travel-list-card__res
   opacity: 0.72;
 }
 
+/* Clean container for the embedded Google Map — deliberately WITHOUT the
+   touch-action / contain / user-select / universal-child rules of the old
+   hand-rolled .owner-map-picker__canvas, which blocked the map's own zoom,
+   drag and click handling. */
+.owner-map-picker__gmap {
+  width: 100%;
+  height: 400px;
+  min-height: 330px;
+  border: 1px solid rgba(151, 166, 188, 0.22);
+  border-radius: 20px;
+  overflow: hidden;
+  background: #eef3f8;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 14px 28px rgba(0, 0, 0, 0.08);
+}
+
+.owner-map-picker__gmap.is-disabled {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+/* The global `img { max-width:100%; display:block }` reset can distort Google
+   Maps' own tiles/markers/controls — neutralise it inside every map container. */
+.owner-map-picker__gmap img,
+.maplibre-place-map img,
+.app-map-canvas img {
+  max-width: none;
+}
+
 .owner-map-picker__hint {
   position: absolute;
   left: 50%;
