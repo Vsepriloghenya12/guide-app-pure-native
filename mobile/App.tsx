@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  BackHandler,
   FlatList,
   Image,
   ImageBackground,
@@ -662,6 +663,7 @@ function AppContent() {
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({ promotionsEnabled: false, hasPushToken: false });
   const [isWelcomeChecked, setWelcomeChecked] = useState(false);
   const [isWelcomeVisible, setWelcomeVisible] = useState(false);
+  const [contentSource, setContentSource] = useState<'network' | 'cache' | 'default'>('network');
   const pendingPromotionListingIdRef = useRef('');
 
   useEffect(() => {
@@ -695,6 +697,20 @@ function AppContent() {
     }
   }, []);
 
+  // Android hardware Back walks our route history instead of minimizing the app.
+  // Modals (fullscreen map, auth sheet…) handle their own back via onRequestClose,
+  // which Android dispatches before this listener — no conflict.
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (routeHistoryRef.current.length > 0 || fallbackBackRoute(routeRef.current)) {
+        goBack();
+        return true;
+      }
+      return false; // at the home root — let the system minimize
+    });
+    return () => subscription.remove();
+  }, [goBack]);
+
   const canGoBack = hasBackRoute || Boolean(fallbackBackRoute(route));
 
   const backSwipeResponder = useMemo(() => PanResponder.create({
@@ -712,7 +728,7 @@ function AppContent() {
   }), [canGoBack, goBack]);
 
   const loadApp = useCallback(async () => {
-    const [nextPayload, nextSupport, savedFavorites, authSession, cachedAuthUser, nextHiddenAuthorIds, nextNotificationSettings] = await Promise.all([
+    const [bootstrapResult, nextSupport, savedFavorites, authSession, cachedAuthUser, nextHiddenAuthorIds, nextNotificationSettings] = await Promise.all([
       fetchBootstrap(),
       fetchSupportContent(),
       loadFavoriteSlugs(),
@@ -721,7 +737,8 @@ function AppContent() {
       fetchHiddenAuthors(),
       getNotificationSettings()
     ]);
-    setPayload(nextPayload);
+    setPayload(bootstrapResult.payload);
+    setContentSource(bootstrapResult.source);
     setSupport(nextSupport);
     setFavoriteSlugs(savedFavorites);
     setAuthProviders(authSession.providers || {});
@@ -1031,6 +1048,16 @@ function AppContent() {
               <Text style={styles.headerBackText}>Назад</Text>
             </TouchableOpacity>
           ) : null}
+        </View>
+      ) : null}
+
+      {contentSource !== 'network' ? (
+        <View style={[styles.offlineBanner, hideTopHeader ? { paddingTop: mobileInsets.top + 6 } : null]}>
+          <Text style={styles.offlineBannerText}>
+            {contentSource === 'cache'
+              ? 'Нет соединения — показаны сохранённые данные'
+              : 'Нет соединения — показан демо-контент'}
+          </Text>
         </View>
       ) : null}
 
@@ -2205,51 +2232,7 @@ function CategoryListingCard({
   );
 }
 
-type RestaurantFactTone = 'hours' | 'cuisine' | 'type' | 'price';
 
-function RestaurantFact({ value, tone }: { value: string; tone: RestaurantFactTone }) {
-  if (!value) return null;
-
-  return (
-    <View style={styles.restaurantFactRow}>
-      <RestaurantFactIcon tone={tone} />
-      <Text style={styles.restaurantFactText} numberOfLines={1}>{value}</Text>
-    </View>
-  );
-}
-
-function RestaurantFactIcon({ tone }: { tone: RestaurantFactTone }) {
-  if (tone === 'hours') {
-    return (
-      <View style={styles.restaurantClockIcon}>
-        <View style={styles.restaurantClockHourHand} />
-        <View style={styles.restaurantClockMinuteHand} />
-      </View>
-    );
-  }
-
-  if (tone === 'cuisine') {
-    return (
-      <View style={styles.restaurantCuisineIcon}>
-        <View style={styles.restaurantCuisinePlate} />
-        <View style={styles.restaurantCuisineForkHandle} />
-        <View style={styles.restaurantCuisineForkTine} />
-        <View style={[styles.restaurantCuisineForkTine, styles.restaurantCuisineForkTineRight]} />
-      </View>
-    );
-  }
-
-  if (tone === 'type') {
-    return (
-      <View style={styles.restaurantTypeIcon}>
-        <View style={styles.restaurantTypeIconDot} />
-        <View style={styles.restaurantTypeIconLine} />
-      </View>
-    );
-  }
-
-  return <Text style={styles.restaurantDollarIcon}>$</Text>;
-}
 
 
 
@@ -2504,7 +2487,9 @@ function GuideMap({
   showControls = false,
   controlsTopOffset = 16,
   popupActionLabel = 'Открыть',
-  disablePlacePopup = false
+  disablePlacePopup = false,
+  lite = false,
+  onMapPress
 }: {
   places?: GuidePlace[];
   routePoints?: NativeRoutePoint[];
@@ -2519,16 +2504,24 @@ function GuideMap({
   controlsTopOffset?: number;
   popupActionLabel?: string;
   disablePlacePopup?: boolean;
+  /** Android liteMode: static-like lightweight map that renders near-instantly — for inline previews */
+  lite?: boolean;
+  onMapPress?: () => void;
 }) {
   const [selectedPlace, setSelectedPlace] = useState<GuidePlace | null>(null);
   // react-native-svg paints asynchronously; with tracksViewChanges=false from the
   // first frame the Android marker snapshot can miss the SVG glyph (blank pin).
   // Track briefly so the icon rasterizes, then freeze to keep the map performant.
+  // Re-armed whenever the marker set changes — the screen is reused across places,
+  // and a freshly mounted Marker must go through a tracking window again.
+  const placesKey = places.map((place) => place.id).join('|');
   const [pinTracks, setPinTracks] = useState(true);
   useEffect(() => {
+    setPinTracks(true);
+    setSelectedPlace(null);
     const timer = setTimeout(() => setPinTracks(false), 1500);
     return () => clearTimeout(timer);
-  }, []);
+  }, [placesKey]);
   const placeMarkers = places
     .map((place) => ({ place, coordinate: placeCoordinate(place) }))
     .filter((item): item is { place: GuidePlace; coordinate: { latitude: number; longitude: number } } => Boolean(item.coordinate));
@@ -2616,8 +2609,13 @@ function GuideMap({
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         style={styles.nativeMap}
         initialRegion={mapRegion}
-        showsCompass
+        showsCompass={!lite}
         toolbarEnabled={false}
+        liteMode={lite && Platform.OS === 'android'}
+        loadingEnabled
+        loadingIndicatorColor="#1f63c7"
+        loadingBackgroundColor="#e8f1f8"
+        onPress={onMapPress}
         onMapReady={() => {
           isMapReadyRef.current = true;
           if (pendingRegionRef.current) {
@@ -3408,6 +3406,12 @@ function DetailScreen({
   const [isSheetExpanded, setSheetExpanded] = useState(false);
   const routesCacheRef = useRef<Partial<Record<TravelMode, WalkingRoute>>>({});
   const originTimestampRef = useRef(0);
+  const pendingModeRef = useRef<TravelMode | null>(null);
+  // Mirror of routeMode for async chains: a finishing build must only commit its
+  // result if the user still has that mode selected
+  const routeModeRef = useRef<TravelMode>('walk');
+  // Bumped when background prefetch fills the cache so the switcher re-renders with per-mode times
+  const [, setCacheTick] = useState(0);
   const [isDemoOrigin, setDemoOrigin] = useState(false);
   const isDemoOriginRef = useRef(false);
   const [isTooFar, setTooFar] = useState(false);
@@ -3445,6 +3449,8 @@ function DetailScreen({
     isBuildingRouteRef.current = false;
     routesCacheRef.current = {};
     originTimestampRef.current = 0;
+    pendingModeRef.current = null;
+    routeModeRef.current = 'walk';
     isDemoOriginRef.current = false;
     setDemoOrigin(false);
     setTooFar(false);
@@ -3566,9 +3572,16 @@ function DetailScreen({
       if (route.roadRoute) {
         routesCacheRef.current[mode] = route;
       }
-      setBuiltRoute(route);
-      setRouteStatus('ready');
-      setRouteMessage('');
+      // Commit only if the user still has this mode selected — they may have
+      // tapped a cached mode while this build was in flight
+      if (routeModeRef.current === mode) {
+        setBuiltRoute(route);
+        setRouteStatus('ready');
+        setRouteMessage('');
+      }
+      // Warm the other modes in the background so switching is instant and the
+      // switcher shows each mode's own time right away
+      void prefetchOtherModes(origin, destination, requestPlaceId);
     } catch {
       if (!isStale()) {
         setRouteStatus('error');
@@ -3578,23 +3591,82 @@ function DetailScreen({
       // Only release the guard if this chain still owns it (a place switch may have reset it)
       if (routeRequestTokenRef.current === requestToken) {
         isBuildingRouteRef.current = false;
+        const pending = pendingModeRef.current;
+        pendingModeRef.current = null;
+        if (pending && pending !== mode && !isStale()) {
+          const cached = routesCacheRef.current[pending];
+          if (cached) {
+            setBuiltRoute(cached);
+            setRouteStatus('ready');
+          } else {
+            void buildInAppRoute(pending);
+          }
+        }
       }
     }
   }, [place, routeMode, routeOrigin]);
 
+  // Fetches routes for the modes the user hasn't opened yet. bike reuses the taxi
+  // (DRIVE) result — Google has no bicycling data for Vietnam, so bike falls back
+  // to the road route anyway; the alias saves two API calls per place.
+  const prefetchOtherModes = useCallback(async (origin: LatLng, destination: LatLng, requestPlaceId: string) => {
+    const targets: TravelMode[] = ['walk', 'scooter', 'taxi'];
+    await Promise.all(
+      targets
+        .filter((m) => !routesCacheRef.current[m])
+        .map(async (m) => {
+          try {
+            const route = await fetchRoute(origin, destination, [], m);
+            if (activePlaceIdRef.current !== requestPlaceId) return;
+            if (route.roadRoute) {
+              routesCacheRef.current[m] = route;
+            }
+          } catch {
+            // background warm-up only — the user-facing path retries on demand
+          }
+        })
+    );
+    if (activePlaceIdRef.current !== requestPlaceId) return;
+    const taxiRoute = routesCacheRef.current.taxi;
+    if (!routesCacheRef.current.bike && taxiRoute) {
+      routesCacheRef.current.bike = { ...taxiRoute, mode: 'bike' };
+    }
+    // If the visible route is a straight-line fallback and the prefetch just got
+    // a real road route for that same mode — upgrade it in place
+    setBuiltRoute((current) => {
+      if (!current || current.roadRoute) return current;
+      const upgraded = routesCacheRef.current[routeModeRef.current];
+      return upgraded && upgraded.roadRoute ? upgraded : current;
+    });
+    setCacheTick((value) => value + 1);
+  }, []);
+
+  // The origin (and everything cached from it) is trustworthy for ~2 minutes;
+  // demo origin never expires
+  const isOriginFresh = useCallback(
+    () => isDemoOriginRef.current || Date.now() - originTimestampRef.current <= 120000,
+    []
+  );
+
   const switchRouteMode = useCallback((mode: TravelMode) => {
-    // A build is in flight — ignore the tap so the highlighted segment never
-    // disagrees with the route that finally renders
-    if (isBuildingRouteRef.current) return;
     setRouteMode(mode);
+    routeModeRef.current = mode;
     const cached = routesCacheRef.current[mode];
-    if (cached) {
+    if (cached && isOriginFresh()) {
       setBuiltRoute(cached);
       setRouteStatus('ready');
       return;
     }
+    if (isBuildingRouteRef.current) {
+      // A build is in flight — remember the tap and run it as soon as the
+      // current build releases the guard (instead of silently dropping it)
+      pendingModeRef.current = mode;
+      return;
+    }
+    // Either uncached, or the GPS fix is stale — buildInAppRoute refreshes the
+    // origin (and clears the cache if the user moved) before serving anything
     void buildInAppRoute(mode);
-  }, [buildInAppRoute]);
+  }, [buildInAppRoute, isOriginFresh]);
 
   const shareRoute = useCallback(async () => {
     try {
@@ -3638,10 +3710,12 @@ function DetailScreen({
 
   const openFullscreenRoute = useCallback(() => {
     setMapFullscreen(true);
-    if (routeStatus === 'idle' || routeStatus === 'error') {
+    // Rebuild when there's no route yet — or when the GPS fix behind the cached
+    // one is older than the TTL (the user may have walked away since)
+    if (routeStatus === 'idle' || routeStatus === 'error' || !isOriginFresh()) {
       void buildInAppRoute();
     }
-  }, [routeStatus, buildInAppRoute]);
+  }, [routeStatus, buildInAppRoute, isOriginFresh]);
 
   const statCells = [
     ratingLabel ? { key: 'rating', star: true, value: ratingLabel, caption: 'рейтинг', color: '#102a43' } : null,
@@ -3891,14 +3965,15 @@ function DetailScreen({
             >
               <GuideMap
                 flat
+                lite
                 places={[place]}
                 routePolyline={builtRoute?.coordinates}
                 routeIsFallback={builtRoute ? !builtRoute.roadRoute : false}
                 userPoint={routeOrigin}
                 height={260}
                 markerVariant="pin"
-                popupActionLabel="Маршрут"
-                onOpenPlace={openFullscreenRoute}
+                disablePlacePopup
+                onMapPress={openFullscreenRoute}
               />
             </InlineErrorBoundary>
           </View>
@@ -4167,7 +4242,6 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, width: '100%', minWidth: '100%', backgroundColor: '#ffffff', margin: 0, padding: 0, alignSelf: 'stretch' },
   appHeader: { paddingHorizontal: 14, paddingTop: Platform.OS === 'android' ? ANDROID_STATUS_BAR_INSET + 10 : 8, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#d8e0ea', backgroundColor: '#f5f7fb' },
   logoText: { color: '#1f63c7', fontSize: 22, fontWeight: '900' },
-  logoSubtext: { color: '#62748b', fontSize: 12, marginTop: 2 },
   headerBackButton: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 14, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea' },
   headerBackText: { color: '#102a43', fontWeight: '800' },
   content: { flex: 1, width: '100%', minWidth: '100%', margin: 0, padding: 0, backgroundColor: '#ffffff' },
@@ -4187,31 +4261,17 @@ const styles = StyleSheet.create({
   homeHero: { width: '100%', minWidth: '100%', alignSelf: 'stretch', height: 150, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', backgroundColor: '#1c65a0' },
   homeHeroImage: { resizeMode: 'cover' },
   homeHeroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5, 18, 38, 0.08)' },
-  homeUtilityDot: { position: 'absolute', right: 18, top: 6, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.18)' },
   heroAuthButton: { position: 'absolute', right: 14, top: 12, zIndex: 4, width: 46, height: 46, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(8, 18, 37, 0.36)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
   heroAuthAvatar: { width: 42, height: 42, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.22)' },
   heroAuthIcon: { color: '#ffffff', fontSize: 20, lineHeight: 23, fontWeight: '900' },
   homeBody: { width: '100%', minWidth: '100%', alignSelf: 'stretch', marginTop: -18, paddingHorizontal: 0, paddingLeft: 0, paddingRight: 0, gap: 14, backgroundColor: '#ffffff' },
   bannerStack: { width: '100%', minWidth: '100%', height: 168, justifyContent: 'center', overflow: 'hidden' },
-  bannerCarousel: { height: 136, width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   bannerScrollerContent: { alignItems: 'center' },
   homeBanner: { height: 126, borderRadius: 20, overflow: 'hidden', backgroundColor: '#1f63c7' },
   homeBannerSlide: { height: 134, borderRadius: 22, backgroundColor: '#1f63c7', shadowColor: '#293d5d', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.16, shadowRadius: 18, elevation: 8 },
-  homeBannerCenterHalo: { width: '78%', height: 134, borderRadius: 24, padding: 4, backgroundColor: 'rgba(255,255,255,0.86)', shadowColor: '#ffffff', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 20, elevation: 12, zIndex: 4 },
-  homeBannerCenter: { width: '100%', height: '100%', zIndex: 5, borderRadius: 20 },
-  homeBannerPreview: { position: 'absolute', width: '30%', height: 108, opacity: 0.72, zIndex: 1 },
-  homeBannerPreviewLeft: { left: -8 },
-  homeBannerPreviewRight: { right: -8 },
   homeBannerImage: { borderRadius: 20 },
   homeBannerFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7' },
   bannerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'transparent' },
-  homeBannerTextWrap: { position: 'absolute', left: 18, right: 18, bottom: 16, paddingHorizontal: 0, paddingVertical: 0 },
-  homeBannerTitle: { color: '#ffffff', fontSize: 15, lineHeight: 19, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.72)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
-  homeBannerText: { color: '#ffffff', fontSize: 11.5, lineHeight: 15, marginTop: 5, opacity: 0.98, fontWeight: '800', textShadowColor: 'rgba(0,0,0,0.72)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
-  bannerPeek: { position: 'absolute', top: 6, width: 94, height: 106, borderRadius: 14, overflow: 'hidden', backgroundColor: '#cbd8e6' },
-  bannerPeekLeft: { left: -48 },
-  bannerPeekRight: { right: -48 },
-  bannerPeekImage: { borderRadius: 14 },
   bannerDots: { position: 'absolute', left: 0, right: 0, bottom: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
   bannerDot: { width: 18, height: 3, borderRadius: 999, backgroundColor: 'rgba(31, 99, 199, 0.18)' },
   bannerDotActive: { backgroundColor: '#1f63c7', width: 30 },
@@ -4235,7 +4295,6 @@ const styles = StyleSheet.create({
   homeSectionAllButton: { width: 44, minHeight: 32, alignItems: 'flex-end', justifyContent: 'center' },
   homeSectionLink: { color: '#1f63c7', fontSize: 13, fontWeight: '900' },
   tipRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingHorizontal: 0, borderRadius: 0, backgroundColor: 'transparent', borderBottomWidth: 1, borderBottomColor: 'rgba(23, 37, 64, 0.08)' },
-  tipThumb: { width: 52, height: 52, borderRadius: 14 },
   tipThumbPlaceholder: { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e4edf7' },
   tipThumbGlyph: { color: '#1f63c7', fontSize: 20, fontWeight: '900' },
   tipTitle: { color: '#102a43', fontSize: 14, fontWeight: '900' },
@@ -4276,15 +4335,6 @@ const styles = StyleSheet.create({
   legalLinkText: { color: '#1f63c7', fontSize: 13, lineHeight: 17, fontWeight: '900' },
   legalLinkArrow: { color: '#8a9aae', fontSize: 22, lineHeight: 24, fontWeight: '700' },
 
-  detailContentInner: { paddingHorizontal: 14, paddingTop: Platform.OS === 'android' ? ANDROID_STATUS_BAR_INSET + 14 : 14, paddingBottom: 28 + ANDROID_NAVIGATION_BAR_INSET, backgroundColor: '#ffffff', gap: 14 },
-  detailGalleryWrap: { width: '100%', height: 270, borderRadius: 28, overflow: 'hidden', backgroundColor: '#dce8f4' },
-  detailGallery: { width: '100%', height: 270 },
-  detailImage: { width: '100%', height: 270, borderRadius: 28, backgroundColor: '#dce8f4' },
-  detailImageCount: { position: 'absolute', right: 14, bottom: 14, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: 'rgba(9, 19, 38, 0.62)', color: '#ffffff', fontSize: 12, fontWeight: '900' },
-  detailImageFallback: { backgroundColor: '#d7e6f5' },
-  detailCard: { padding: 18, borderRadius: 26, backgroundColor: '#fff', borderWidth: 1, borderColor: '#d8e0ea', gap: 10 },
-  detailPlainHeader: { gap: 12, paddingHorizontal: 2, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
-  detailPlainSection: { gap: 10, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
   detailMapFallback: { minHeight: 128, borderRadius: 22, alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: '#eaf3ff', borderWidth: 1, borderColor: '#d8e4f2' },
   detailMapFallbackTitle: { color: '#102a43', fontSize: 15, lineHeight: 20, fontWeight: '900', textAlign: 'center' },
   detailMapFallbackText: { color: '#62748b', fontSize: 12.5, lineHeight: 18, fontWeight: '700', textAlign: 'center', marginTop: 4 },
@@ -4293,21 +4343,11 @@ const styles = StyleSheet.create({
   fullscreenImage: { width: '100%', height: '86%' },
   fullscreenImageCloseButton: { position: 'absolute', top: 44, right: 18, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
   fullscreenImageCloseText: { color: '#fff', fontSize: 30, lineHeight: 34, fontWeight: '600' },
-  detailInfoList: { borderTopWidth: 1, borderTopColor: 'rgba(214, 223, 235, 0.92)' },
-  detailTitleRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  detailTitle: { color: '#102a43', fontSize: 29, lineHeight: 34, fontWeight: '900', marginTop: 5 },
-  detailSubtitle: { color: '#62748b', fontSize: 15, fontWeight: '800', marginTop: 6 },
-  detailVerificationButton: { width: 48, height: 48, borderRadius: 18, backgroundColor: '#fff7e5', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#f2d58a' },
-  detailVerificationImage: { width: 38, height: 38 },
-  detailFavorite: { width: 48, height: 48, borderRadius: 18, backgroundColor: '#f1f5fa', alignItems: 'center', justifyContent: 'center' },
-  detailFavoriteText: { color: '#2f78d6', fontSize: 24, lineHeight: 26, fontWeight: '900' },
-  detailPillsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   detailText: { color: '#62748b', fontSize: 16, lineHeight: 24 },
   infoBlock: { paddingVertical: 13, paddingHorizontal: 2, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)', gap: 4 },
   infoLabel: { color: '#62748b', fontSize: 13, fontWeight: '900', textTransform: 'uppercase' },
   infoValue: { color: '#102a43', fontSize: 16, lineHeight: 22, fontWeight: '700' },
   infoValueLink: { color: '#1f63c7' },
-  actionsGrid: { gap: 10 },
   bulletinSafetyActions: { flexDirection: 'row', gap: 8 },
   bulletinSafetyButton: { flex: 1, minHeight: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fed7aa', paddingHorizontal: 10 },
   bulletinSafetyText: { color: '#9a3412', fontSize: 12.5, lineHeight: 16, fontWeight: '900' },
@@ -4319,9 +4359,6 @@ const styles = StyleSheet.create({
   verificationModalButton: { minHeight: 46, borderRadius: 15, backgroundColor: '#1f63c7', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, marginTop: 18 },
   verificationModalButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
   bulletText: { color: '#62748b', fontSize: 15, lineHeight: 22 },
-  nearbyCardWrap: { gap: 8 },
-  nearbyBadge: { alignSelf: 'flex-start', marginLeft: 12, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: '#102a43' },
-  nearbyText: { color: '#fff', fontWeight: '800' },
   nativeMapCard: { width: '100%', borderRadius: 22, overflow: 'hidden', backgroundColor: '#e8f1f8', borderWidth: 1, borderColor: '#d8e0ea', justifyContent: 'center' },
   nativeMap: { ...StyleSheet.absoluteFillObject },
   nativeMapMarkerHalo: { width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255, 255, 255, 0.92)', alignItems: 'center', justifyContent: 'center' },
@@ -4330,7 +4367,6 @@ const styles = StyleSheet.create({
   nativeMapMarkerPlaceDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#ffffff', backgroundColor: '#e05a3f' },
   detailRouteExternalLink: { fontSize: 12.5, color: '#1f63c7', fontWeight: '700', textDecorationLine: 'underline' },
   routeMapStatusText: { fontSize: 13.5, fontWeight: '700', color: '#20304c', marginTop: 8 },
-  detailMapFull: { marginHorizontal: -14, marginTop: 4, overflow: 'hidden' },
   mapFullscreenFallback: { alignItems: 'center', justifyContent: 'center', padding: 26, gap: 8 },
   // ── Редизайн карточки места (Карточка места.dc) ──
   detailHero: { position: 'relative', height: 440, backgroundColor: '#e8f1f8', overflow: 'hidden' },
@@ -4429,6 +4465,8 @@ const styles = StyleSheet.create({
     minHeight: 50
   },
   detailBottomCtaText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
+  offlineBanner: { backgroundColor: '#b3442e', paddingVertical: 6, paddingHorizontal: 14, alignItems: 'center' },
+  offlineBannerText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
   // ── Строки списка категории (Прототип Твой гид.dc) ──
   listRow: {
     flexDirection: 'row',
@@ -4499,19 +4537,6 @@ const styles = StyleSheet.create({
     elevation: 5
   },
   categoryMapCountText: { color: '#102a43', fontSize: 13, fontWeight: '800' },
-  detailMapFloatWrap: { position: 'absolute', left: 0, right: 0, bottom: 20, alignItems: 'center' },
-  detailMapFloatButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 999,
-    backgroundColor: '#1f63c7',
-    shadowColor: '#0b2b57',
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 7
-  },
-  detailMapFloatButtonText: { color: '#ffffff', fontWeight: '800', fontSize: 15 },
   mapFullscreenRoot: { flex: 1, backgroundColor: '#e8f1f8' },
   mapFullscreenClose: {
     position: 'absolute',
@@ -4552,19 +4577,8 @@ const styles = StyleSheet.create({
   // ── Новый визуал (дизайн «Карта места») ──
   detailHeroChip: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999, backgroundColor: 'rgba(16, 42, 67, 0.55)' },
   detailHeroChipText: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
-  detailRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9 },
-  detailRatingChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  detailRatingText: { color: '#102a43', fontWeight: '800', fontSize: 13 },
-  detailRatingDot: { color: '#c2ccda', fontSize: 13 },
-  detailRatingDistrict: { color: '#62748b', fontSize: 13, fontWeight: '700' },
   detailPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 11, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e3e9f1' },
   detailPillText: { color: '#35507a', fontSize: 13, fontWeight: '700' },
-  detailPillAccent: { backgroundColor: '#eef4fb', borderColor: '#eef4fb' },
-  detailPillAccentText: { color: '#1f63c7', fontSize: 13, fontWeight: '800' },
-  detailMapScrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 82, backgroundColor: 'transparent' },
-  detailHowToGet: { gap: 9, paddingHorizontal: 2 },
-  detailHowToGetTitle: { color: '#102a43', fontSize: 18, fontWeight: '900' },
-  detailHowToGetAddress: { color: '#102a43', fontWeight: '800', fontSize: 14 },
   nativeMapPinMarker: {
     width: 40,
     height: 40,
@@ -4660,8 +4674,6 @@ const styles = StyleSheet.create({
   nativeMapPopupText: { color: '#62748b', fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
   nativeMapPopupButton: { minHeight: 36, borderRadius: 12, backgroundColor: '#1f63c7', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   nativeMapPopupButtonText: { color: '#ffffff', fontSize: 11, lineHeight: 14, fontWeight: '900' },
-  nearbyMapFallbackCard: { minHeight: 178 },
-  nearbyMapCount: { marginTop: 12, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, overflow: 'hidden', backgroundColor: '#e8f1ff', color: '#1f63c7', fontSize: 12, lineHeight: 15, fontWeight: '900' },
 
   categoryContent: { flex: 1, backgroundColor: '#ffffff' },
   categoryContentInner: { paddingHorizontal: 14, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 14 : 16, paddingBottom: 92, gap: 10, backgroundColor: '#ffffff' },
@@ -4669,47 +4681,10 @@ const styles = StyleSheet.create({
   categoryToolbarTitle: { flex: 1, color: '#102a43', fontSize: 17, lineHeight: 22, fontWeight: '900' },
   categoryBackButton: { width: 42, height: 42, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.96)', borderWidth: 1, borderColor: '#d8e0ea', shadowColor: '#2b405f', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 14, elevation: 4 },
   categoryBackGlyph: { color: '#1f63c7', fontSize: 34, lineHeight: 36, fontWeight: '500', marginTop: -2 },
-  categoryQuickRow: { alignItems: 'center', gap: 11, paddingRight: 4, minHeight: 42 },
-  categoryQuickButton: { minHeight: 36, justifyContent: 'center' },
-  categoryQuickText: { color: '#556982', fontSize: 12.2, lineHeight: 15, fontWeight: '900' },
-  categoryQuickTextActive: { color: '#1f63c7', textDecorationLine: 'underline' },
-  categoryFilterButton: { width: 42, height: 36, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', position: 'relative' },
   categoryFilterIcon: { color: '#1f63c7', fontSize: 19, lineHeight: 22, fontWeight: '900' },
   filterBadge: { position: 'absolute', right: -4, top: -4, minWidth: 17, height: 17, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7', paddingHorizontal: 4 },
   filterBadgeText: { color: '#fff', fontSize: 9, fontWeight: '900' },
-  categoryTitleBlock: { paddingHorizontal: 4, paddingTop: 2, paddingBottom: 4 },
-  categoryTitleText: { color: '#102a43', fontSize: 22, lineHeight: 27, fontWeight: '900' },
-  categoryDescriptionText: { color: '#62748b', fontSize: 12.5, lineHeight: 18, marginTop: 4, fontWeight: '700' },
   restaurantListNative: { gap: 0 },
-  restaurantCardNative: { minHeight: 116, width: '100%', flexDirection: 'row', gap: 12, paddingVertical: 12, paddingHorizontal: 0, borderRadius: 0, backgroundColor: 'transparent', borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)', shadowOpacity: 0, elevation: 0, overflow: 'hidden' },
-  restaurantCardImage: { width: 118, height: 94, borderRadius: 16, backgroundColor: '#dce8f4', overflow: 'hidden', justifyContent: 'flex-end', flexShrink: 0 },
-  restaurantCardImageSlide: { width: 118, height: 94, justifyContent: 'flex-end' },
-  restaurantCardImageFallback: { backgroundColor: '#dce8f4' },
-  restaurantCardImageReal: { borderRadius: 16 },
-  restaurantCardImageShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(7, 17, 34, 0.30)' },
-  restaurantCardImageTitle: { position: 'absolute', left: 7, right: 7, bottom: 7, color: '#ffffff', fontSize: 11, lineHeight: 13, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
-  restaurantCardImageCount: { position: 'absolute', left: 6, top: 5, overflow: 'hidden', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999, backgroundColor: 'rgba(9, 19, 38, 0.58)', color: '#ffffff', fontSize: 9.5, fontWeight: '900' },
-  restaurantCardSavedMark: { position: 'absolute', right: 6, top: 5, color: '#ffffff', fontSize: 13, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-  restaurantCardBody: { flex: 1, minWidth: 0, maxWidth: '100%', justifyContent: 'center', gap: 4, paddingTop: 0, paddingRight: 2, overflow: 'hidden' },
-  restaurantCardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
-  restaurantCardQualityBadge: { width: 22, height: 22, flexShrink: 0 },
-  restaurantCardTitle: { flex: 1, minWidth: 0, color: '#102a43', fontSize: 14.2, lineHeight: 17, fontWeight: '900', letterSpacing: -0.2 },
-  restaurantCardSubtitle: { color: '#62748b', fontSize: 11.8, lineHeight: 15, fontWeight: '500' },
-  restaurantFacts: { gap: 4, marginTop: 3 },
-  restaurantFactRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  restaurantFactText: { flex: 1, minWidth: 0, color: '#24364f', fontSize: 11.6, lineHeight: 16, fontWeight: '800' },
-  restaurantClockIcon: { width: 17, height: 17, borderRadius: 8.5, borderWidth: 1.8, borderColor: '#2b78dd', flexShrink: 0, position: 'relative' },
-  restaurantClockHourHand: { position: 'absolute', left: 7.2, top: 3.6, width: 1.8, height: 5.4, borderRadius: 1, backgroundColor: '#2b78dd' },
-  restaurantClockMinuteHand: { position: 'absolute', left: 7.2, top: 7.1, width: 5.5, height: 1.8, borderRadius: 1, backgroundColor: '#2b78dd' },
-  restaurantCuisineIcon: { width: 20, height: 18, flexShrink: 0, position: 'relative' },
-  restaurantCuisinePlate: { position: 'absolute', left: 2, top: 3, width: 12, height: 12, borderRadius: 6, borderWidth: 1.8, borderColor: '#ef8b32' },
-  restaurantCuisineForkHandle: { position: 'absolute', right: 2, top: 3, width: 1.9, height: 13, borderRadius: 1, backgroundColor: '#ef8b32' },
-  restaurantCuisineForkTine: { position: 'absolute', right: 5, top: 3, width: 1.6, height: 5, borderRadius: 1, backgroundColor: '#ef8b32' },
-  restaurantCuisineForkTineRight: { right: 0.2 },
-  restaurantTypeIcon: { width: 18, height: 18, borderRadius: 7, borderWidth: 1.8, borderColor: '#6a7d95', flexShrink: 0, position: 'relative' },
-  restaurantTypeIconDot: { position: 'absolute', left: 4, top: 4, width: 3.5, height: 3.5, borderRadius: 2, backgroundColor: '#6a7d95' },
-  restaurantTypeIconLine: { position: 'absolute', left: 4, right: 4, bottom: 4, height: 1.8, borderRadius: 1, backgroundColor: '#6a7d95' },
-  restaurantDollarIcon: { width: 18, color: '#22a06b', fontSize: 18, lineHeight: 19, fontWeight: '900', textAlign: 'center', flexShrink: 0 },
 
   bulletinContentInner: { paddingTop: Platform.OS === 'android' ? ANDROID_STATUS_BAR_INSET + 18 : 18 },
   bulletinToolbar: { alignItems: 'center' },
@@ -4803,10 +4778,6 @@ const styles = StyleSheet.create({
   routePointTitle: { color: '#102a43', fontSize: 14.5, lineHeight: 18, fontWeight: '900' },
   routePointText: { color: '#62748b', fontSize: 12.5, lineHeight: 18, fontWeight: '700', marginTop: 3 },
   routeMapCard: { borderRadius: 24, overflow: 'hidden', backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', padding: 14, gap: 12 },
-  routeMapCanvas: { height: 190, borderRadius: 20, overflow: 'hidden', backgroundColor: '#eaf4f6', position: 'relative' },
-  routeMapLine: { position: 'absolute', left: '12%', right: '12%', top: '46%', height: 4, borderRadius: 999, backgroundColor: 'rgba(31, 99, 199, 0.30)', transform: [{ rotate: '-8deg' }] },
-  routeMapPin: { position: 'absolute', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7', borderWidth: 3, borderColor: '#ffffff' },
-  routeMapPinText: { color: '#ffffff', fontSize: 12, lineHeight: 14, fontWeight: '900' },
   routeMapButton: { minHeight: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f63c7', paddingHorizontal: 12 },
   routeMapButtonText: { color: '#ffffff', fontSize: 13, lineHeight: 17, fontWeight: '900', textAlign: 'center' },
 

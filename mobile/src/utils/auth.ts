@@ -1,7 +1,33 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 const AUTH_TOKEN_KEY = 'danang-guide-auth-token';
 const AUTH_USER_KEY = 'danang-guide-auth-user';
+// SecureStore forbids some characters that are fine in AsyncStorage keys
+const SECURE_TOKEN_KEY = 'danang_guide_auth_token';
+
+// The session token lives in the OS keystore (encrypted at rest, excluded from
+// device backups); the non-sensitive cached user profile stays in AsyncStorage.
+// Reads fall back to the legacy AsyncStorage slot once, migrate the value and
+// wipe the plaintext copy — existing logins survive the upgrade.
+async function readSecureToken(): Promise<string | null> {
+  try {
+    const token = await SecureStore.getItemAsync(SECURE_TOKEN_KEY);
+    if (token) return token;
+  } catch {
+    // keystore unavailable (rare vendor quirk) — fall through to legacy slot
+  }
+
+  const legacy = String((await AsyncStorage.getItem(AUTH_TOKEN_KEY)) || '').trim();
+  if (!legacy) return null;
+  try {
+    await SecureStore.setItemAsync(SECURE_TOKEN_KEY, legacy);
+    await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
+  } catch {
+    // migration failed — keep serving the legacy copy rather than logging out
+  }
+  return legacy;
+}
 
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
 
@@ -122,7 +148,12 @@ export async function saveAuthToken(token: string) {
   const normalized = String(token || '').trim();
   if (!normalized) return;
 
-  await AsyncStorage.setItem(AUTH_TOKEN_KEY, normalized);
+  try {
+    await SecureStore.setItemAsync(SECURE_TOKEN_KEY, normalized);
+  } catch {
+    // keystore unavailable — degrade to AsyncStorage so login still works
+    await AsyncStorage.setItem(AUTH_TOKEN_KEY, normalized);
+  }
 
   const user = readUserFromAuthToken(normalized);
   if (user) {
@@ -131,12 +162,17 @@ export async function saveAuthToken(token: string) {
 }
 
 export async function getAuthToken() {
-  const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+  const token = await readSecureToken();
   const normalized = String(token || '').trim();
   return normalized || null;
 }
 
 export async function clearAuthToken() {
+  try {
+    await SecureStore.deleteItemAsync(SECURE_TOKEN_KEY);
+  } catch {
+    // nothing stored securely — fine
+  }
   await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY]);
 }
 

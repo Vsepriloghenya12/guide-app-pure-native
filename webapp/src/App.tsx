@@ -1,12 +1,10 @@
+import { Suspense, lazy } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { RequireOwner } from './components/auth/RequireOwner';
 import { AppShell } from './components/layout/AppShell';
-import { OwnerShell } from './components/layout/OwnerShell';
 import { CategoryPlaceholderPage } from './pages/CategoryPlaceholderPage';
 import { HomePage } from './pages/HomePage';
 import { ListingPage } from './pages/ListingPage';
-import { OwnerLoginPage } from './pages/OwnerLoginPage';
-import { OwnerPage } from './pages/OwnerPage';
 import { ProgramsPage } from './pages/ProgramsPage';
 import { ContactsPage } from './pages/ContactsPage';
 import { HelpPage } from './pages/HelpPage';
@@ -15,6 +13,25 @@ import { FavoritesPage } from './pages/FavoritesPage';
 import { NearbyPage } from './pages/NearbyPage';
 import { MapPage } from './pages/MapPage';
 import { ListingDetailPage } from './pages/ListingDetailPage';
+
+// Owner CMS is code-split out of the public bundle: these chunks load only on /owner routes.
+const OwnerShell = lazy(() =>
+  import('./components/layout/OwnerShell').then((module) => ({ default: module.OwnerShell }))
+);
+const OwnerLoginPage = lazy(() =>
+  import('./pages/OwnerLoginPage').then((module) => ({ default: module.OwnerLoginPage }))
+);
+const OwnerPage = lazy(() =>
+  import('./pages/OwnerPage').then((module) => ({ default: module.OwnerPage }))
+);
+
+function OwnerRoutesFallback() {
+  return (
+    <div className="panel page-loader" style={{ margin: '48px auto', maxWidth: 420, textAlign: 'center' }}>
+      Загружаю панель владельца…
+    </div>
+  );
+}
 
 function App() {
   return (
@@ -34,7 +51,13 @@ function App() {
         <Route path="/contacts" element={<ContactsPage />} />
       </Route>
 
-      <Route element={<OwnerShell />}>
+      <Route
+        element={
+          <Suspense fallback={<OwnerRoutesFallback />}>
+            <OwnerShell />
+          </Suspense>
+        }
+      >
         <Route path="/owner-login" element={<OwnerLoginPage />} />
         <Route
           path="/owner"

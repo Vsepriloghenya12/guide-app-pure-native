@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { BootstrapPayload, GuidePlace, SupportContentStore } from '../types';
 import { normalizeBootstrap, normalizeSupportContent } from '../utils/normalizers';
 import { getAuthToken } from '../utils/auth';
@@ -37,12 +38,34 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-export async function fetchBootstrap(): Promise<BootstrapPayload> {
+const BOOTSTRAP_CACHE_KEY = 'danang-guide-bootstrap-cache-v1';
+
+export type BootstrapSource = 'network' | 'cache' | 'default';
+export type BootstrapResult = { payload: BootstrapPayload; source: BootstrapSource };
+
+/**
+ * Bootstrap with an offline story: fresh network data when possible, the last
+ * successful payload from AsyncStorage when the backend is unreachable, and the
+ * bundled demo content only as the very last resort. The caller gets `source`
+ * so the UI can say honestly what the user is looking at — a backend outage
+ * must never silently masquerade as real content.
+ */
+export async function fetchBootstrap(): Promise<BootstrapResult> {
   try {
     const data = await requestJson<{ ok: true } & BootstrapPayload>('/api/bootstrap');
-    return normalizeBootstrap(data);
+    const payload = normalizeBootstrap(data);
+    AsyncStorage.setItem(BOOTSTRAP_CACHE_KEY, JSON.stringify(data)).catch(() => undefined);
+    return { payload, source: 'network' };
   } catch {
-    return normalizeBootstrap(null);
+    try {
+      const cached = await AsyncStorage.getItem(BOOTSTRAP_CACHE_KEY);
+      if (cached) {
+        return { payload: normalizeBootstrap(JSON.parse(cached)), source: 'cache' };
+      }
+    } catch {
+      // corrupt cache — fall through to the bundled default
+    }
+    return { payload: normalizeBootstrap(null), source: 'default' };
   }
 }
 
