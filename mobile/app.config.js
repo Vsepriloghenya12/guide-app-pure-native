@@ -15,12 +15,16 @@ module.exports = {
         NSLocationWhenInUseUsageDescription: 'Приложение использует геолокацию, чтобы показывать места рядом с вами.'
       },
       config: {
-        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyDTDtz5ZdNanN19XgrAULyCeBSOe948qaU'
+        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || ''
       }
     },
     android: {
       package: 'com.realone14.guideappnativeconnected',
-      versionCode: 19,
+      // Push notifications: FCM config must be wired here so a build from a fresh
+      // clone gets push too (EAS file env GOOGLE_SERVICES_JSON supplies the file;
+      // local dev falls back to the repo-root copy)
+      googleServicesFile: process.env.GOOGLE_SERVICES_JSON || './google-services.json',
+      versionCode: 20,
       permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'POST_NOTIFICATIONS'],
       blockedPermissions: [
         'android.permission.RECORD_AUDIO',
@@ -37,7 +41,9 @@ module.exports = {
       softwareKeyboardLayoutMode: 'pan',
       config: {
         googleMaps: {
-          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyDTDtz5ZdNanN19XgrAULyCeBSOe948qaU'
+          // Bare workflow: the effective Android key lives in AndroidManifest.xml;
+          // this is kept env-driven for prebuild regeneration consistency
+          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || ''
         }
       }
     },

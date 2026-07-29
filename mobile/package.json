@@ -8,7 +8,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "prebuild": "expo prebuild --clean",
-    "doctor": "npx expo-doctor"
+    "doctor": "npx expo-doctor",
+    "test": "vitest run"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.10",
-    "typescript": "latest"
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.10"
   }
 }
