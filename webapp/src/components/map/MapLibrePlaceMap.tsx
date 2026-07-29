@@ -51,6 +51,7 @@ export function MapLibrePlaceMap({
 }: MapLibrePlaceMapProps) {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    preventGoogleFontsLoading: true,
   });
 
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);

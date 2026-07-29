@@ -14,6 +14,9 @@
     <meta name="format-detection" content="telephone=no" />
     <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <!-- Warm up TLS to Google Maps hosts before the JS asks for them — saves ~0.5-1s on slow links -->
+    <link rel="preconnect" href="https://maps.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://maps.gstatic.com" crossorigin />
     <title>Danang Guide</title>
   </head>
   <body>

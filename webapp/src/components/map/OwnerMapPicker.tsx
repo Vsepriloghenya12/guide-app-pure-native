@@ -22,6 +22,7 @@ const OwnerMapPickerComponent = function OwnerMapPicker({
 }: OwnerMapPickerProps) {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    preventGoogleFontsLoading: true,
   });
 
   const mapRef = useRef<google.maps.Map | null>(null);
