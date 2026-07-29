@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { GoogleMap, InfoWindowF, MarkerF, useJsApiLoader } from '@react-google-maps/api';
+import { GOOGLE_MAPS_API_KEY } from '../../utils/mapsKey';
 
 export type MapPlace = {
   id: string;
@@ -19,9 +20,6 @@ type MapLibrePlaceMapProps = {
   onSelectPlace?: (placeId: string) => void;
   onClearSelectedPlace?: () => void;
 };
-
-const GOOGLE_MAPS_API_KEY =
-  import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyDTDtz5ZdNanN19XgrAULyCeBSOe948qaU';
 
 const DEFAULT_CENTER = { lat: 16.047079, lng: 108.20623 };
 // Height/width come from the CSS classes (.maplibre-place-map / .app-map-canvas*),

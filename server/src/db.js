@@ -113,8 +113,20 @@ function hasDatabase() {
 }
 
 function disableDatabaseFallback(error) {
+  const message = error instanceof Error ? error.message : 'Database unavailable';
+
+  // In production a configured-but-unreachable database must be FATAL. Silently
+  // latching the whole process onto file storage forks the data: writes land on
+  // the container's ephemeral disk and vanish on the next redeploy, while users
+  // keep getting 200s. Crash instead — Railway's restart policy retries, and a
+  // real outage stays loudly visible in the deploy status.
+  if (process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production') {
+    console.error(`PostgreSQL is configured but unavailable — refusing to run on file storage: ${message}`);
+    process.exit(1);
+  }
+
   if (!databaseFallbackReason) {
-    databaseFallbackReason = error instanceof Error ? error.message : 'Database unavailable';
+    databaseFallbackReason = message;
     console.warn(`PostgreSQL is unavailable, falling back to file storage: ${databaseFallbackReason}`);
   }
 
@@ -1213,8 +1225,12 @@ async function replaceStoreContents(store) {
     const collections = normalized.collections;
 
     if (places.length === 0) {
-      await tx.unsafe('delete from place_images');
-      await tx.unsafe('delete from places');
+      // Never wipe user-submitted bulletins on a CMS full-save: they arrive through
+      // their own endpoints and may not be present in the admin's copy of the store
+      await tx.unsafe(
+        "delete from place_images where place_id in (select id from places where category_id <> 'bulletin-board')"
+      );
+      await tx.unsafe("delete from places where category_id <> 'bulletin-board'");
     }
 
     for (const category of categories) {
@@ -1373,7 +1389,13 @@ async function replaceStoreContents(store) {
     }
 
     if (places.length > 0) {
-      await tx.unsafe('delete from places where id <> all($1::text[])', [places.map((item) => item.id)]);
+      // The CMS full-save prunes places missing from the payload — but bulletins are
+      // created by users through their own endpoints, so a bulletin submitted after
+      // the admin loaded the CMS would be missing here. Never prune those (race = data loss).
+      await tx.unsafe(
+        "delete from places where category_id <> 'bulletin-board' and id <> all($1::text[])",
+        [places.map((item) => item.id)]
+      );
     }
 
     for (const tip of tips) {

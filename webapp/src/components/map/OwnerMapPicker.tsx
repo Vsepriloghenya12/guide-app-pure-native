@@ -2,6 +2,7 @@ import { KeyboardEvent, memo, useCallback, useEffect, useRef, useState } from 'r
 import { GoogleMap, MarkerF, useJsApiLoader } from '@react-google-maps/api';
 import { api } from '../../api/client';
 import { DANANG_MAP_CENTER, type AppMapPoint } from '../../utils/appMap';
+import { GOOGLE_MAPS_API_KEY } from '../../utils/mapsKey';
 
 type OwnerMapPickerProps = {
   value: AppMapPoint | null;
@@ -9,9 +10,6 @@ type OwnerMapPickerProps = {
   disabled?: boolean;
   onChange: (point: AppMapPoint | null) => void;
 };
-
-const GOOGLE_MAPS_API_KEY =
-  import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyDTDtz5ZdNanN19XgrAULyCeBSOe948qaU';
 
 const DEFAULT_ZOOM = 14;
 const MAP_CONTAINER_STYLE = { width: '100%', height: '400px' };

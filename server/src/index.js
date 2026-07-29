@@ -91,6 +91,9 @@ function loadEnvFile(filePath) {
 }
 
 const app = express();
+// Railway terminates TLS at a single proxy hop — trust it so req.ip is the real
+// client address (without this the rate limiter would lump every user together)
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 8080;
 const webDistPath = path.resolve(__dirname, '../../webapp/dist');
 const defaultUploadsRoot = path.resolve(__dirname, '../../storage/uploads');
@@ -1398,10 +1401,49 @@ app.get('/api/owner/session', (req, res) => {
   res.json({ ok: true, authenticated: isOwnerAuthenticated(req) });
 });
 
-app.post('/api/owner/login', (req, res) => {
+// Constant-time comparison over sha256 digests: safe for unequal lengths and
+// leaks nothing about how many leading characters matched
+function passwordsMatch(candidate, actual) {
+  const a = crypto.createHash('sha256').update(String(candidate)).digest();
+  const b = crypto.createHash('sha256').update(String(actual)).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+const authAttemptsByIp = new Map();
+function authRateLimit(windowMs, maxAttempts) {
+  return (req, res, next) => {
+    const now = Date.now();
+    // Keep the map bounded — prune expired windows once it grows
+    if (authAttemptsByIp.size > 5000) {
+      for (const [ip, entry] of authAttemptsByIp) {
+        if (now > entry.resetAt) authAttemptsByIp.delete(ip);
+      }
+    }
+    const key = req.ip || 'unknown';
+    let entry = authAttemptsByIp.get(key);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 0, resetAt: now + windowMs };
+      authAttemptsByIp.set(key, entry);
+    }
+    entry.count += 1;
+    if (entry.count > maxAttempts) {
+      res.status(429).json({ ok: false, message: 'Слишком много попыток. Попробуйте позже.' });
+      return;
+    }
+    next();
+  };
+}
+
+app.post('/api/owner/login', authRateLimit(15 * 60 * 1000, 10), (req, res) => {
   const password = String(req.body?.password || '');
 
-  if (password !== OWNER_PASSWORD) {
+  // A missing OWNER_PASSWORD in production must never mean "empty password works"
+  if (!OWNER_PASSWORD) {
+    res.status(503).json({ ok: false, authenticated: false, message: 'Owner login is not configured' });
+    return;
+  }
+
+  if (!passwordsMatch(password, OWNER_PASSWORD)) {
     res.status(401).json({ ok: false, authenticated: false, message: 'Invalid password' });
     return;
   }
