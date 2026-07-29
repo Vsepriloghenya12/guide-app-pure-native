@@ -20,7 +20,7 @@ module.exports = {
     },
     android: {
       package: 'com.realone14.guideappnativeconnected',
-      versionCode: 10,
+      versionCode: 19,
       permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'POST_NOTIFICATIONS'],
       blockedPermissions: [
         'android.permission.RECORD_AUDIO',

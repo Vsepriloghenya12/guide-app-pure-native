@@ -1,0 +1,80 @@
+<!-- @dsCard group="Экраны" -->
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Экран: полноэкранный маршрут (текущий вид v15)</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#e6eaf1;padding:30px;display:flex;justify-content:center;font-family:-apple-system,'Segoe UI',Roboto,sans-serif}
+  .phone{width:402px;height:874px;background:#0b0e13;border-radius:54px;padding:11px;box-shadow:0 30px 70px rgba(11,25,48,.4)}
+  .scr{width:100%;height:100%;border-radius:44px;overflow:hidden;background:#e9edf1;position:relative}
+  .water{position:absolute;right:-6%;top:-10%;width:42%;height:130%;background:#a9d5ea;transform:rotate(8deg);border-radius:60px}
+  .r1{position:absolute;left:-10%;top:30%;width:130%;height:15px;background:#fff;box-shadow:0 0 0 1px #e2e7ee;transform:rotate(-5deg)}
+  .r2{position:absolute;left:-10%;top:62%;width:130%;height:12px;background:#fff;box-shadow:0 0 0 1px #e6ebf1;transform:rotate(4deg)}
+  .r3{position:absolute;left:14%;top:-6%;width:12px;height:118%;background:#ffe0a8;transform:rotate(9deg)}
+  .park{position:absolute;right:9%;top:30%;width:120px;height:90px;border-radius:16px;background:#cbe6c9}
+  .close{position:absolute;top:54px;left:16px;z-index:8;width:42px;height:42px;border-radius:50%;background:#fff;box-shadow:0 4px 12px rgba(11,43,87,.2);display:flex;align-items:center;justify-content:center;color:#20304c;font-weight:800}
+  .ctrls{position:absolute;top:54px;right:16px;z-index:8;display:flex;flex-direction:column;gap:11px;align-items:center}
+  .c{width:42px;height:42px;border-radius:50%;background:#fff;box-shadow:0 4px 12px rgba(11,43,87,.18);display:flex;align-items:center;justify-content:center}
+  .zoom{width:42px;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 4px 12px rgba(11,43,87,.18);text-align:center}
+  .zoom div{height:41px;line-height:41px;font-size:18px;color:#35507a;font-weight:700}
+  .zoom .dv{height:1px;background:#e6ecf4;line-height:0}
+  .user{position:absolute;left:80px;top:612px;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;background:rgba(31,99,199,.26);display:flex;align-items:center;justify-content:center}
+  .user i{width:19px;height:19px;border-radius:50%;background:#1f63c7;border:3px solid #fff}
+  .pin{position:absolute;left:300px;top:302px;transform:translate(-50%,-50%);width:42px;height:42px;border-radius:50%;background:#e05a3f;border:3px solid #fff;box-shadow:0 6px 14px rgba(224,90,63,.5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px}
+  .md{position:absolute;width:11px;height:11px;border-radius:50%;background:#1f63c7;border:2px solid #fff;box-shadow:0 1px 3px rgba(16,42,67,.3);transform:translate(-50%,-50%)}
+  .sheet{position:absolute;left:0;right:0;bottom:0;z-index:9;background:#fff;border-radius:24px 24px 0 0;padding:10px 16px 30px;box-shadow:0 -6px 28px rgba(11,43,87,.18)}
+  .handle{width:40px;height:5px;border-radius:999px;background:#dce3ec;margin:4px auto 14px}
+  .switch{display:flex;background:#eef2f7;border-radius:15px;padding:4px;margin-bottom:14px}
+  .seg{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;padding:7px 0;border-radius:11px;font-size:11px;font-weight:700;color:#8493a8}
+  .seg small{font-size:10px;color:#9aa7b8;font-weight:700}
+  .seg.on{background:#fff;box-shadow:0 2px 6px rgba(16,42,67,.14);color:#1f63c7;font-weight:800}
+  .seg.on small{color:#1f63c7}
+  .sum{display:flex;align-items:center;gap:12px}
+  .chip{width:42px;height:42px;border-radius:13px;background:#1f63c7;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex-shrink:0}
+  .sum .t{color:#102a43;font-size:19px;font-weight:900;line-height:23px}
+  .sum .s{color:#62748b;font-size:13px;font-weight:700;margin-top:2px}
+  .steps{margin-top:14px;border-top:1px solid #eef1f6;padding-top:8px}
+  .st{display:flex;align-items:flex-start;gap:12px;padding:7px 0}
+  .st .i{width:30px;height:30px;border-radius:9px;background:#eef4fb;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#1f63c7;font-weight:900}
+  .st .tx{flex:1;color:#20304c;font-size:14px;font-weight:700;line-height:19px}
+  .st .d{color:#8493a8;font-size:12px;font-weight:800;margin-top:2px;white-space:nowrap}
+  .acts{display:flex;gap:10px;margin-top:16px}
+  .go{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#1f63c7;color:#fff;font-size:14px;font-weight:800;padding:13px;border-radius:14px}
+  .share{width:52px;border:1px solid #dbe3ee;background:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#35507a}
+</style></head><body>
+<div class="phone"><div class="scr">
+  <div class="water"></div><div class="r1"></div><div class="r2"></div><div class="r3"></div><div class="park"></div>
+  <svg style="position:absolute;inset:0" width="402" height="874" viewBox="0 0 402 874" fill="none">
+    <path d="M80 612 C 130 560 150 470 200 430 C 250 392 250 342 300 302" stroke="#ffffff" stroke-width="11" stroke-linecap="round"/>
+    <path d="M80 612 C 130 560 150 470 200 430 C 250 392 250 342 300 302" stroke="#1f63c7" stroke-width="6" stroke-linecap="round"/>
+  </svg>
+  <div class="md" style="left:150px;top:470px"></div>
+  <div class="md" style="left:250px;top:362px"></div>
+  <div class="user"><i></i></div>
+  <div class="pin">🍴</div>
+  <div class="close">✕</div>
+  <div class="ctrls">
+    <div class="c">🧭</div>
+    <div class="c">◎</div>
+    <div class="zoom"><div>+</div><div class="dv"></div><div>−</div></div>
+  </div>
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="switch">
+      <div class="seg on">🚶<span>Пешком</span><small>23 мин</small></div>
+      <div class="seg">🛵<span>Скутер</span><small>8 мин</small></div>
+      <div class="seg">🚲<span>Велосипед</span><small>—</small></div>
+      <div class="seg">🚕<span>Такси</span><small>—</small></div>
+    </div>
+    <div class="sum">
+      <div class="chip">🚶</div>
+      <div style="flex:1"><div class="t">1,8 км · ~23 мин</div><div class="s">пешком · туман</div></div>
+    </div>
+    <div class="steps">
+      <div class="st"><div class="i">↑</div><div class="tx">Идите на север по Nguyễn Tất Thành</div><div class="d">400 м</div></div>
+      <div class="st"><div class="i">→</div><div class="tx">Направо на Hà Huy Tập</div><div class="d">650 м</div></div>
+      <div class="st"><div class="i" style="color:#e05a3f">⚑</div><div class="tx">«туман» будет справа</div><div class="d"></div></div>
+    </div>
+    <div class="acts"><div class="go">➤ В путь</div><div class="share">⤴</div></div>
+  </div>
+</div></div>
+</body></html>

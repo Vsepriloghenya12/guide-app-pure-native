@@ -8,15 +8,10 @@ function getMapQuery(place: GuidePlace) {
   return String(place.mapQuery || place.address || place.title).trim();
 }
 
-function getOpenStreetMapPointUrl(place: GuidePlace) {
-  if (typeof place.lat === 'number' && Number.isFinite(place.lat) && typeof place.lng === 'number' && Number.isFinite(place.lng)) {
-    return `https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lng}#map=16/${place.lat}/${place.lng}`;
-  }
-  return `https://www.openstreetmap.org/search?query=${encodeURIComponent(getMapQuery(place))}`;
-}
-
+// Google Maps directions to the place. Opens the native Google Maps app if
+// installed, otherwise the web version. Uses the universal cross-platform URL.
 export function directionsUrl(place: GuidePlace) {
-  return getOpenStreetMapPointUrl(place);
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(getMapQuery(place))}`;
 }
 
 export async function openExternalUrl(url: string) {

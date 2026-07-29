@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   Image,
   ImageBackground,
@@ -11,6 +13,7 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -19,6 +22,8 @@ import {
   View,
   useWindowDimensions
 } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
@@ -29,6 +34,19 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import type { BootstrapPayload, GuideCategory, GuideCollection, GuidePlace, GuideTip, SupportContentStore } from './src/types';
 import { fetchBootstrap, fetchSupportContent, fetchAuthSession, fetchAuthStartUrl, logoutAuthSession, deleteAuthProfile, reportBulletin, fetchHiddenAuthors, hideBulletinAuthor, API_BASE_URL, sendAnalytics, submitBulletinListing, fetchMyBulletinListings, deleteMyBulletinListing, getNotificationSettings, registerPushToken, updateNotificationSettings, type NotificationSettings } from './src/api/client';
 import { directionsUrl, openExternalUrl } from './src/utils/links';
+import {
+  fetchRoute,
+  fetchWalkingRoute,
+  formatDistanceMeters,
+  formatDurationShort,
+  formatRouteShort,
+  formatRouteSummary,
+  travelModeWord,
+  type LatLng,
+  type RouteStep,
+  type TravelMode,
+  type WalkingRoute
+} from './src/utils/directions';
 import { estimateTravelTime, formatDistance, hasCoordinates, haversineDistanceKm } from './src/utils/geo';
 import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
 import { clearAuthToken, getAuthUserAvatarUrl, getCachedAuthUser, readUserFromAuthToken, saveAuthToken } from './src/utils/auth';
@@ -521,10 +539,15 @@ const nativeRoutes: NativeRoute[] = [
   }
 ];
 
-function openStreetMapRouteUrl(route: NativeRoute) {
+function googleMapsRouteUrl(route: NativeRoute) {
   const origin = route.points[0];
   const destination = route.points[route.points.length - 1];
-  return `https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=${origin.lat}%2C${origin.lng}%3B${destination.lat}%2C${destination.lng}`;
+  const waypoints = route.points
+    .slice(1, -1)
+    .map((point) => `${point.lat},${point.lng}`)
+    .join('|');
+  const base = `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&travelmode=walking`;
+  return waypoints ? `${base}&waypoints=${encodeURIComponent(waypoints)}` : base;
 }
 
 function normalizeBannerLink(value: unknown) {
@@ -993,11 +1016,11 @@ function AppContent() {
   const selectedCategory = route.name === 'category' ? categories.find((item) => item.id === route.categoryId) : null;
   const selectedListing = route.name === 'detail' ? listings.find((item) => item.slug === route.slug || item.id === route.slug) : null;
   const isHomeRoot = route.name === 'tabs' && route.tab === 'home';
-  const hideTopHeader = isHomeRoot || route.name === 'category' || route.name === 'routes' || route.name === 'routeDetail' || route.name === 'programs' || route.name === 'tips';
+  const hideTopHeader = isHomeRoot || route.name === 'category' || route.name === 'routes' || route.name === 'routeDetail' || route.name === 'programs' || route.name === 'tips' || route.name === 'detail';
 
   return (
     <View style={styles.safeArea} {...backSwipeResponder.panHandlers}>
-      <StatusBar translucent barStyle="dark-content" backgroundColor="transparent" />
+      <StatusBar translucent barStyle={route.name === 'detail' ? 'light-content' : 'dark-content'} backgroundColor="transparent" />
       {!hideTopHeader ? (
         <View style={[styles.appHeader, { paddingTop: mobileInsets.top + 8 }]}>
           <View>
@@ -1021,6 +1044,9 @@ function AppContent() {
           onOpenAuth={() => setAuthSheetOpen(true)}
           onReportBulletin={handleReportBulletin}
           onHideBulletinAuthor={handleHideBulletinAuthor}
+          onBack={goBack}
+          allPlaces={listings}
+          onOpenPlace={(nextPlace) => setRoute({ name: 'detail', slug: nextPlace.slug || nextPlace.id })}
         />
       ) : route.name === 'routeDetail' ? (
         <RouteDetailScreen
@@ -1445,8 +1471,13 @@ function CategoryScreen({
   onBack: () => void;
 }) {
   const mobileInsets = useMobileInsets();
+  const { height: viewportHeight } = useWindowDimensions();
   const [selectedQuickTokens, setSelectedQuickTokens] = useState<string[]>([]);
   const [isFilterOpen, setFilterOpen] = useState(false);
+  const [isMapOpen, setMapOpen] = useState(false);
+  const [selectedCuisine, setSelectedCuisine] = useState('');
+  const [activeTab, setActiveTab] = useState<'open' | 'near' | 'verified' | null>('open');
+  const [userPosition, setUserPosition] = useState<{ lat: number; lng: number } | null>(null);
   const quickFilters = (category.id === 'restaurants' ? restaurantQuickFilters : category.filterSchema?.quickFilters || []).slice(0, 3);
   const publishedListings = useMemo(
     () => listings.filter((item) => item.status !== 'hidden' && item.status !== 'draft'),
@@ -1458,6 +1489,107 @@ function CategoryScreen({
       : publishedListings,
     [publishedListings, selectedQuickTokens]
   );
+
+  // Тихо берём позицию, если доступ уже выдан — тогда в строках появляется «N м · M мин пешком»
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const permission = await Location.getForegroundPermissionsAsync();
+        if (!permission.granted) return;
+        const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (cancelled) return;
+        const point = { lat: current.coords.latitude, lng: current.coords.longitude };
+        if (Math.abs(point.lat) < 0.5 && Math.abs(point.lng) < 0.5) return;
+        setUserPosition(point);
+      } catch {
+        // без позиции просто не показываем расстояния
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const requestPosition = useCallback(async () => {
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (!permission.granted) return;
+      const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const point = { lat: current.coords.latitude, lng: current.coords.longitude };
+      if (Math.abs(point.lat) < 0.5 && Math.abs(point.lng) < 0.5) return;
+      setUserPosition(point);
+    } catch {
+      // отказ или сбой GPS — сортировка «Рядом» останется недоступной
+    }
+  }, []);
+
+  // Чипы кухонь — из реальных данных карточек этой категории
+  const cuisineOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    publishedListings.forEach((item) => {
+      const value = toText(item.cuisine).trim();
+      if (!value) return;
+      const key = value.toLowerCase();
+      if (!seen.has(key)) seen.set(key, value);
+    });
+    return Array.from(seen.values()).slice(0, 12);
+  }, [publishedListings]);
+
+  const cuisineFiltered = useMemo(
+    () => selectedCuisine
+      ? filteredListings.filter((item) => toText(item.cuisine).trim().toLowerCase() === selectedCuisine.toLowerCase())
+      : filteredListings,
+    [filteredListings, selectedCuisine]
+  );
+
+  const listingsWithDistance = useMemo(() => {
+    if (!userPosition) return cuisineFiltered;
+    return cuisineFiltered.map((item) => {
+      const coordinate = placeCoordinate(item);
+      return coordinate
+        ? { ...item, distanceKm: haversineDistanceKm(userPosition, { lat: coordinate.latitude, lng: coordinate.longitude }) }
+        : item;
+    });
+  }, [cuisineFiltered, userPosition]);
+
+  const visibleListings = useMemo(() => {
+    if (activeTab === 'open') {
+      // Лояльный фильтр: места с нечитаемыми часами не прячем
+      return listingsWithDistance.filter((item) => isOpenNow(item.hours) !== false);
+    }
+    if (activeTab === 'verified') {
+      return listingsWithDistance.filter((item) => Boolean(item.qualityBadge));
+    }
+    if (activeTab === 'near') {
+      return [...listingsWithDistance].sort((a, b) => {
+        const aKm = Number((a as GuidePlace & { distanceKm?: unknown }).distanceKm);
+        const bKm = Number((b as GuidePlace & { distanceKm?: unknown }).distanceKm);
+        return (Number.isFinite(aKm) ? aKm : Number.MAX_SAFE_INTEGER) - (Number.isFinite(bKm) ? bKm : Number.MAX_SAFE_INTEGER);
+      });
+    }
+    return listingsWithDistance;
+  }, [listingsWithDistance, activeTab]);
+
+  const mappablePlaces = useMemo(() => visibleListings.filter((item) => Boolean(placeCoordinate(item))), [visibleListings]);
+
+  // На карту точку «вы здесь» добавляем только рядом с Данангом — далёкая точка
+  // растянула бы регион карты до масштаба страны и схлопнула все пины в один
+  const nearbyUserPoint = useMemo<LatLng | null>(() => {
+    if (!userPosition) return null;
+    const kmFromDanang = haversineDistanceKm(userPosition, {
+      lat: DANANG_DEMO_ORIGIN.latitude,
+      lng: DANANG_DEMO_ORIGIN.longitude
+    });
+    return kmFromDanang <= 50 ? { latitude: userPosition.lat, longitude: userPosition.lng } : null;
+  }, [userPosition]);
+
+  const handleTabPress = useCallback((tab: 'open' | 'near' | 'verified') => {
+    if (tab === 'near' && !userPosition) {
+      void requestPosition();
+    }
+    setActiveTab((current) => (current === tab ? null : tab));
+  }, [userPosition, requestPosition]);
 
   const toggleQuickFilter = useCallback((token: string) => {
     setSelectedQuickTokens((current) => {
@@ -1479,31 +1611,74 @@ function CategoryScreen({
 
   const listHeader = (
     <>
-      <View style={styles.categoryToolbar}>
-        <TouchableOpacity activeOpacity={0.82} onPress={onBack} style={styles.categoryBackButton}>
-          <Text style={styles.categoryBackGlyph}>‹</Text>
+      <View style={styles.categoryHeaderRow}>
+        <TouchableOpacity activeOpacity={0.82} onPress={onBack} style={styles.categoryBackPill}>
+          <Text style={styles.categoryBackPillText}>‹ Назад</Text>
         </TouchableOpacity>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryQuickRow}>
-          {quickFilters.map((token) => {
-            const isActive = selectedQuickTokens.includes(token);
+        <Text style={styles.categoryHeaderTitle} numberOfLines={1}>{category.title}</Text>
+        <TouchableOpacity activeOpacity={0.78} onPress={() => setFilterOpen(true)} style={styles.categoryHeaderCircle}>
+          <Text style={styles.categoryFilterIcon}>☰</Text>
+          {selectedQuickTokens.length > 0 ? (
+            <View style={styles.filterBadge}><Text style={styles.filterBadgeText}>{selectedQuickTokens.length}</Text></View>
+          ) : null}
+        </TouchableOpacity>
+      </View>
+
+      {cuisineOptions.length >= 2 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.cuisineChipsScroll}
+          contentContainerStyle={styles.cuisineChipsRow}
+        >
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setSelectedCuisine('')}
+            style={[styles.cuisineChip, !selectedCuisine && styles.cuisineChipActive]}
+          >
+            <Text style={[styles.cuisineChipText, !selectedCuisine && styles.cuisineChipTextActive]}>
+              {category.id === 'restaurants' ? 'Все кухни' : 'Все'}
+            </Text>
+          </TouchableOpacity>
+          {cuisineOptions.map((option) => {
+            const isActive = selectedCuisine.toLowerCase() === option.toLowerCase();
             return (
-              <TouchableOpacity key={token} activeOpacity={0.78} onPress={() => toggleQuickFilter(token)} style={styles.categoryQuickButton}>
-                <Text style={[styles.categoryQuickText, isActive && styles.categoryQuickTextActive]}>{getFilterDisplayText(token)}</Text>
+              <TouchableOpacity
+                key={option}
+                activeOpacity={0.8}
+                onPress={() => setSelectedCuisine(isActive ? '' : option)}
+                style={[styles.cuisineChip, isActive && styles.cuisineChipActive]}
+              >
+                <Text style={[styles.cuisineChipText, isActive && styles.cuisineChipTextActive]}>{option}</Text>
               </TouchableOpacity>
             );
           })}
-          <TouchableOpacity activeOpacity={0.78} onPress={() => setFilterOpen(true)} style={styles.categoryFilterButton}>
-            <Text style={styles.categoryFilterIcon}>☰</Text>
-            {selectedQuickTokens.length > 0 ? <View style={styles.filterBadge}><Text style={styles.filterBadgeText}>{selectedQuickTokens.length}</Text></View> : null}
-          </TouchableOpacity>
         </ScrollView>
-      </View>
+      ) : null}
 
-      {category.id !== 'restaurants' ? (
-        <View style={styles.categoryTitleBlock}>
-          <Text style={styles.categoryTitleText}>{category.title}</Text>
-          {category.description ? <Text style={styles.categoryDescriptionText}>{category.description}</Text> : null}
-        </View>
+      <View style={styles.categoryTabsRow}>
+        {([
+          { key: 'open' as const, label: 'Открыто сейчас' },
+          { key: 'near' as const, label: 'Рядом' },
+          { key: 'verified' as const, label: 'Проверено' }
+        ]).map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              activeOpacity={0.8}
+              onPress={() => handleTabPress(tab.key)}
+              style={[styles.categoryTab, isActive && styles.categoryTabActive]}
+            >
+              <Text style={[styles.categoryTabText, isActive && styles.categoryTabTextActive]} numberOfLines={1}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      {activeTab === 'near' && !userPosition ? (
+        <Text style={styles.categoryLocateNote}>Разрешите доступ к геолокации, чтобы сортировать места по расстоянию.</Text>
       ) : null}
     </>
   );
@@ -1527,19 +1702,81 @@ function CategoryScreen({
   return (
     <>
       <FlatList
-        data={filteredListings}
+        data={visibleListings}
         keyExtractor={(item) => item.id}
         renderItem={renderListing}
         ListHeaderComponent={listHeader}
-        ListEmptyComponent={<EmptyState title="Пока пусто" text="В этом разделе нет опубликованных карточек." />}
+        ListEmptyComponent={
+          publishedListings.length > 0 ? (
+            <EmptyState
+              title="Ничего не нашлось"
+              text={activeTab === 'open'
+                ? 'Сейчас всё закрыто или скрыто фильтрами. Нажмите «Открыто сейчас» ещё раз, чтобы показать все места.'
+                : 'По выбранным фильтрам мест нет. Сбросьте фильтры или выберите другую кухню.'}
+            />
+          ) : (
+            <EmptyState title="Пока пусто" text="В этом разделе нет опубликованных карточек." />
+          )
+        }
         style={[styles.content, styles.categoryContent]}
         contentContainerStyle={[
           styles.categoryContentInner,
-          { paddingTop: mobileInsets.top + 14, paddingBottom: 66 + mobileInsets.bottom + 26 }
+          // Запас под таб-бар + плавающую пилюлю «Показать на карте»
+          { paddingTop: mobileInsets.top + 14, paddingBottom: 74 + mobileInsets.bottom + 76 }
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       />
+      {mappablePlaces.length > 0 ? (
+        // 74 = высота таб-бара без инсета (paddingTop 6 + minHeight 60 + paddingBottom 8) — пилюля висит НАД ним
+        <View pointerEvents="box-none" style={[styles.categoryMapFloatWrap, { bottom: 74 + mobileInsets.bottom + 14 }]}>
+          <TouchableOpacity activeOpacity={0.88} onPress={() => setMapOpen(true)} style={styles.categoryMapFloatButton}>
+            <PinIcon size={15} color="#ffffff" strokeWidth={2} />
+            <Text style={styles.categoryMapFloatText}>Показать на карте</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      <Modal
+        visible={isMapOpen}
+        animationType="slide"
+        statusBarTranslucent
+        navigationBarTranslucent
+        onRequestClose={() => setMapOpen(false)}
+      >
+        <View style={styles.mapFullscreenRoot}>
+          <InlineErrorBoundary
+            fallback={(
+              <View style={[styles.mapFullscreenRoot, styles.mapFullscreenFallback]}>
+                <Text style={styles.detailMapFallbackTitle}>Карта временно недоступна</Text>
+                <Text style={styles.detailMapFallbackText}>Вернитесь к списку и попробуйте ещё раз.</Text>
+              </View>
+            )}
+          >
+            <GuideMap
+              flat
+              places={mappablePlaces}
+              userPoint={nearbyUserPoint}
+              height={viewportHeight}
+              showControls
+              controlsTopOffset={mobileInsets.top + 10}
+              onOpenPlace={(item) => {
+                setMapOpen(false);
+                openDetail(item);
+              }}
+            />
+          </InlineErrorBoundary>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setMapOpen(false)}
+            style={[styles.mapFullscreenClose, { top: mobileInsets.top + 10 }]}
+          >
+            <CloseIcon />
+          </TouchableOpacity>
+          <View pointerEvents="none" style={[styles.categoryMapCountChip, { top: mobileInsets.top + 16 }]}>
+            <Text style={styles.categoryMapCountText}>{category.title} · {mappablePlaces.length}</Text>
+          </View>
+        </View>
+      </Modal>
       <Modal visible={isFilterOpen} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)}>
         <View style={styles.modalBackdrop}>
           <TouchableOpacity style={styles.modalBackdropTouch} activeOpacity={1} onPress={() => setFilterOpen(false)} />
@@ -1895,57 +2132,75 @@ function CategoryListingCard({
   onPress: () => void;
   onToggleFavorite: () => void;
 }) {
-  const imageUrls = getPlaceImageUrls(place);
-  const [fullscreenImage, setFullscreenImage] = useState('');
+  const imageUrl = getPlaceImageUrls(place)[0];
   const avgCheckValue = Number(place.avgCheck);
-  const checkLabel = place.priceLabel || (Number.isFinite(avgCheckValue) && avgCheckValue > 0 ? `${avgCheckValue.toLocaleString('ru-RU')} ₫` : 'Не указан');
-  const hoursLabel = place.hours || 'Не указано';
-  const cuisineLabel = toText(place.cuisine);
-  const typeLabel = cuisineLabel ? '' : toText(place.kind || place.listingType || place.type || place.categoryId);
+  const checkLabel = toText(place.priceLabel) || (Number.isFinite(avgCheckValue) && avgCheckValue > 0 ? `от ${avgCheckValue.toLocaleString('ru-RU')} ₫` : '');
+  const hoursLabel = toText(place.hours);
+  const cuisineLabel = toText(place.cuisine) || toText(place.kind || place.listingType || place.type);
+  const distanceKmValue = Number((place as GuidePlace & { distanceKm?: unknown }).distanceKm);
+  const distanceLabel = Number.isFinite(distanceKmValue) && distanceKmValue > 0
+    ? `${formatDistance(distanceKmValue)} ${estimateTravelTime(distanceKmValue)}`.trim()
+    : '';
+  const ratingRaw = Number((place as GuidePlace & { rating?: unknown }).rating);
+  const ratingLabel = Number.isFinite(ratingRaw) && ratingRaw > 0 ? ratingRaw.toFixed(1).replace('.', ',') : '';
 
   return (
-    <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={styles.restaurantCardNative}>
-      {imageUrls.length > 0 ? (
-        <View style={styles.restaurantCardImage}>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            nestedScrollEnabled
-            showsHorizontalScrollIndicator={false}
-            style={styles.full}
-          >
-            {imageUrls.map((imageUrl, index) => (
-              <TouchableOpacity key={`${imageUrl}-${index}`} activeOpacity={0.92} onPress={onPress}>
-                <ImageBackground source={{ uri: imageUrl }} style={styles.restaurantCardImageSlide} imageStyle={styles.restaurantCardImageReal}>
-                <View style={styles.restaurantCardImageShade} />
-                </ImageBackground>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <Text style={styles.restaurantCardImageTitle} numberOfLines={2}>{place.title}</Text>
-          {imageUrls.length > 1 ? <Text style={styles.restaurantCardImageCount}>{imageUrls.length} фото</Text> : null}
-          {isFavorite ? <Text style={styles.restaurantCardSavedMark}>♥</Text> : null}
-        </View>
+    <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={styles.listRow}>
+      {imageUrl ? (
+        <Image source={{ uri: imageUrl }} style={styles.listRowImage} />
       ) : (
-        <View style={[styles.restaurantCardImage, styles.restaurantCardImageFallback]}>
-          <Text style={styles.restaurantCardImageTitle} numberOfLines={2}>{place.title}</Text>
-          {isFavorite ? <Text style={styles.restaurantCardSavedMark}>♥</Text> : null}
-        </View>
+        <View style={[styles.listRowImage, styles.listRowImageFallback]} />
       )}
-      <View style={styles.restaurantCardBody}>
-        <View style={styles.restaurantCardTitleRow}>
-          <Text style={styles.restaurantCardTitle} numberOfLines={2}>{place.title}</Text>
-          {place.qualityBadge ? <Image source={placeVerificationBadge} resizeMode="contain" style={styles.restaurantCardQualityBadge} /> : null}
+      <View style={styles.listRowBody}>
+        <View style={styles.listRowTitleRow}>
+          <Text style={styles.listRowTitle} numberOfLines={1}>{toText(place.title, 'Место')}</Text>
+          {place.qualityBadge ? (
+            <Image source={placeVerificationBadge} resizeMode="contain" style={styles.listRowBadge} />
+          ) : null}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={onToggleFavorite}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <HeartIcon size={18} filled={isFavorite} color={isFavorite ? '#e05a3f' : '#c2ccda'} />
+          </TouchableOpacity>
         </View>
-        <Text style={styles.restaurantCardSubtitle} numberOfLines={1}>{place.shortDescription || place.description || place.district || place.kind}</Text>
-        <View style={styles.restaurantFacts}>
-          <RestaurantFact tone="hours" value={hoursLabel} />
-          <RestaurantFact tone="cuisine" value={cuisineLabel} />
-          <RestaurantFact tone="type" value={typeLabel} />
-          <RestaurantFact tone="price" value={checkLabel} />
-        </View>
+        {hoursLabel ? (
+          <View style={styles.listRowFact}>
+            <ClockIcon />
+            <Text style={styles.listRowFactText} numberOfLines={1}>{hoursLabel}</Text>
+          </View>
+        ) : null}
+        {cuisineLabel ? (
+          <View style={styles.listRowFact}>
+            <CoffeeIcon />
+            <Text style={styles.listRowFactText} numberOfLines={1}>{cuisineLabel}</Text>
+          </View>
+        ) : null}
+        {distanceLabel ? (
+          <View style={styles.listRowFact}>
+            <PinIcon />
+            <Text style={styles.listRowFactText} numberOfLines={1}>{distanceLabel}</Text>
+          </View>
+        ) : null}
+        {checkLabel || ratingLabel ? (
+          <View style={styles.listRowBottomRow}>
+            {checkLabel ? (
+              <View style={[styles.listRowFact, styles.flex]}>
+                <BanknoteIcon />
+                <Text style={styles.listRowFactText} numberOfLines={1}>{checkLabel}</Text>
+              </View>
+            ) : (
+              <View style={styles.flex} />
+            )}
+            {ratingLabel ? (
+              <Text style={styles.listRowRating}>
+                <Text style={styles.detailStatsStar}>★</Text> {ratingLabel}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
       </View>
-      <FullscreenImageModal imageUrl={fullscreenImage} onClose={() => setFullscreenImage('')} />
     </TouchableOpacity>
   );
 }
@@ -2003,18 +2258,277 @@ function clampNumber(value: number, min: number, max: number) {
 }
 
 
+const TRAVEL_MODES: TravelMode[] = ['walk', 'scooter', 'bike', 'taxi'];
+const TRAVEL_MODE_LABELS: Record<TravelMode, string> = {
+  walk: 'Пешком',
+  scooter: 'Скутер',
+  bike: 'Велосипед',
+  taxi: 'Такси'
+};
+// google.com/maps/dir universal URL supports walking | bicycling | driving | transit
+const EXTERNAL_TRAVEL_MODE: Record<TravelMode, string> = {
+  walk: 'walking',
+  scooter: 'driving',
+  bike: 'bicycling',
+  taxi: 'driving'
+};
+
+// Мост Дракона — стартовая точка демо-маршрута, когда пользователь далеко от Дананга
+const DANANG_DEMO_ORIGIN: LatLng = { latitude: 16.0611, longitude: 108.2229 };
+
+// Best-effort «открыто сейчас» из строки часов ("07:00–22:00", "Ежедневно 7.30-21.00"…).
+// null = не смогли распарсить (такие места фильтр не прячет).
+function isOpenNow(hoursRaw: unknown): boolean | null {
+  const text = toText(hoursRaw);
+  if (!text) return null;
+  if (/круглосуточ|24\s*\/\s*7|24\s*час/i.test(text)) return true;
+  const match = text.match(/(\d{1,2})[:.](\d{2})\s*[–—-]\s*(\d{1,2})[:.](\d{2})/);
+  if (!match) return null;
+  const start = Number(match[1]) * 60 + Number(match[2]);
+  const end = Number(match[3]) * 60 + Number(match[4]);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  // Часы мест — данангские (UTC+7); телефон туриста может жить в любом поясе
+  const now = new Date();
+  const current = (now.getUTCHours() * 60 + now.getUTCMinutes() + 7 * 60) % (24 * 60);
+  if (end === start) return true;
+  if (end > start) return current >= start && current < end;
+  // ночной график, например 18:00–02:00
+  return current >= start || current < end;
+}
+
+// ─── Иконки из дизайн-макета (Карта места) ──────────────────────────────────
+function WalkIcon({ size = 16, color = '#ffffff' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx={12} cy={4.3} r={2.1} fill={color} stroke="none" />
+      <Path d="M12 7.4v5.2" /><Path d="M12 9.2l-3 1.9" /><Path d="M12 9.2l3 1.3" /><Path d="M12 12.6l-2.4 6" /><Path d="M12 12.6l2.4 6" />
+    </Svg>
+  );
+}
+
+function ScooterIcon({ size = 22, color = '#8493a8' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx={6} cy={17} r={3} /><Circle cx={18.5} cy={17} r={3} />
+      <Path d="M9 17h4.8l2.4-6H19" /><Path d="M11.2 11h3.6" /><Path d="M6 17l3-6" />
+    </Svg>
+  );
+}
+
+function BikeIcon({ size = 22, color = '#8493a8' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx={5.6} cy={16.6} r={3.3} /><Circle cx={18.4} cy={16.6} r={3.3} />
+      <Path d="M5.6 16.6l4.2-7.2h4.4" /><Path d="M9.8 9.4l4.4 7.2" /><Path d="M8.3 9.4h3" />
+    </Svg>
+  );
+}
+
+function TaxiIcon({ size = 22, color = '#8493a8' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4.4 12.4l1.5-3.7A2 2 0 0 1 7.8 7.4h8.4a2 2 0 0 1 1.9 1.3l1.5 3.7" />
+      <Path d="M3.6 12.4h16.8v3a1 1 0 0 1-1 1H4.6a1 1 0 0 1-1-1z" />
+      <Circle cx={7} cy={17} r={1.3} fill={color} stroke="none" /><Circle cx={17} cy={17} r={1.3} fill={color} stroke="none" />
+      <Path d="M9.8 7.4V5.6h4.4v1.8" />
+    </Svg>
+  );
+}
+
+function TravelModeIcon({ mode, size = 22, color = '#8493a8' }: { mode: TravelMode; size?: number; color?: string }) {
+  if (mode === 'walk') return <WalkIcon size={size} color={color} />;
+  if (mode === 'scooter') return <ScooterIcon size={size} color={color} />;
+  if (mode === 'bike') return <BikeIcon size={size} color={color} />;
+  return <TaxiIcon size={size} color={color} />;
+}
+
+function CloseIcon({ size = 16, color = '#20304c' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M6 6l12 12M18 6L6 18" />
+    </Svg>
+  );
+}
+
+function CompassIcon({ size = 22 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={9} stroke="#c7d2e0" strokeWidth={1.5} />
+      <Path d="M12 5.5 15 12.5 9 12.5Z" fill="#e05a3f" />
+      <Path d="M12 18.5 15 12.5 9 12.5Z" fill="#94a1b4" />
+    </Svg>
+  );
+}
+
+function LocateIcon({ size = 22, color = '#1f63c7' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx={12} cy={12} r={4} />
+      <Path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+      <Circle cx={12} cy={12} r={1.3} fill={color} stroke="none" />
+    </Svg>
+  );
+}
+
+function ZoomGlyph({ minus = false, size = 20 }: { minus?: boolean; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#35507a" strokeWidth={2.2} strokeLinecap="round">
+      {minus ? <Path d="M6 12h12" /> : <Path d="M12 6v12M6 12h12" />}
+    </Svg>
+  );
+}
+
+function SendIcon({ size = 17, color = '#ffffff' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M3 11l18-8-8 18-2-8-8-2z" />
+    </Svg>
+  );
+}
+
+function ShareIcon({ size = 19, color = '#35507a' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx={6} cy={12} r={2.4} /><Circle cx={17} cy={6} r={2.4} /><Circle cx={17} cy={18} r={2.4} />
+      <Path d="M8.1 10.9 14.9 7.2M8.1 13.1 14.9 16.8" />
+    </Svg>
+  );
+}
+
+function ForkIcon({ size = 20, color = '#ffffff' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M6 3v6a2 2 0 0 0 4 0V3" /><Path d="M8 9v12" />
+      <Path d="M16.5 3c-1.4 0-2.5 2-2.5 4.5s1.1 4 2.5 4" /><Path d="M16.5 3v18" />
+    </Svg>
+  );
+}
+
+function StarIcon({ size = 14, color = '#f5a623' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path d="M12 3.4l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.2 19.6l1-5.8L2.9 9.6l5.9-.9z" />
+    </Svg>
+  );
+}
+
+function ClockIcon({ size = 17, color = '#e08a1e' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx={12} cy={12} r={9} />
+      <Path d="M12 7.2v5l3.4 2" />
+      <Path d="M12 3.4v1.3M20.6 12h-1.3M12 20.6v-1.3M3.4 12h1.3" />
+    </Svg>
+  );
+}
+
+function PinIcon({ size = 17, color = '#e05a3f', strokeWidth = 1.5 }: { size?: number; color?: string; strokeWidth?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M12 21.5c4-4 6.5-7 6.5-10.5a6.5 6.5 0 0 0-13 0C5.5 14.5 8 17.5 12 21.5z" />
+      <Circle cx={12} cy={10.8} r={2.4} />
+    </Svg>
+  );
+}
+
+function CoffeeIcon({ size = 17, color = '#1f63c7' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M6.4 13.8a3.4 3.4 0 0 1-.5-6.75 4.1 4.1 0 0 1 7.95-1.3A3.5 3.5 0 0 1 17.6 13.8z" />
+      <Path d="M7 13.8h10v5a1.1 1.1 0 0 1-1.1 1.1H8.1A1.1 1.1 0 0 1 7 18.8z" />
+      <Path d="M10 14v3.2M14 14v3.2" />
+    </Svg>
+  );
+}
+
+function BanknoteIcon({ size = 17, color = '#1f9d63' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 8.5h13a2.5 2.5 0 0 1 2.5 2.5v6a2.5 2.5 0 0 1-2.5 2.5H6a2.5 2.5 0 0 1-2.5-2.5V7A2.5 2.5 0 0 1 6 4.5h9.5v4" />
+      <Circle cx={16.2} cy={14} r={1.1} />
+    </Svg>
+  );
+}
+
+function HeartIcon({ size = 19, color = '#e05a3f', filled = false }: { size?: number; color?: string; filled?: boolean }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? color : 'none'} stroke={color} strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M12 20s-7-4.7-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.3-7 10-7 10z" />
+    </Svg>
+  );
+}
+
+function ChevronGlyph() {
+  return <Text style={{ color: '#c2ccda', fontWeight: '800', fontSize: 15 }}>›</Text>;
+}
+
+function StepManeuverIcon({ maneuver, size = 19 }: { maneuver: RouteStep['maneuver']; size?: number }) {
+  if (maneuver === 'right') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#1f63c7" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+        <Path d="M8 19v-6.3a3 3 0 0 1 3-3h5.2" /><Path d="M13.6 6l4 3.7-4 3.7" />
+      </Svg>
+    );
+  }
+  if (maneuver === 'left') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#1f63c7" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+        <Path d="M16 19v-6.3a3 3 0 0 0-3-3H7.8" /><Path d="M10.4 6l-4 3.7 4 3.7" />
+      </Svg>
+    );
+  }
+  if (maneuver === 'finish') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#e05a3f" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+        <Path d="M7 20V4.4" /><Path d="M7 5.4h9l-2.2 3 2.2 3H7" />
+      </Svg>
+    );
+  }
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#1f63c7" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M12 19V6" /><Path d="M7.6 10.4L12 6l4.4 4.4" />
+    </Svg>
+  );
+}
+
 function GuideMap({
   places = [],
   routePoints = [],
+  routePolyline,
+  routeIsFallback = false,
+  userPoint,
   onOpenPlace,
-  height = 250
+  height = 250,
+  flat = false,
+  markerVariant = 'dot',
+  showControls = false,
+  controlsTopOffset = 16,
+  popupActionLabel = 'Открыть',
+  disablePlacePopup = false
 }: {
   places?: GuidePlace[];
   routePoints?: NativeRoutePoint[];
+  routePolyline?: LatLng[] | null;
+  routeIsFallback?: boolean;
+  userPoint?: LatLng | null;
   onOpenPlace?: (place: GuidePlace) => void;
   height?: number;
+  flat?: boolean;
+  markerVariant?: 'dot' | 'pin';
+  showControls?: boolean;
+  controlsTopOffset?: number;
+  popupActionLabel?: string;
+  disablePlacePopup?: boolean;
 }) {
   const [selectedPlace, setSelectedPlace] = useState<GuidePlace | null>(null);
+  // react-native-svg paints asynchronously; with tracksViewChanges=false from the
+  // first frame the Android marker snapshot can miss the SVG glyph (blank pin).
+  // Track briefly so the icon rasterizes, then freeze to keep the map performant.
+  const [pinTracks, setPinTracks] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setPinTracks(false), 1500);
+    return () => clearTimeout(timer);
+  }, []);
   const placeMarkers = places
     .map((place) => ({ place, coordinate: placeCoordinate(place) }))
     .filter((item): item is { place: GuidePlace; coordinate: { latitude: number; longitude: number } } => Boolean(item.coordinate));
@@ -2030,14 +2544,65 @@ function GuideMap({
       return { latitude, longitude };
     })
     .filter((point) => isValidLatitude(point.latitude) && isValidLongitude(point.longitude));
-  const allCoordinates = [...routeCoordinates, ...placeMarkers.map((item) => item.coordinate)];
+  const roadPolyline = Array.isArray(routePolyline) && routePolyline.length > 1 ? routePolyline : null;
+  const allCoordinates = [
+    ...routeCoordinates,
+    ...placeMarkers.map((item) => item.coordinate),
+    ...(roadPolyline || []),
+    ...(userPoint ? [userPoint] : [])
+  ];
   const mapRegion = allCoordinates.length === 1
     ? { latitude: allCoordinates[0].latitude, longitude: allCoordinates[0].longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }
     : buildMapRegion(allCoordinates);
 
+  const mapViewRef = useRef<MapView | null>(null);
+  // Content-derived signature: refit must trigger when coordinates change even if counts stay equal
+  const coordSignature = (point?: { latitude: number; longitude: number } | null) =>
+    point ? `${point.latitude.toFixed(5)},${point.longitude.toFixed(5)}` : '';
+  const regionFitKey = [
+    allCoordinates.length,
+    coordSignature(allCoordinates[0]),
+    coordSignature(allCoordinates[allCoordinates.length - 1]),
+    roadPolyline?.length || 0,
+    coordSignature(roadPolyline?.[Math.floor((roadPolyline?.length || 0) / 2)]),
+    coordSignature(userPoint)
+  ].join('|');
+  const lastFitKeyRef = useRef(regionFitKey);
+  // animateToRegion is a silent no-op before the native map is ready (Android/PROVIDER_GOOGLE),
+  // so queue the region and replay it from onMapReady instead of consuming the fit key for nothing
+  const isMapReadyRef = useRef(false);
+  const pendingRegionRef = useRef<{ latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null>(null);
+  useEffect(() => {
+    if (lastFitKeyRef.current === regionFitKey) return;
+    lastFitKeyRef.current = regionFitKey;
+    if (allCoordinates.length === 0) return;
+    if (isMapReadyRef.current && mapViewRef.current) {
+      mapViewRef.current.animateToRegion(mapRegion, 420);
+    } else {
+      pendingRegionRef.current = mapRegion;
+    }
+  }, [regionFitKey]);
+
+  // Apple Maps' camera has no `zoom` field (only altitude) — fall back to halving/doubling
+  // the altitude so the zoom buttons work on iOS too.
+  const zoomCamera = (direction: 1 | -1) => {
+    void mapViewRef.current?.getCamera()
+      .then((camera) => {
+        if (typeof camera.zoom === 'number' && Number.isFinite(camera.zoom)) {
+          mapViewRef.current?.animateCamera({ ...camera, zoom: camera.zoom + direction }, { duration: 220 });
+        } else if (typeof camera.altitude === 'number' && Number.isFinite(camera.altitude)) {
+          const altitude = direction > 0 ? Math.max(camera.altitude / 2, 120) : camera.altitude * 2;
+          mapViewRef.current?.animateCamera({ ...camera, altitude }, { duration: 220 });
+        }
+      })
+      .catch(() => {});
+  };
+
+  const cardStyle = flat ? styles.nativeMapFlat : styles.nativeMapCard;
+
   if (allCoordinates.length === 0) {
     return (
-      <View style={[styles.nativeMapCard, { height }]}> 
+      <View style={[cardStyle, { height }]}>
         <Text style={styles.nativeMapEmptyTitle}>Карта пока пустая</Text>
         <Text style={styles.nativeMapEmptyText}>Добавь координаты lat/lng в карточки, и точки появятся на карте.</Text>
       </View>
@@ -2045,15 +2610,34 @@ function GuideMap({
   }
 
   return (
-    <View style={[styles.nativeMapCard, { height }]}> 
+    <View style={[cardStyle, { height }]}>
       <MapView
+        ref={mapViewRef}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         style={styles.nativeMap}
         initialRegion={mapRegion}
         showsCompass
         toolbarEnabled={false}
+        onMapReady={() => {
+          isMapReadyRef.current = true;
+          if (pendingRegionRef.current) {
+            mapViewRef.current?.animateToRegion(pendingRegionRef.current, 420);
+            pendingRegionRef.current = null;
+          }
+        }}
       >
-        {routeCoordinates.length > 1 ? (
+        {roadPolyline ? (
+          routeIsFallback ? (
+            // Straight-line fallback — dashed so it's clearly not a real road route
+            <Polyline coordinates={roadPolyline} strokeColor="#1f63c7" strokeWidth={4} lineDashPattern={[10, 10]} />
+          ) : (
+            <>
+              {/* White casing under the blue line — the route reads cleanly over any map colors */}
+              <Polyline coordinates={roadPolyline} strokeColor="#ffffff" strokeWidth={9} zIndex={1} />
+              <Polyline coordinates={roadPolyline} strokeColor="#1f63c7" strokeWidth={5} zIndex={2} />
+            </>
+          )
+        ) : routeCoordinates.length > 1 ? (
           <Polyline coordinates={routeCoordinates} strokeColor="#1f63c7" strokeWidth={5} />
         ) : null}
         {routeCoordinates.map((point, index) => (
@@ -2079,23 +2663,93 @@ function GuideMap({
             key={`place-${place.id}`}
             coordinate={coordinate}
             anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges={false}
-            onPress={() => setSelectedPlace(place)}
+            tracksViewChanges={markerVariant === 'pin' ? pinTracks : false}
+            onPress={disablePlacePopup ? undefined : () => setSelectedPlace(place)}
           >
-            <View style={styles.nativeMapMarkerHaloLarge}>
-              <View style={styles.nativeMapMarkerPlaceDot} />
-            </View>
+            {markerVariant === 'pin' ? (
+              <View style={styles.nativeMapPinMarker}>
+                <ForkIcon size={20} />
+              </View>
+            ) : (
+              <View style={styles.nativeMapMarkerHaloLarge}>
+                <View style={styles.nativeMapMarkerPlaceDot} />
+              </View>
+            )}
           </Marker>
         ))}
+        {userPoint ? (
+          <Marker coordinate={userPoint} title="Вы здесь" anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
+            <View style={styles.nativeMapUserRing}>
+              <View style={styles.nativeMapUserDotNew} />
+            </View>
+          </Marker>
+        ) : null}
       </MapView>
+      {showControls ? (
+        <View style={[styles.mapControlsColumn, { top: controlsTopOffset }]}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.mapControlButton}
+            onPress={() => {
+              void mapViewRef.current?.getCamera()
+                .then((camera) => {
+                  mapViewRef.current?.animateCamera({ ...camera, heading: 0 }, { duration: 300 });
+                })
+                .catch(() => {});
+            }}
+          >
+            <CompassIcon />
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.mapControlButton}
+            onPress={() => {
+              if (allCoordinates.length > 0) {
+                mapViewRef.current?.animateToRegion(mapRegion, 420);
+              }
+            }}
+          >
+            <LocateIcon />
+          </TouchableOpacity>
+          <View style={styles.mapZoomPanel}>
+            <TouchableOpacity activeOpacity={0.85} style={styles.mapZoomButton} onPress={() => zoomCamera(1)}>
+              <ZoomGlyph />
+            </TouchableOpacity>
+            <View style={styles.mapZoomDivider} />
+            <TouchableOpacity activeOpacity={0.85} style={styles.mapZoomButton} onPress={() => zoomCamera(-1)}>
+              <ZoomGlyph minus />
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
       {selectedPlace ? (
         <View style={styles.nativeMapPopup}>
+          {getPlaceImageUrls(selectedPlace)[0] ? (
+            <Image source={{ uri: getPlaceImageUrls(selectedPlace)[0] }} style={styles.nativeMapPopupThumb} />
+          ) : null}
           <View style={styles.flex}>
             <Text style={styles.nativeMapPopupTitle} numberOfLines={1}>{toText(selectedPlace.title, 'Место')}</Text>
-            <Text style={styles.nativeMapPopupText} numberOfLines={2}>{toText(selectedPlace.address || selectedPlace.district || selectedPlace.kind, 'Открыть карточку')}</Text>
+            <View style={styles.nativeMapPopupMetaRow}>
+              {userPoint && placeCoordinate(selectedPlace) ? (
+                <>
+                  <Text style={styles.nativeMapPopupDistance}>
+                    {formatDistanceMeters(
+                      haversineDistanceKm(
+                        { lat: userPoint.latitude, lng: userPoint.longitude },
+                        { lat: placeCoordinate(selectedPlace)!.latitude, lng: placeCoordinate(selectedPlace)!.longitude }
+                      ) * 1000
+                    )}
+                  </Text>
+                  <Text style={styles.nativeMapPopupDot}>·</Text>
+                </>
+              ) : null}
+              <Text style={styles.nativeMapPopupText} numberOfLines={1}>
+                {toText(selectedPlace.kind || selectedPlace.district || selectedPlace.address, 'Открыть карточку')}
+              </Text>
+            </View>
           </View>
           <TouchableOpacity activeOpacity={0.82} onPress={() => onOpenPlace?.(selectedPlace)} style={styles.nativeMapPopupButton}>
-            <Text style={styles.nativeMapPopupButtonText}>Открыть</Text>
+            <Text style={styles.nativeMapPopupButtonText}>{popupActionLabel}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -2141,6 +2795,43 @@ function RoutesScreen({ onBack, onOpenRoute }: { onBack: () => void; onOpenRoute
 
 function RouteDetailScreen({ route, onBack }: { route: NativeRoute; onBack: () => void }) {
   const mobileInsets = useMobileInsets();
+  const [roadRoute, setRoadRoute] = useState<WalkingRoute | null>(null);
+  const [isRouteLoading, setRouteLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const coordinates = route.points
+      .map((point) => {
+        let latitude = Number(point.lat);
+        let longitude = Number(point.lng);
+        if (!isValidLatitude(latitude) && isValidLatitude(longitude) && isValidLongitude(latitude)) {
+          const previousLatitude = latitude;
+          latitude = longitude;
+          longitude = previousLatitude;
+        }
+        return { latitude, longitude };
+      })
+      .filter((point) => isValidLatitude(point.latitude) && isValidLongitude(point.longitude));
+
+    if (coordinates.length < 2) {
+      setRoadRoute(null);
+      return undefined;
+    }
+
+    setRouteLoading(true);
+    setRoadRoute(null);
+    void fetchWalkingRoute(coordinates[0], coordinates[coordinates.length - 1], coordinates.slice(1, -1)).then((result) => {
+      if (cancelled) return;
+      // Keep the straight-line fallback rendering (GuideMap draws it from routePoints)
+      setRoadRoute(result.roadRoute ? result : null);
+      setRouteLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [route]);
+
   return (
     <ScrollView
       style={[styles.content, styles.categoryContent]}
@@ -2184,9 +2875,11 @@ function RouteDetailScreen({ route, onBack }: { route: NativeRoute; onBack: () =
 
       <View style={styles.routeMapCard}>
         <Text style={styles.routeBlockTitle}>Карта маршрута</Text>
-        <GuideMap routePoints={route.points} height={270} />
-        <TouchableOpacity activeOpacity={0.86} onPress={() => void openExternalUrl(openStreetMapRouteUrl(route))} style={styles.routeMapButton}>
-          <Text style={styles.routeMapButtonText}>Открыть маршрут</Text>
+        <GuideMap routePoints={route.points} routePolyline={roadRoute?.coordinates} height={290} />
+        {isRouteLoading ? <Text style={styles.routeMapStatusText}>Строим пеший маршрут по улицам…</Text> : null}
+        {roadRoute ? <Text style={styles.routeMapStatusText}>🚶 {formatRouteSummary(roadRoute)}</Text> : null}
+        <TouchableOpacity activeOpacity={0.86} onPress={() => void openExternalUrl(googleMapsRouteUrl(route))} style={styles.routeMapButton}>
+          <Text style={styles.routeMapButtonText}>Открыть в навигаторе</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -2327,7 +3020,14 @@ function NearbyScreen({
   const placesWithCoordinates = useMemo(() => listings.filter((place) => Boolean(placeCoordinate(place))), [listings]);
   const placesWithDistance = useMemo(() => {
     return placesWithCoordinates
-      .map((place) => ({ ...place, distanceKm: position ? haversineDistanceKm(position, { lat: Number(place.lat), lng: Number(place.lng) }) : null }))
+      .map((place) => {
+        // Use placeCoordinate (repairs swapped lat/lng from the CMS) — not the raw fields
+        const coordinate = placeCoordinate(place);
+        const distanceKm = position && coordinate
+          ? haversineDistanceKm(position, { lat: coordinate.latitude, lng: coordinate.longitude })
+          : null;
+        return { ...place, distanceKm };
+      })
       .sort((left, right) => (left.distanceKm ?? 9999) - (right.distanceKm ?? 9999));
   }, [placesWithCoordinates, position]);
 
@@ -2339,17 +3039,13 @@ function NearbyScreen({
       {status ? <Text style={styles.noteText}>{status}</Text> : null}
       {placesWithCoordinates.length === 0 ? <EmptyState title="Нет координат" text="У опубликованных мест пока не заполнены lat/lng." /> : null}
       {placesWithDistance.slice(0, 12).map((place) => (
-        <View key={place.id} style={styles.nearbyCardWrap}>
-          <CategoryListingCard
-            place={place}
-            isFavorite={favoriteSet.has(place.slug || place.id)}
-            onPress={() => openDetail(place)}
-            onToggleFavorite={() => toggleFavorite(place.slug || place.id)}
-          />
-          <View style={styles.nearbyBadge}>
-            <Text style={styles.nearbyText}>{formatDistance(place.distanceKm)} {estimateTravelTime(place.distanceKm)}</Text>
-          </View>
-        </View>
+        <CategoryListingCard
+          key={place.id}
+          place={place}
+          isFavorite={favoriteSet.has(place.slug || place.id)}
+          onPress={() => openDetail(place)}
+          onToggleFavorite={() => toggleFavorite(place.slug || place.id)}
+        />
       ))}
     </View>
   );
@@ -2679,7 +3375,10 @@ function DetailScreen({
   authUser,
   onOpenAuth,
   onReportBulletin,
-  onHideBulletinAuthor
+  onHideBulletinAuthor,
+  onBack,
+  allPlaces = [],
+  onOpenPlace
 }: {
   place: GuidePlace;
   category?: GuideCategory;
@@ -2689,12 +3388,29 @@ function DetailScreen({
   onOpenAuth: () => void;
   onReportBulletin: (place: GuidePlace) => void;
   onHideBulletinAuthor: (place: GuidePlace) => void;
+  onBack?: () => void;
+  allPlaces?: GuidePlace[];
+  onOpenPlace?: (place: GuidePlace) => void;
 }) {
   const mobileInsets = useMobileInsets();
-  const { width: viewportWidth } = useWindowDimensions();
+  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const gallery = getPlaceImageUrls(place);
   const [fullscreenImage, setFullscreenImage] = useState('');
   const [isVerificationOpen, setVerificationOpen] = useState(false);
+  const [isMapFullscreen, setMapFullscreen] = useState(false);
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const detailScrollRef = useRef<ScrollView | null>(null);
+  const [routeStatus, setRouteStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [routeMessage, setRouteMessage] = useState('');
+  const [builtRoute, setBuiltRoute] = useState<WalkingRoute | null>(null);
+  const [routeOrigin, setRouteOrigin] = useState<LatLng | null>(null);
+  const [routeMode, setRouteMode] = useState<TravelMode>('walk');
+  const [isSheetExpanded, setSheetExpanded] = useState(false);
+  const routesCacheRef = useRef<Partial<Record<TravelMode, WalkingRoute>>>({});
+  const originTimestampRef = useRef(0);
+  const [isDemoOrigin, setDemoOrigin] = useState(false);
+  const isDemoOriginRef = useRef(false);
+  const [isTooFar, setTooFar] = useState(false);
   const detailImageWidth = Math.max(280, viewportWidth - 28);
   const details = Array.from(new Set([...toTextArray((place as GuidePlace & { extra?: unknown }).extra), ...toTextArray((place as GuidePlace & { services?: unknown }).services)]));
   const tags = toTextArray((place as GuidePlace & { tags?: unknown }).tags);
@@ -2708,123 +3424,638 @@ function DetailScreen({
   const price = toText(place.priceLabel);
   const cuisine = toText(place.cuisine);
   const district = toText(place.district);
+  const ratingRaw = Number((place as GuidePlace & { rating?: unknown }).rating);
+  const ratingLabel = Number.isFinite(ratingRaw) && ratingRaw > 0 ? ratingRaw.toFixed(1).replace('.', ',') : '';
   const hasMapPoint = Boolean(placeCoordinate(place));
   const hasInfoFields = Boolean(address || hours || phone);
   const qualityBadgeText = toText(place.qualityBadgeText, 'Это место отмечено знаком качества Danang Guide.');
   const isBulletin = place.categoryId === 'bulletin-board';
   const isOwnBulletin = Boolean(authUser?.id && place.createdByUserId && String(authUser.id) === String(place.createdByUserId));
 
+  const activePlaceIdRef = useRef(place.id);
+  const isBuildingRouteRef = useRef(false);
+  const routeRequestTokenRef = useRef(0);
+  const [showLocationSettingsLink, setShowLocationSettingsLink] = useState(false);
+
+  // Drop the built route when the screen is reused for a different place
+  useEffect(() => {
+    activePlaceIdRef.current = place.id;
+    // Invalidate any in-flight build for the previous place and unblock new ones
+    routeRequestTokenRef.current += 1;
+    isBuildingRouteRef.current = false;
+    routesCacheRef.current = {};
+    originTimestampRef.current = 0;
+    isDemoOriginRef.current = false;
+    setDemoOrigin(false);
+    setTooFar(false);
+    setRouteStatus('idle');
+    setRouteMessage('');
+    setBuiltRoute(null);
+    setRouteOrigin(null);
+    setRouteMode('walk');
+    setSheetExpanded(false);
+    setShowLocationSettingsLink(false);
+  }, [place.id]);
+
+  const buildInAppRoute = useCallback(async (modeArg?: TravelMode, originOverride?: LatLng) => {
+    const mode = modeArg ?? routeMode;
+    const destination = placeCoordinate(place);
+    if (!destination) {
+      // No coordinates to route to — the external map search is the only option
+      void openExternalUrl(directionsUrl(place));
+      return;
+    }
+    // Ref-based guard: immune to the state-commit delay on a rapid double-tap
+    if (isBuildingRouteRef.current) return;
+    isBuildingRouteRef.current = true;
+
+    const requestPlaceId = place.id;
+    const requestToken = ++routeRequestTokenRef.current;
+    const isStale = () => activePlaceIdRef.current !== requestPlaceId || routeRequestTokenRef.current !== requestToken;
+
+    setRouteStatus('loading');
+    setRouteMessage('');
+    setShowLocationSettingsLink(false);
+    setTooFar(false);
+    try {
+      let origin = routeOrigin;
+      const originAgeMs = Date.now() - originTimestampRef.current;
+
+      if (originOverride) {
+        // Demo mode: route from a fixed Da Nang point, no GPS involved
+        origin = originOverride;
+        isDemoOriginRef.current = true;
+        setDemoOrigin(true);
+        routesCacheRef.current = {};
+        originTimestampRef.current = Date.now();
+        setRouteOrigin(originOverride);
+      } else if (!origin) {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (isStale()) return;
+        if (permission.status !== 'granted') {
+          setRouteStatus('error');
+          setRouteMessage('Разрешите доступ к геолокации, чтобы построить маршрут от вас до места.');
+          setShowLocationSettingsLink(permission.canAskAgain === false);
+          return;
+        }
+        const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (isStale()) return;
+        origin = { latitude: current.coords.latitude, longitude: current.coords.longitude };
+
+        // A (0,0) "null island" fix means the GPS failed, not that the user is in the ocean
+        if (Math.abs(origin.latitude) < 0.5 && Math.abs(origin.longitude) < 0.5) {
+          setRouteStatus('error');
+          setRouteMessage('Не удалось определить ваше местоположение (GPS вернул пустую точку). Включите геолокацию и попробуйте ещё раз.');
+          setTooFar(true);
+          return;
+        }
+
+        // Routes only make sense nearby — a tourist browsing from home would get an absurd line
+        const straightKm = haversineDistanceKm(
+          { lat: origin.latitude, lng: origin.longitude },
+          { lat: destination.latitude, lng: destination.longitude }
+        );
+        if (straightKm > 50) {
+          setRouteStatus('error');
+          setRouteMessage(`Вы сейчас в ~${Math.round(straightKm)} км от места — маршрут не построить. Когда будете в Дананге, маршрут появится на карте.`);
+          setTooFar(true);
+          return;
+        }
+        isDemoOriginRef.current = false;
+        setDemoOrigin(false);
+        originTimestampRef.current = Date.now();
+        setRouteOrigin(origin);
+      } else if (!isDemoOriginRef.current && originAgeMs > 120000) {
+        // The user may have moved since the first GPS fix — refresh it quietly
+        // (permission is already granted, so this never prompts)
+        try {
+          const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          if (isStale()) return;
+          const fresh: LatLng = { latitude: current.coords.latitude, longitude: current.coords.longitude };
+          // Ignore failed (0,0) fixes — keep routing from the previous position
+          if (Math.abs(fresh.latitude) >= 0.5 || Math.abs(fresh.longitude) >= 0.5) {
+            const movedKm = haversineDistanceKm(
+              { lat: origin.latitude, lng: origin.longitude },
+              { lat: fresh.latitude, lng: fresh.longitude }
+            );
+            if (movedKm > 0.15) {
+              // Cached routes were computed from the old position — they are wrong now
+              routesCacheRef.current = {};
+            }
+            origin = fresh;
+            originTimestampRef.current = Date.now();
+            setRouteOrigin(fresh);
+          }
+        } catch {
+          // GPS hiccup — keep routing from the previous fix
+        }
+      }
+      if (isStale()) return;
+
+      const cached = routesCacheRef.current[mode];
+      if (cached) {
+        setBuiltRoute(cached);
+        setRouteStatus('ready');
+        return;
+      }
+
+      const route = await fetchRoute(origin, destination, [], mode);
+      if (isStale()) return;
+      // Never cache degraded results: a straight-line fallback would otherwise
+      // poison this mode until the user leaves the screen
+      if (route.roadRoute) {
+        routesCacheRef.current[mode] = route;
+      }
+      setBuiltRoute(route);
+      setRouteStatus('ready');
+      setRouteMessage('');
+    } catch {
+      if (!isStale()) {
+        setRouteStatus('error');
+        setRouteMessage('Не удалось построить маршрут. Проверьте геолокацию и попробуйте ещё раз.');
+      }
+    } finally {
+      // Only release the guard if this chain still owns it (a place switch may have reset it)
+      if (routeRequestTokenRef.current === requestToken) {
+        isBuildingRouteRef.current = false;
+      }
+    }
+  }, [place, routeMode, routeOrigin]);
+
+  const switchRouteMode = useCallback((mode: TravelMode) => {
+    // A build is in flight — ignore the tap so the highlighted segment never
+    // disagrees with the route that finally renders
+    if (isBuildingRouteRef.current) return;
+    setRouteMode(mode);
+    const cached = routesCacheRef.current[mode];
+    if (cached) {
+      setBuiltRoute(cached);
+      setRouteStatus('ready');
+      return;
+    }
+    void buildInAppRoute(mode);
+  }, [buildInAppRoute]);
+
+  const shareRoute = useCallback(async () => {
+    try {
+      await Share.share({ message: `${toText(place.title, 'Место')} — ${directionsUrl(place)}` });
+    } catch {
+      // user dismissed the share sheet — nothing to do
+    }
+  }, [place]);
+
+  const sharePlace = useCallback(async () => {
+    const destination = placeCoordinate(place);
+    const mapsUrl = destination
+      ? `https://www.google.com/maps/search/?api=1&query=${destination.latitude},${destination.longitude}`
+      : directionsUrl(place);
+    const parts = [toText(place.title, 'Место'), toText(place.address || place.district), mapsUrl].filter(Boolean);
+    try {
+      await Share.share({ message: parts.join('\n') });
+    } catch {
+      // user dismissed the share sheet — nothing to do
+    }
+  }, [place]);
+
+  // Close the fullscreen map, reset the gallery and scroll back to the hero
+  // when the screen is reused for another place (via «Похожие рядом» or a push)
+  useEffect(() => {
+    setMapFullscreen(false);
+    setActivePhotoIndex(0);
+    setFullscreenImage('');
+    setVerificationOpen(false);
+    detailScrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [place.id]);
+
+  // «Похожие рядом» — places from the same category, excluding this one
+  const similarPlaces = useMemo(
+    () =>
+      allPlaces
+        .filter((item) => item.id !== place.id && item.categoryId === place.categoryId)
+        .slice(0, 6),
+    [allPlaces, place.id, place.categoryId]
+  );
+
+  const openFullscreenRoute = useCallback(() => {
+    setMapFullscreen(true);
+    if (routeStatus === 'idle' || routeStatus === 'error') {
+      void buildInAppRoute();
+    }
+  }, [routeStatus, buildInAppRoute]);
+
+  const statCells = [
+    ratingLabel ? { key: 'rating', star: true, value: ratingLabel, caption: 'рейтинг', color: '#102a43' } : null,
+    hours ? { key: 'hours', star: false, value: hours, caption: 'время работы', color: '#22a06b' } : null,
+    builtRoute?.distanceMeters
+      ? {
+          key: 'distance',
+          star: false,
+          value: formatDistanceMeters(builtRoute.distanceMeters),
+          caption: builtRoute.durationSeconds ? `≈ ${formatDurationShort(builtRoute.durationSeconds)}` : 'до места',
+          color: '#e05a3f'
+        }
+      : null,
+    price ? { key: 'price', star: false, value: price, caption: 'средний чек', color: '#102a43' } : null
+  ].filter((cell): cell is { key: string; star: boolean; value: string; caption: string; color: string } => Boolean(cell));
+
   return (
+    <View style={styles.flex}>
     <ScrollView
+      ref={detailScrollRef}
       style={styles.content}
-      contentContainerStyle={[
-        styles.detailContentInner,
-        { paddingTop: mobileInsets.top + 14, paddingBottom: 28 + mobileInsets.bottom }
-      ]}
+      contentContainerStyle={{ paddingBottom: 100 + mobileInsets.bottom, backgroundColor: '#ffffff' }}
       showsVerticalScrollIndicator={false}
     >
-      {gallery.length > 0 ? (
-        <View style={styles.detailGalleryWrap}>
+      {/* Hero: full-bleed swipeable photo pager with overlay controls */}
+      <View style={styles.detailHero}>
+        {gallery.length > 0 ? (
           <ScrollView
+            key={`hero-pager-${place.id}`}
             horizontal
             pagingEnabled
             nestedScrollEnabled
             showsHorizontalScrollIndicator={false}
-            style={styles.detailGallery}
+            onMomentumScrollEnd={(event) => {
+              const index = Math.round(event.nativeEvent.contentOffset.x / Math.max(1, viewportWidth));
+              setActivePhotoIndex(Math.max(0, Math.min(gallery.length - 1, index)));
+            }}
           >
             {gallery.map((imageUrl, index) => (
-              <TouchableOpacity key={`${imageUrl}-${index}`} activeOpacity={0.92} onPress={() => setFullscreenImage(imageUrl)}>
-                <Image source={{ uri: imageUrl }} style={[styles.detailImage, { width: detailImageWidth }]} />
+              <TouchableOpacity key={`${imageUrl}-${index}`} activeOpacity={0.94} onPress={() => setFullscreenImage(imageUrl)}>
+                <Image source={{ uri: imageUrl }} style={{ width: viewportWidth, height: 440 }} />
               </TouchableOpacity>
             ))}
           </ScrollView>
-          {gallery.length > 1 ? <Text style={styles.detailImageCount}>{gallery.length} фото</Text> : null}
-        </View>
-      ) : <View style={[styles.detailImage, styles.detailImageFallback]} />}
-
-      <View style={styles.detailPlainHeader}>
-        <View style={styles.detailTitleRow}>
-          <View style={styles.flex}>
-            <Text style={styles.detailSubtitle}>{categoryLabel}</Text>
-            <Text style={styles.detailTitle}>{title}</Text>
-          </View>
-          {place.qualityBadge ? (
-            <TouchableOpacity activeOpacity={0.82} onPress={() => setVerificationOpen(true)} style={styles.detailVerificationButton}>
-              <Image source={placeVerificationBadge} resizeMode="contain" style={styles.detailVerificationImage} />
-            </TouchableOpacity>
-          ) : null}
-          <TouchableOpacity activeOpacity={0.8} onPress={onToggleFavorite} style={styles.detailFavorite}>
-            <Text style={styles.detailFavoriteText}>{isFavorite ? '♥' : '♡'}</Text>
+        ) : (
+          <View style={[styles.detailHeroFallback, { width: viewportWidth }]} />
+        )}
+        <LinearGradient
+          colors={['rgba(9, 22, 40, 0)', 'rgba(9, 22, 40, 0.85)']}
+          style={styles.detailHeroGradient}
+          pointerEvents="none"
+        />
+        <View pointerEvents="box-none" style={[styles.detailHeroTopRow, { top: mobileInsets.top + 8 }]}>
+          <TouchableOpacity activeOpacity={0.85} onPress={onBack} style={styles.detailHeroCircle}>
+            <Text style={styles.detailHeroBackGlyph}>‹</Text>
           </TouchableOpacity>
+          <View pointerEvents="box-none" style={styles.detailHeroTopActions}>
+            <TouchableOpacity activeOpacity={0.85} onPress={() => void sharePlace()} style={styles.detailHeroCircle}>
+              <ShareIcon size={18} />
+            </TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.85} onPress={onToggleFavorite} style={styles.detailHeroCircle}>
+              <HeartIcon filled={isFavorite} />
+            </TouchableOpacity>
+          </View>
         </View>
-        <Text style={styles.detailText}>{description}</Text>
-        <View style={styles.detailPillsRow}>
-          <Pill label={price} />
-          <Pill label={cuisine} />
-          <Pill label={district} />
-          {place.breakfast ? <Pill label="Завтрак" /> : null}
-          {place.vegan ? <Pill label="Vegan" /> : null}
-          {place.pets || place.petFriendly ? <Pill label="Pet-friendly" /> : null}
-          {place.childPrograms || place.childFriendly ? <Pill label="Для детей" /> : null}
+        <View style={styles.detailHeroTitleRow} pointerEvents="none">
+          <Text style={styles.detailHeroTitle} numberOfLines={2}>{title}</Text>
+          <View style={styles.detailHeroChip}>
+            <Text style={styles.detailHeroChipText}>{categoryLabel}</Text>
+          </View>
         </View>
+        {gallery.length > 1 ? (
+          <View style={styles.detailHeroDots} pointerEvents="none">
+            {gallery.map((_, index) => (
+              <View key={`hero-dot-${index}`} style={[styles.detailHeroDot, index === activePhotoIndex && styles.detailHeroDotActive]} />
+            ))}
+          </View>
+        ) : null}
       </View>
 
-      {hasInfoFields ? (
-        <View style={styles.detailInfoList}>
-          {address ? <InfoBlock title="Адрес" value={address} /> : null}
-          {hours ? <InfoBlock title="Время работы" value={hours} /> : null}
-          {phone ? <InfoBlock title="Телефон" value={phone} onPress={() => {
-            const contactUrl = contactUrlFromText(phone);
-            if (contactUrl) void openExternalUrl(contactUrl);
-          }} /> : null}
-        </View>
-      ) : null}
+      <View style={styles.detailBody}>
+        {statCells.length >= 2 ? (
+          <View style={styles.detailStatsStrip}>
+            {statCells.map((cell, index) => (
+              <React.Fragment key={cell.key}>
+                {index > 0 ? <View style={styles.detailStatsDivider} /> : null}
+                <View style={styles.detailStatsCell}>
+                  <Text style={[styles.detailStatsValue, { color: cell.color }]} numberOfLines={1}>
+                    {cell.star ? <Text style={styles.detailStatsStar}>★ </Text> : null}
+                    {cell.value}
+                  </Text>
+                  <Text style={styles.detailStatsCaption} numberOfLines={1}>{cell.caption}</Text>
+                </View>
+              </React.Fragment>
+            ))}
+          </View>
+        ) : null}
 
-      <View style={styles.actionsGrid}>
-        <AppButton label="Маршрут" onPress={() => void openExternalUrl(directionsUrl(place))} />
-        {website ? <AppButton label="Сайт" variant="ghost" onPress={() => void openExternalUrl(website)} /> : null}
+        <Text style={styles.detailText}>{description}</Text>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.detailBadgeScroll}
+          contentContainerStyle={styles.detailBadgeRow}
+        >
+          {place.qualityBadge ? (
+            <TouchableOpacity activeOpacity={0.85} onPress={() => setVerificationOpen(true)} style={styles.detailBadgeGold}>
+              <Image source={placeVerificationBadge} resizeMode="contain" style={styles.detailBadgeGoldIcon} />
+              <Text style={styles.detailBadgeGoldText}>Проверено гидом</Text>
+            </TouchableOpacity>
+          ) : null}
+          {cuisine ? <View style={styles.detailPill}><Text style={styles.detailPillText}>{cuisine}</Text></View> : null}
+          {place.breakfast ? <View style={styles.detailPill}><Text style={styles.detailPillText}>Завтраки</Text></View> : null}
+          {place.vegan ? <View style={styles.detailPill}><Text style={styles.detailPillText}>Vegan</Text></View> : null}
+          {place.pets || place.petFriendly ? <View style={styles.detailPill}><Text style={styles.detailPillText}>Pet-friendly</Text></View> : null}
+          {place.childPrograms || place.childFriendly ? <View style={styles.detailPill}><Text style={styles.detailPillText}>Для детей</Text></View> : null}
+          {Array.from(new Set(tags))
+            .filter((tag) => tag !== cuisine)
+            .map((tag) => (
+              <View key={`tag-${tag}`} style={styles.detailPill}><Text style={styles.detailPillText}>{tag}</Text></View>
+            ))}
+        </ScrollView>
+
+        {hasInfoFields || website ? (
+          <View style={styles.detailInfoRows}>
+            {address ? (
+              <TouchableOpacity
+                activeOpacity={hasMapPoint ? 0.82 : 1}
+                disabled={!hasMapPoint}
+                onPress={hasMapPoint ? openFullscreenRoute : undefined}
+                style={styles.detailInfoRow}
+              >
+                <View style={styles.detailInfoRowIcon}><PinIcon size={17} color="#1f63c7" strokeWidth={2} /></View>
+                <Text style={styles.detailInfoRowText} numberOfLines={2}>{address}{district ? ` · ${district}` : ''}</Text>
+                {hasMapPoint ? <ChevronGlyph /> : null}
+              </TouchableOpacity>
+            ) : null}
+            {hours ? (
+              <View style={[styles.detailInfoRow, !phone && !website && styles.detailInfoRowLast]}>
+                <View style={styles.detailInfoRowIcon}><ClockIcon size={17} color="#1f63c7" /></View>
+                <Text style={styles.detailInfoRowText} numberOfLines={2}>{hours}</Text>
+              </View>
+            ) : null}
+            {phone ? (
+              <TouchableOpacity
+                activeOpacity={0.82}
+                onPress={() => {
+                  const contactUrl = contactUrlFromText(phone);
+                  if (contactUrl) void openExternalUrl(contactUrl);
+                }}
+                style={[styles.detailInfoRow, !website && styles.detailInfoRowLast]}
+              >
+                <View style={styles.detailInfoRowIcon}><Text style={styles.detailInfoRowGlyph}>✆</Text></View>
+                <Text style={styles.detailInfoRowText} numberOfLines={1}>{phone}</Text>
+                <ChevronGlyph />
+              </TouchableOpacity>
+            ) : null}
+            {website ? (
+              <TouchableOpacity
+                activeOpacity={0.82}
+                onPress={() => void openExternalUrl(/^[a-z][a-z0-9+.-]*:/i.test(website) ? website : `https://${website}`)}
+                style={[styles.detailInfoRow, styles.detailInfoRowLast]}
+              >
+                <View style={styles.detailInfoRowIcon}><Text style={styles.detailInfoRowGlyph}>🌐</Text></View>
+                <Text style={styles.detailInfoRowText} numberOfLines={1}>{website.replace(/^https?:\/\//, '')}</Text>
+                <ChevronGlyph />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
       </View>
 
       {isBulletin && !isOwnBulletin ? (
-        <View style={styles.bulletinSafetyActions}>
-          <TouchableOpacity activeOpacity={0.84} onPress={authUser ? () => onReportBulletin(place) : onOpenAuth} style={styles.bulletinSafetyButton}>
-            <Text style={styles.bulletinSafetyText}>Пожаловаться</Text>
-          </TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.84} onPress={authUser ? () => onHideBulletinAuthor(place) : onOpenAuth} style={styles.bulletinSafetyButton}>
-            <Text style={styles.bulletinSafetyText}>Скрыть автора</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
-
-      {tags.length > 0 ? (
-        <View style={styles.detailPlainSection}>
-          <SectionTitle title="Теги" />
-          <View style={styles.detailPillsRow}>{tags.map((tag) => <Pill key={tag} label={tag} />)}</View>
+        <View style={styles.detailPaddedSection}>
+          <View style={styles.bulletinSafetyActions}>
+            <TouchableOpacity activeOpacity={0.84} onPress={authUser ? () => onReportBulletin(place) : onOpenAuth} style={styles.bulletinSafetyButton}>
+              <Text style={styles.bulletinSafetyText}>Пожаловаться</Text>
+            </TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.84} onPress={authUser ? () => onHideBulletinAuthor(place) : onOpenAuth} style={styles.bulletinSafetyButton}>
+              <Text style={styles.bulletinSafetyText}>Скрыть автора</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : null}
 
       {details.length > 0 ? (
-        <View style={styles.detailPlainSection}>
+        <View style={styles.detailPaddedSection}>
           <SectionTitle title="Дополнительно" />
           {details.map((item) => <Text key={item} style={styles.bulletText}>• {item}</Text>)}
         </View>
       ) : null}
 
+      {similarPlaces.length > 0 ? (
+        <View style={styles.detailSimilarSection}>
+          <Text style={styles.detailSectionHeading}>Похожие рядом</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.detailSimilarScroll}
+            contentContainerStyle={styles.detailSimilarRow}
+          >
+            {similarPlaces.map((item) => {
+              const thumb = getPlaceImageUrls(item)[0];
+              const itemRatingRaw = Number((item as GuidePlace & { rating?: unknown }).rating);
+              const itemRating = Number.isFinite(itemRatingRaw) && itemRatingRaw > 0 ? itemRatingRaw.toFixed(1).replace('.', ',') : '';
+              const meta = [itemRating ? `★ ${itemRating}` : '', toText(item.district || item.kind)].filter(Boolean).join(' · ');
+              return (
+                <TouchableOpacity key={item.id} activeOpacity={0.88} onPress={() => onOpenPlace?.(item)} style={styles.detailSimilarCard}>
+                  {thumb ? (
+                    <Image source={{ uri: thumb }} style={styles.detailSimilarImage} />
+                  ) : (
+                    <View style={[styles.detailSimilarImage, styles.detailSimilarImageFallback]} />
+                  )}
+                  <View style={styles.detailSimilarBody}>
+                    <Text style={styles.detailSimilarTitle} numberOfLines={1}>{toText(item.title, 'Место')}</Text>
+                    {meta ? <Text style={styles.detailSimilarMeta} numberOfLines={1}>{meta}</Text> : null}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
+
       {hasMapPoint ? (
-        <View style={styles.detailMapSection}>
-          <SectionTitle title="Карта" />
+        <View style={styles.detailHowToSection}>
+          <View style={styles.detailHowToHeader}>
+            <Text style={styles.detailSectionHeading}>Как добраться</Text>
+            {builtRoute?.distanceMeters ? (
+              <Text style={styles.detailHowToMeta}>
+                {formatDistanceMeters(builtRoute.distanceMeters)}{builtRoute.durationSeconds ? ` · ${formatDurationShort(builtRoute.durationSeconds)}` : ''}{!builtRoute.roadRoute ? ' (по прямой)' : ''}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.detailMapFullNew}>
+            <InlineErrorBoundary
+              fallback={(
+                <View style={styles.detailMapFallback}>
+                  <Text style={styles.detailMapFallbackTitle}>Карта временно недоступна</Text>
+                  <Text style={styles.detailMapFallbackText}>Карточка открыта, а маршрут можно открыть в навигаторе.</Text>
+                  <TouchableOpacity activeOpacity={0.82} onPress={() => void openExternalUrl(directionsUrl(place))}>
+                    <Text style={styles.detailRouteExternalLink}>Открыть в навигаторе</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            >
+              <GuideMap
+                flat
+                places={[place]}
+                routePolyline={builtRoute?.coordinates}
+                routeIsFallback={builtRoute ? !builtRoute.roadRoute : false}
+                userPoint={routeOrigin}
+                height={260}
+                markerVariant="pin"
+                popupActionLabel="Маршрут"
+                onOpenPlace={openFullscreenRoute}
+              />
+            </InlineErrorBoundary>
+          </View>
+        </View>
+      ) : null}
+      <Modal
+        visible={isMapFullscreen}
+        animationType="slide"
+        statusBarTranslucent
+        navigationBarTranslucent
+        onRequestClose={() => setMapFullscreen(false)}
+      >
+        <View style={styles.mapFullscreenRoot}>
           <InlineErrorBoundary
             fallback={(
-              <View style={styles.detailMapFallback}>
+              <View style={[styles.mapFullscreenRoot, styles.mapFullscreenFallback]}>
                 <Text style={styles.detailMapFallbackTitle}>Карта временно недоступна</Text>
-                <Text style={styles.detailMapFallbackText}>Карточка открыта, а маршрут можно построить кнопкой выше.</Text>
+                <Text style={styles.detailMapFallbackText}>Маршрут можно открыть в навигаторе кнопкой ниже.</Text>
               </View>
             )}
           >
-            <GuideMap places={[place]} height={250} />
+            <GuideMap
+              flat
+              places={[place]}
+              routePolyline={builtRoute?.coordinates}
+              routeIsFallback={builtRoute ? !builtRoute.roadRoute : false}
+              userPoint={routeOrigin}
+              height={viewportHeight}
+              markerVariant="pin"
+              showControls
+              controlsTopOffset={mobileInsets.top + 10}
+              disablePlacePopup
+            />
           </InlineErrorBoundary>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setMapFullscreen(false)}
+            style={[styles.mapFullscreenClose, { top: mobileInsets.top + 10 }]}
+          >
+            <CloseIcon />
+          </TouchableOpacity>
+          {routeStatus !== 'idle' ? (
+            <View style={[styles.mapFullscreenCard, { paddingBottom: 16 + mobileInsets.bottom }]}>
+              <TouchableOpacity activeOpacity={0.8} onPress={() => setSheetExpanded((value) => !value)} style={styles.sheetHandleZone}>
+                <View style={styles.sheetHandle} />
+              </TouchableOpacity>
+
+              {builtRoute && routeStatus !== 'error' ? (
+                <View style={styles.modeSwitcher}>
+                  {TRAVEL_MODES.map((mode) => {
+                    const isActive = mode === routeMode;
+                    const cachedRoute = routesCacheRef.current[mode];
+                    return (
+                      <TouchableOpacity
+                        key={mode}
+                        activeOpacity={0.85}
+                        onPress={() => switchRouteMode(mode)}
+                        style={[styles.modeSegment, isActive && styles.modeSegmentActive]}
+                      >
+                        <TravelModeIcon mode={mode} size={20} color={isActive ? '#1f63c7' : '#8493a8'} />
+                        <Text style={[styles.modeSegmentLabel, isActive && styles.modeSegmentLabelActive]}>{TRAVEL_MODE_LABELS[mode]}</Text>
+                        <Text style={[styles.modeSegmentTime, isActive && styles.modeSegmentTimeActive]}>
+                          {cachedRoute?.durationSeconds ? formatDurationShort(cachedRoute.durationSeconds) : '—'}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : null}
+
+              {routeStatus === 'loading' ? (
+                <View style={styles.sheetLoadingRow}>
+                  <ActivityIndicator size="small" color="#1f63c7" />
+                  <Text style={styles.sheetLoadingText}>Строим маршрут…</Text>
+                </View>
+              ) : null}
+
+              {routeStatus === 'ready' && builtRoute ? (
+                <>
+                  <View style={styles.sheetSummaryRow}>
+                    <View style={styles.sheetModeChip}>
+                      <TravelModeIcon mode={builtRoute.mode} size={20} color="#ffffff" />
+                    </View>
+                    <View style={styles.flex}>
+                      <Text style={styles.sheetSummaryTitle}>{formatRouteShort(builtRoute)}</Text>
+                      <Text style={styles.sheetSummarySub} numberOfLines={1}>
+                        {isDemoOrigin ? 'от Моста Дракона' : travelModeWord(builtRoute.mode)} · {title}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {isSheetExpanded && builtRoute.steps.length > 0 ? (
+                    <ScrollView style={styles.sheetStepsScroll} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                      {builtRoute.steps.map((step, index) => (
+                        <View key={`route-step-${index}`} style={styles.sheetStepRow}>
+                          <View style={styles.sheetStepIcon}>
+                            <StepManeuverIcon maneuver={step.maneuver} />
+                          </View>
+                          <Text style={styles.sheetStepText}>{step.text}</Text>
+                          {step.distanceMeters ? (
+                            <Text style={styles.sheetStepDist}>{formatDistanceMeters(step.distanceMeters)}</Text>
+                          ) : null}
+                        </View>
+                      ))}
+                    </ScrollView>
+                  ) : null}
+                  {builtRoute.steps.length > 0 ? (
+                    <TouchableOpacity activeOpacity={0.8} onPress={() => setSheetExpanded((value) => !value)}>
+                      <Text style={styles.sheetStepsToggle}>
+                        {isSheetExpanded ? 'Свернуть' : `Показать шаги (${builtRoute.steps.length})`}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+
+                  <View style={styles.sheetActionsRow}>
+                    <TouchableOpacity
+                      activeOpacity={0.86}
+                      onPress={() => void openExternalUrl(`${directionsUrl(place)}&travelmode=${EXTERNAL_TRAVEL_MODE[builtRoute.mode]}`)}
+                      style={styles.sheetGoButton}
+                    >
+                      <SendIcon />
+                      <Text style={styles.sheetGoButtonText}>В путь</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity activeOpacity={0.86} onPress={() => void shareRoute()} style={styles.sheetShareButton}>
+                      <ShareIcon />
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : null}
+
+              {routeStatus === 'error' && routeMessage ? (
+                <>
+                  <Text style={styles.mapFullscreenError}>{routeMessage}</Text>
+                  <View style={styles.mapFullscreenLinksRow}>
+                    {showLocationSettingsLink ? (
+                      <TouchableOpacity activeOpacity={0.82} onPress={() => void Linking.openSettings()}>
+                        <Text style={styles.detailRouteExternalLink}>Открыть настройки</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    <TouchableOpacity activeOpacity={0.82} onPress={() => void buildInAppRoute()}>
+                      <Text style={styles.detailRouteExternalLink}>Повторить</Text>
+                    </TouchableOpacity>
+                    {isTooFar ? (
+                      <TouchableOpacity activeOpacity={0.82} onPress={() => void buildInAppRoute(routeMode, DANANG_DEMO_ORIGIN)}>
+                        <Text style={styles.detailRouteExternalLink}>Демо-маршрут от Моста Дракона</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    <TouchableOpacity activeOpacity={0.82} onPress={() => void openExternalUrl(directionsUrl(place))}>
+                      <Text style={styles.detailRouteExternalLink}>Открыть в навигаторе</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : null}
+            </View>
+          ) : null}
         </View>
-      ) : null}
+      </Modal>
       <Modal visible={isVerificationOpen && Boolean(place.qualityBadge)} transparent animationType="fade" onRequestClose={() => setVerificationOpen(false)}>
         <View style={styles.verificationModalBackdrop}>
           <View style={styles.verificationModalCard}>
@@ -2839,6 +4070,23 @@ function DetailScreen({
       </Modal>
       <FullscreenImageModal imageUrl={fullscreenImage} onClose={() => setFullscreenImage('')} />
     </ScrollView>
+    <View style={[styles.detailBottomBar, { paddingBottom: 14 + mobileInsets.bottom }]}>
+      <TouchableOpacity
+        activeOpacity={0.88}
+        onPress={hasMapPoint ? openFullscreenRoute : () => void openExternalUrl(directionsUrl(place))}
+        style={styles.detailBottomCta}
+      >
+        <SendIcon />
+        <Text style={styles.detailBottomCtaText}>
+          {routeStatus === 'loading'
+            ? 'Строим маршрут…'
+            : builtRoute?.durationSeconds
+              ? `Маршрут · ${formatDurationShort(builtRoute.durationSeconds)}`
+              : 'Построить маршрут'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+    </View>
   );
 }
 
@@ -3037,7 +4285,6 @@ const styles = StyleSheet.create({
   detailCard: { padding: 18, borderRadius: 26, backgroundColor: '#fff', borderWidth: 1, borderColor: '#d8e0ea', gap: 10 },
   detailPlainHeader: { gap: 12, paddingHorizontal: 2, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
   detailPlainSection: { gap: 10, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(214, 223, 235, 0.92)' },
-  detailMapSection: { gap: 10, paddingTop: 2, paddingBottom: 4 },
   detailMapFallback: { minHeight: 128, borderRadius: 22, alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: '#eaf3ff', borderWidth: 1, borderColor: '#d8e4f2' },
   detailMapFallbackTitle: { color: '#102a43', fontSize: 15, lineHeight: 20, fontWeight: '900', textAlign: 'center' },
   detailMapFallbackText: { color: '#62748b', fontSize: 12.5, lineHeight: 18, fontWeight: '700', textAlign: 'center', marginTop: 4 },
@@ -3081,6 +4328,331 @@ const styles = StyleSheet.create({
   nativeMapMarkerHaloLarge: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255, 255, 255, 0.94)', alignItems: 'center', justifyContent: 'center' },
   nativeMapMarkerRouteDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: '#ffffff' },
   nativeMapMarkerPlaceDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#ffffff', backgroundColor: '#e05a3f' },
+  detailRouteExternalLink: { fontSize: 12.5, color: '#1f63c7', fontWeight: '700', textDecorationLine: 'underline' },
+  routeMapStatusText: { fontSize: 13.5, fontWeight: '700', color: '#20304c', marginTop: 8 },
+  detailMapFull: { marginHorizontal: -14, marginTop: 4, overflow: 'hidden' },
+  mapFullscreenFallback: { alignItems: 'center', justifyContent: 'center', padding: 26, gap: 8 },
+  // ── Редизайн карточки места (Карточка места.dc) ──
+  detailHero: { position: 'relative', height: 440, backgroundColor: '#e8f1f8', overflow: 'hidden' },
+  detailHeroFallback: { height: 440, backgroundColor: '#dce8f4' },
+  detailHeroGradient: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 104 },
+  detailHeroTopRow: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between' },
+  detailHeroTopActions: { flexDirection: 'row', gap: 8 },
+  detailHeroCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0b2b57',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5
+  },
+  detailHeroBackGlyph: { color: '#20304c', fontSize: 22, fontWeight: '800', marginTop: -2 },
+  detailHeroTitleRow: { position: 'absolute', left: 20, right: 112, bottom: 18, flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  detailHeroTitle: { color: '#ffffff', fontSize: 32, fontWeight: '900', flexShrink: 1 },
+  detailHeroDots: { position: 'absolute', right: 20, bottom: 30, flexDirection: 'row', gap: 5 },
+  detailHeroDot: { width: 6, height: 6, borderRadius: 999, backgroundColor: 'rgba(255, 255, 255, 0.55)' },
+  detailHeroDotActive: { width: 16, backgroundColor: '#ffffff' },
+  detailBody: { paddingHorizontal: 20, paddingTop: 16, gap: 15 },
+  detailStatsStrip: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    backgroundColor: '#f5f7fb',
+    borderWidth: 1,
+    borderColor: '#e3e9f1',
+    borderRadius: 16,
+    paddingVertical: 12
+  },
+  detailStatsCell: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, minWidth: 0, paddingHorizontal: 4 },
+  detailStatsDivider: { width: 1, backgroundColor: '#e3e9f1', marginVertical: 2 },
+  detailStatsValue: { fontSize: 14, fontWeight: '900' },
+  detailStatsStar: { color: '#f5a623' },
+  detailStatsCaption: { color: '#8493a8', fontSize: 10.5, fontWeight: '700' },
+  detailBadgeScroll: { marginHorizontal: -20 },
+  detailBadgeRow: { paddingHorizontal: 20, gap: 7, flexDirection: 'row', alignItems: 'center' },
+  detailBadgeGold: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#fff7e5',
+    borderWidth: 1,
+    borderColor: '#f2d58a',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10
+  },
+  detailBadgeGoldIcon: { width: 16, height: 16 },
+  detailBadgeGoldText: { color: '#7a5c14', fontSize: 12, fontWeight: '800' },
+  detailInfoRows: { backgroundColor: '#f5f7fb', marginHorizontal: -20, paddingHorizontal: 20, paddingVertical: 5 },
+  detailInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#e3e9f1' },
+  detailInfoRowLast: { borderBottomWidth: 0 },
+  detailInfoRowIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#eef4fb', alignItems: 'center', justifyContent: 'center' },
+  detailInfoRowGlyph: { fontSize: 16, color: '#1f63c7' },
+  detailInfoRowText: { flex: 1, color: '#102a43', fontSize: 15, fontWeight: '700', lineHeight: 20 },
+  detailPaddedSection: { paddingHorizontal: 20, paddingTop: 15, gap: 9 },
+  detailSectionHeading: { color: '#102a43', fontSize: 18, fontWeight: '900' },
+  detailSimilarSection: { backgroundColor: '#f5f7fb', marginTop: 16, paddingVertical: 13 },
+  detailSimilarScroll: { marginTop: 10 },
+  detailSimilarRow: { paddingHorizontal: 20, gap: 10, flexDirection: 'row' },
+  detailSimilarCard: { width: 150, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e3e9f1', borderRadius: 16, overflow: 'hidden' },
+  detailSimilarImage: { width: '100%', height: 84, backgroundColor: '#e8f1f8' },
+  detailSimilarImageFallback: { backgroundColor: '#dce8f4' },
+  detailSimilarBody: { paddingHorizontal: 11, paddingVertical: 9, gap: 2 },
+  detailSimilarTitle: { color: '#102a43', fontSize: 13, fontWeight: '800' },
+  detailSimilarMeta: { color: '#62748b', fontSize: 11.5, fontWeight: '700' },
+  detailHowToSection: { marginTop: 16 },
+  detailHowToHeader: { paddingHorizontal: 20, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  detailHowToMeta: { color: '#e05a3f', fontSize: 13, fontWeight: '800' },
+  detailMapFullNew: { marginTop: 10, overflow: 'hidden' },
+  detailBottomBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.97)',
+    borderTopWidth: 1,
+    borderTopColor: '#e3e9f1',
+    paddingHorizontal: 16,
+    paddingTop: 12
+  },
+  detailBottomCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#1f63c7',
+    borderRadius: 15,
+    minHeight: 50
+  },
+  detailBottomCtaText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
+  // ── Строки списка категории (Прототип Твой гид.dc) ──
+  listRow: {
+    flexDirection: 'row',
+    gap: 14,
+    marginLeft: -14,
+    // Compensates the parent containers' gap:10 so divider rows sit flush like a list
+    marginVertical: -5,
+    paddingVertical: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eef1f6',
+    backgroundColor: '#ffffff'
+  },
+  listRowImage: { width: 120, minHeight: 150, alignSelf: 'stretch', backgroundColor: '#e8f1f8' },
+  listRowImageFallback: { backgroundColor: '#dce8f4' },
+  listRowBody: { flex: 1, minWidth: 0, justifyContent: 'center', gap: 7, paddingVertical: 14, paddingRight: 2 },
+  listRowTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  listRowTitle: { flex: 1, color: '#102a43', fontSize: 16, fontWeight: '900' },
+  listRowBadge: { width: 28, height: 28 },
+  listRowFact: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  listRowFactText: { flex: 1, color: '#35507a', fontSize: 13, fontWeight: '700' },
+  listRowBottomRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  listRowRating: { color: '#102a43', fontSize: 13, fontWeight: '800' },
+  // ── Шапка категории (Прототип Твой гид.dc) ──
+  categoryHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  categoryBackPill: { backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', borderRadius: 13, paddingHorizontal: 13, paddingVertical: 8, flexShrink: 0 },
+  categoryBackPillText: { color: '#102a43', fontWeight: '800', fontSize: 14 },
+  categoryHeaderTitle: { flex: 1, minWidth: 0, textAlign: 'center', color: '#102a43', fontSize: 18, fontWeight: '900' },
+  categoryHeaderCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#dbe3ee', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  cuisineChipsScroll: { marginHorizontal: -14, marginTop: 12 },
+  cuisineChipsRow: { paddingHorizontal: 14, gap: 8, flexDirection: 'row' },
+  cuisineChip: { backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e3e9f1', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  cuisineChipActive: { backgroundColor: '#1f63c7', borderColor: '#1f63c7' },
+  cuisineChipText: { color: '#35507a', fontSize: 13, fontWeight: '700' },
+  cuisineChipTextActive: { color: '#ffffff', fontWeight: '800' },
+  categoryTabsRow: { flexDirection: 'row', marginTop: 12, marginHorizontal: -14, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#e3e9f1' },
+  categoryTab: { flex: 1, alignItems: 'center', paddingTop: 2, paddingBottom: 11, borderBottomWidth: 2, borderBottomColor: 'transparent', marginBottom: -1 },
+  categoryTabActive: { borderBottomColor: '#1f63c7' },
+  categoryTabText: { color: '#8493a8', fontSize: 14, fontWeight: '700' },
+  categoryTabTextActive: { color: '#102a43', fontWeight: '900' },
+  categoryLocateNote: { color: '#62748b', fontSize: 12.5, fontWeight: '600', marginTop: 10, lineHeight: 17 },
+  categoryMapFloatWrap: { position: 'absolute', left: 16, right: 16, alignItems: 'center' },
+  categoryMapFloatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: '#102a43',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 999,
+    shadowColor: '#0b2b57',
+    shadowOpacity: 0.36,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 7
+  },
+  categoryMapFloatText: { color: '#ffffff', fontSize: 13, fontWeight: '800' },
+  categoryMapCountChip: {
+    position: 'absolute',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    shadowColor: '#0b2b57',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5
+  },
+  categoryMapCountText: { color: '#102a43', fontSize: 13, fontWeight: '800' },
+  detailMapFloatWrap: { position: 'absolute', left: 0, right: 0, bottom: 20, alignItems: 'center' },
+  detailMapFloatButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 999,
+    backgroundColor: '#1f63c7',
+    shadowColor: '#0b2b57',
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 7
+  },
+  detailMapFloatButtonText: { color: '#ffffff', fontWeight: '800', fontSize: 15 },
+  mapFullscreenRoot: { flex: 1, backgroundColor: '#e8f1f8' },
+  mapFullscreenClose: {
+    position: 'absolute',
+    left: 16,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0b2b57',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+    zIndex: 8
+  },
+  mapFullscreenCard: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    gap: 6,
+    shadowColor: '#0b2b57',
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 12
+  },
+  mapFullscreenError: { fontSize: 13.5, color: '#b3442e', fontWeight: '600', lineHeight: 19 },
+  mapFullscreenLinksRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 4 },
+  nativeMapFlat: { width: '100%', overflow: 'hidden', backgroundColor: '#e8f1f8', justifyContent: 'center' },
+  // ── Новый визуал (дизайн «Карта места») ──
+  detailHeroChip: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999, backgroundColor: 'rgba(16, 42, 67, 0.55)' },
+  detailHeroChipText: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
+  detailRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9 },
+  detailRatingChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  detailRatingText: { color: '#102a43', fontWeight: '800', fontSize: 13 },
+  detailRatingDot: { color: '#c2ccda', fontSize: 13 },
+  detailRatingDistrict: { color: '#62748b', fontSize: 13, fontWeight: '700' },
+  detailPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 11, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e3e9f1' },
+  detailPillText: { color: '#35507a', fontSize: 13, fontWeight: '700' },
+  detailPillAccent: { backgroundColor: '#eef4fb', borderColor: '#eef4fb' },
+  detailPillAccentText: { color: '#1f63c7', fontSize: 13, fontWeight: '800' },
+  detailMapScrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 82, backgroundColor: 'transparent' },
+  detailHowToGet: { gap: 9, paddingHorizontal: 2 },
+  detailHowToGetTitle: { color: '#102a43', fontSize: 18, fontWeight: '900' },
+  detailHowToGetAddress: { color: '#102a43', fontWeight: '800', fontSize: 14 },
+  nativeMapPinMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e05a3f',
+    borderWidth: 3,
+    borderColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#e05a3f',
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 6
+  },
+  nativeMapUserRing: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(31, 99, 199, 0.26)', alignItems: 'center', justifyContent: 'center' },
+  nativeMapUserDotNew: { width: 17, height: 17, borderRadius: 9, backgroundColor: '#1f63c7', borderWidth: 3, borderColor: '#ffffff' },
+  nativeMapPopupThumb: { width: 52, height: 52, borderRadius: 13, backgroundColor: '#dfe7f0' },
+  nativeMapPopupMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
+  nativeMapPopupDistance: { color: '#e05a3f', fontSize: 11, fontWeight: '800' },
+  nativeMapPopupDot: { color: '#c2ccda', fontSize: 11 },
+  mapControlsColumn: { position: 'absolute', right: 16, gap: 11, zIndex: 8 },
+  mapControlButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0b2b57',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5
+  },
+  mapZoomPanel: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#ffffff',
+    shadowColor: '#0b2b57',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5
+  },
+  mapZoomButton: { width: 42, height: 41, alignItems: 'center', justifyContent: 'center' },
+  mapZoomDivider: { height: 1, backgroundColor: '#e6ecf4' },
+  sheetHandleZone: { paddingTop: 2, paddingBottom: 10, alignItems: 'center' },
+  sheetHandle: { width: 40, height: 5, borderRadius: 999, backgroundColor: '#dce3ec' },
+  sheetLoadingRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  sheetLoadingText: { color: '#20304c', fontSize: 16, fontWeight: '800' },
+  modeSwitcher: { flexDirection: 'row', backgroundColor: '#eef2f7', borderRadius: 15, padding: 4, marginBottom: 12 },
+  modeSegment: { flex: 1, alignItems: 'center', gap: 1, paddingVertical: 7, borderRadius: 11 },
+  modeSegmentActive: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#102a43',
+    shadowOpacity: 0.14,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3
+  },
+  modeSegmentLabel: { fontSize: 11, fontWeight: '700', color: '#8493a8', marginTop: 1 },
+  modeSegmentLabelActive: { color: '#1f63c7', fontWeight: '800' },
+  modeSegmentTime: { fontSize: 10, fontWeight: '700', color: '#9aa7b8' },
+  modeSegmentTimeActive: { color: '#1f63c7' },
+  sheetSummaryRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  sheetModeChip: { width: 42, height: 42, borderRadius: 13, backgroundColor: '#1f63c7', alignItems: 'center', justifyContent: 'center' },
+  sheetSummaryTitle: { color: '#102a43', fontSize: 19, fontWeight: '900', lineHeight: 23 },
+  sheetSummarySub: { color: '#62748b', fontSize: 13, fontWeight: '700', marginTop: 2 },
+  sheetStepsScroll: { maxHeight: 250, marginTop: 12, borderTopWidth: 1, borderTopColor: '#eef1f6', paddingTop: 6 },
+  sheetStepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 7 },
+  sheetStepIcon: { width: 30, height: 30, borderRadius: 9, backgroundColor: '#eef4fb', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  sheetStepText: { flex: 1, color: '#20304c', fontSize: 14, fontWeight: '700', lineHeight: 19 },
+  sheetStepDist: { color: '#8493a8', fontSize: 12, fontWeight: '800', marginTop: 2 },
+  sheetStepsToggle: { color: '#1f63c7', fontSize: 13, fontWeight: '800', marginTop: 10 },
+  sheetActionsRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  sheetGoButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#1f63c7',
+    paddingVertical: 13,
+    borderRadius: 14
+  },
+  sheetGoButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '800' },
+  sheetShareButton: { width: 52, borderRadius: 14, borderWidth: 1, borderColor: '#dbe3ee', backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
   nativeMapEmptyTitle: { color: '#102a43', fontSize: 17, fontWeight: '900', textAlign: 'center' },
   nativeMapEmptyText: { color: '#62748b', fontSize: 13, lineHeight: 18, fontWeight: '700', textAlign: 'center', marginTop: 6, paddingHorizontal: 18 },
   nativeMapPopup: { position: 'absolute', left: 12, right: 12, bottom: 12, minHeight: 58, borderRadius: 16, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e0ea', padding: 10, flexDirection: 'row', alignItems: 'center', gap: 10, shadowColor: '#102a43', shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3 },

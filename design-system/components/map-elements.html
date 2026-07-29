@@ -1,0 +1,44 @@
+<!-- @dsCard group="Карта" -->
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Элементы карты — Da Nang Guide</title>
+<style>
+  body{margin:0;padding:28px;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:#e9edf1;display:flex;flex-direction:column;gap:18px;max-width:420px}
+  .lbl{color:#6b7a90;font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase}
+  .strip{display:flex;gap:26px;align-items:center}
+  .pin{width:40px;height:40px;border-radius:50%;background:#e05a3f;border:3px solid #fff;box-shadow:0 5px 12px rgba(224,90,63,.45);display:flex;align-items:center;justify-content:center}
+  .dot-place{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.94);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,42,67,.2)}
+  .dot-place i{width:18px;height:18px;border-radius:50%;background:#e05a3f;border:2px solid #fff}
+  .user{width:34px;height:34px;border-radius:50%;background:rgba(31,99,199,.26);display:flex;align-items:center;justify-content:center}
+  .user i{width:17px;height:17px;border-radius:50%;background:#1f63c7;border:3px solid #fff}
+  .route-dot{width:11px;height:11px;border-radius:50%;background:#1f63c7;border:2px solid #fff;box-shadow:0 1px 3px rgba(16,42,67,.3)}
+  .start{width:14px;height:14px;border-radius:50%;background:#22a06b;border:2px solid #fff}
+  .popup{display:flex;align-items:center;gap:11px;background:#fff;border:1px solid #e6ecf4;border-radius:18px;padding:10px;box-shadow:0 14px 30px rgba(16,42,67,.18)}
+  .popup .th{width:52px;height:52px;border-radius:13px;background:linear-gradient(120deg,#9fd3ef,#2e9ec9);flex-shrink:0}
+  .popup .t{color:#102a43;font-size:14px;font-weight:900;line-height:17px}
+  .popup .m{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:11px}
+  .popup .d{color:#e05a3f;font-weight:800}
+  .popup .s{color:#62748b;font-weight:700}
+  .popup button{border:0;min-height:38px;border-radius:12px;background:#1f63c7;color:#fff;font-size:12px;font-weight:900;padding:0 15px;font-family:inherit;cursor:pointer}
+  svg.route{display:block}
+</style></head><body>
+<div class="lbl">Маркеры: пин места (40) · точка места (26/18) · «вы здесь» (34/17) · точка маршрута · старт</div>
+<div class="strip">
+  <div class="pin"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a2 2 0 0 0 4 0V3"/><path d="M8 9v12"/><path d="M16.5 3c-1.4 0-2.5 2-2.5 4.5s1.1 4 2.5 4"/><path d="M16.5 3v18"/></svg></div>
+  <div class="dot-place"><i></i></div>
+  <div class="user"><i></i></div>
+  <div class="route-dot"></div>
+  <div class="start"></div>
+</div>
+<div class="lbl">Линия маршрута: синяя 5px на белой подложке 9px (+ пунктирная «превью»)</div>
+<svg class="route" width="360" height="70" viewBox="0 0 360 70">
+  <path d="M10 58 C 90 46 150 40 200 28 S 310 12 350 10" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round"/>
+  <path d="M10 58 C 90 46 150 40 200 28 S 310 12 350 10" fill="none" stroke="#1f63c7" stroke-width="5" stroke-linecap="round"/>
+  <path d="M10 30 C 100 24 220 40 350 42" fill="none" stroke="#1f63c7" stroke-opacity=".5" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.5 9"/>
+</svg>
+<div class="lbl">Попап места (тап по маркеру)</div>
+<div class="popup">
+  <div class="th"></div>
+  <div style="flex:1;min-width:0"><div class="t">туман</div><div class="m"><span class="d">350 м</span><span style="color:#c2ccda">·</span><span class="s">Кафе · Хай Чау</span></div></div>
+  <button>Маршрут</button>
+</div>
+</body></html>

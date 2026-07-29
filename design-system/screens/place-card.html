@@ -1,0 +1,73 @@
+<!-- @dsCard group="Экраны" -->
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Экран: карточка места (текущий вид v15)</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#e6eaf1;padding:30px;display:flex;justify-content:center;font-family:-apple-system,'Segoe UI',Roboto,sans-serif}
+  .phone{width:402px;height:874px;background:#0b0e13;border-radius:54px;padding:11px;box-shadow:0 30px 70px rgba(11,25,48,.4)}
+  .scr{width:100%;height:100%;border-radius:44px;overflow:hidden;background:#fff;position:relative}
+  .hdr{position:sticky;top:0;z-index:6;background:#f5f7fb;border-bottom:1px solid #dbe3ee;padding:54px 16px 12px;display:flex;align-items:center;justify-content:space-between}
+  .logo{color:#1f63c7;font-size:21px;font-weight:900}
+  .back{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #dbe3ee;border-radius:13px;padding:8px 13px;color:#102a43;font-weight:800;font-size:14px}
+  .body{position:absolute;inset:0;overflow-y:auto}
+  .content{padding:14px 16px 0;display:flex;flex-direction:column;gap:16px}
+  .hero{position:relative;height:208px;border-radius:26px;overflow:hidden;background:linear-gradient(180deg,#ffd9a0 0%,#9fd3ef 35%,#2e9ec9 70%,#1c7fb0 100%)}
+  .hero .chip{position:absolute;left:14px;top:14px;background:rgba(16,42,67,.55);color:#fff;font-size:12px;font-weight:800;padding:5px 11px;border-radius:999px}
+  .tblock{display:flex;flex-direction:column;gap:12px;border-bottom:1px solid rgba(214,223,235,.9);padding-bottom:16px}
+  .trow{display:flex;align-items:flex-start;gap:10px}
+  .sub{color:#62748b;font-size:14px;font-weight:800}
+  .title{color:#102a43;font-size:28px;line-height:33px;font-weight:900;margin-top:4px}
+  .rate{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:13px}
+  .rate b{color:#102a43;font-weight:800}
+  .rate .d{color:#c2ccda}
+  .rate .loc{color:#62748b;font-weight:700}
+  .sq{width:46px;height:46px;border-radius:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .badge{background:#fff7e5;border:1px solid #f2d58a}
+  .fav{background:#eef2f8;color:#2f78d6;font-size:22px}
+  .desc{color:#62748b;font-size:15px;line-height:22px}
+  .pills{display:flex;gap:8px;flex-wrap:wrap}
+  .p-a{background:#eef4fb;color:#1f63c7;font-size:13px;font-weight:800;padding:7px 13px;border-radius:11px}
+  .p{background:#fff;border:1px solid #e3e9f1;color:#35507a;font-size:13px;font-weight:700;padding:7px 12px;border-radius:11px}
+  .map{position:relative;margin:4px -16px 0;height:340px;overflow:hidden;background:#e9edf1}
+  .map .water{position:absolute;right:-14%;top:-24%;width:56%;height:150%;background:#a9d5ea;transform:rotate(20deg);border-radius:44px}
+  .map .r1{position:absolute;left:-12%;top:44%;width:130%;height:13px;background:#fff;box-shadow:0 0 0 1px #e2e7ee;transform:rotate(-7deg)}
+  .map .r2{position:absolute;left:8%;top:8%;width:70%;height:9px;background:#ffe0a8;transform:rotate(62deg)}
+  .map .park{position:absolute;right:9%;bottom:9%;width:78px;height:50px;border-radius:12px;background:#cbe6c9}
+  .pin{position:absolute;left:58%;top:41%;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;background:#e05a3f;border:3px solid #fff;box-shadow:0 5px 12px rgba(224,90,63,.45);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px}
+  .user{position:absolute;left:30%;top:74%;transform:translate(-50%,-50%);width:34px;height:34px;border-radius:50%;background:rgba(31,99,199,.26);display:flex;align-items:center;justify-content:center}
+  .user i{width:17px;height:17px;border-radius:50%;background:#1f63c7;border:3px solid #fff}
+  .scrim{position:absolute;left:0;right:0;bottom:0;height:82px;background:linear-gradient(to top,rgba(233,237,241,.95),rgba(233,237,241,0))}
+  .cta{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);display:inline-flex;align-items:center;gap:7px;background:#1f63c7;color:#fff;font-size:14px;font-weight:800;padding:12px 18px;border-radius:999px;box-shadow:0 8px 22px rgba(11,43,87,.36);white-space:nowrap}
+  .how{display:flex;flex-direction:column;gap:9px;padding-bottom:120px}
+  .how .h{color:#102a43;font-size:18px;font-weight:900}
+  .how .t{color:#62748b;font-size:14px;line-height:21px}
+  .how .a{color:#102a43;font-weight:800;font-size:14px}
+</style></head><body>
+<div class="phone"><div class="scr"><div class="body">
+  <div class="hdr"><span class="logo">Твой гид</span><span class="back">‹ Назад</span></div>
+  <div class="content">
+    <div class="hero"><span class="chip">Кафе</span></div>
+    <div class="tblock">
+      <div class="trow">
+        <div style="flex:1;min-width:0">
+          <div class="sub">Еда</div>
+          <div class="title">туман</div>
+          <div class="rate"><b>★ 4,7</b><span class="d">·</span><span class="loc">Хай Чау</span></div>
+        </div>
+        <div class="sq badge">🛡️</div>
+        <div class="sq fav">♡</div>
+      </div>
+      <div class="desc">Уютное место у набережной с видом на реку Хан — кофе, завтраки весь день и тихий второй этаж.</div>
+      <div class="pills"><span class="p-a">от 90 000 ₫</span><span class="p">Wi-Fi</span><span class="p">Веранда</span></div>
+    </div>
+    <div class="map">
+      <div class="water"></div><div class="r1"></div><div class="r2"></div><div class="park"></div>
+      <div class="user"><i></i></div>
+      <div class="pin">🍴</div>
+      <div class="scrim"></div>
+      <div class="cta">🚶 Построить маршрут</div>
+    </div>
+    <div class="how"><div class="h">Как добраться</div><div class="t">От набережной Bạch Đằng — около 10 минут пешком.</div><div class="a">Nguyễn Tất Thành, 120 · Хай Чау</div></div>
+  </div>
+</div></div></div>
+</body></html>
