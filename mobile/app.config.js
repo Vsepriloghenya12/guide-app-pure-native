@@ -24,7 +24,7 @@ module.exports = {
       // clone gets push too (EAS file env GOOGLE_SERVICES_JSON supplies the file;
       // local dev falls back to the repo-root copy)
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON || './google-services.json',
-      versionCode: 20,
+      versionCode: 22,
       permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'POST_NOTIFICATIONS'],
       blockedPermissions: [
         'android.permission.RECORD_AUDIO',

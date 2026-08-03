@@ -48,6 +48,8 @@ import {
   type TravelMode,
   type WalkingRoute
 } from './src/utils/directions';
+import { GUIDE_MAP_STYLE, MAP_BG_COLOR } from './src/utils/mapStyle';
+import { buildClusterIndex, getClusterNodes, regionForZoom } from './src/utils/clustering';
 import { estimateTravelTime, formatDistance, hasCoordinates, haversineDistanceKm } from './src/utils/geo';
 import { loadFavoriteSlugs, saveFavoriteSlugs } from './src/utils/favorites';
 import { clearAuthToken, getAuthUserAvatarUrl, getCachedAuthUser, readUserFromAuthToken, saveAuthToken } from './src/utils/auth';
@@ -1037,6 +1039,7 @@ function AppContent() {
 
   return (
     <View style={styles.safeArea} {...backSwipeResponder.panHandlers}>
+      <MapWarmup />
       <StatusBar translucent barStyle={route.name === 'detail' ? 'light-content' : 'dark-content'} backgroundColor="transparent" />
       {!hideTopHeader ? (
         <View style={[styles.appHeader, { paddingTop: mobileInsets.top + 8 }]}>
@@ -1786,6 +1789,7 @@ function CategoryScreen({
               height={viewportHeight}
               showControls
               controlsTopOffset={mobileInsets.top + 10}
+              showsUserLocation={Boolean(nearbyUserPoint)}
               onOpenPlace={(item) => {
                 setMapOpen(false);
                 openDetail(item);
@@ -2279,6 +2283,37 @@ function isOpenNow(hoursRaw: unknown): boolean | null {
   return current >= start || current < end;
 }
 
+// Прогрев Google Maps SDK: первый MapView в процессе Android инициализирует
+// Play Services Maps (~1-3 сек на слабых устройствах). Держим невидимую карту
+// 1×1 px при старте — все настоящие карты после этого открываются мгновенно.
+function MapWarmup() {
+  const [isArmed, setArmed] = useState(false);
+  const [isDone, setDone] = useState(false);
+
+  useEffect(() => {
+    // не соревнуемся с первичным рендером приложения
+    const timer = setTimeout(() => setArmed(true), 600);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (Platform.OS !== 'android' || !isArmed || isDone) return null;
+
+  return (
+    <View pointerEvents="none" style={styles.mapWarmup}>
+      <MapView
+        provider={PROVIDER_GOOGLE}
+        style={styles.mapWarmupMap}
+        initialRegion={{ latitude: 16.06, longitude: 108.22, latitudeDelta: 0.1, longitudeDelta: 0.1 }}
+        liteMode={false}
+        onMapReady={() => {
+          // даём SDK дозагрузить рендерер и убираем прогревочную карту
+          setTimeout(() => setDone(true), 800);
+        }}
+      />
+    </View>
+  );
+}
+
 // ─── Иконки из дизайн-макета (Карта места) ──────────────────────────────────
 function WalkIcon({ size = 16, color = '#ffffff' }: { size?: number; color?: string }) {
   return (
@@ -2323,6 +2358,18 @@ function TravelModeIcon({ mode, size = 22, color = '#8493a8' }: { mode: TravelMo
   if (mode === 'scooter') return <ScooterIcon size={size} color={color} />;
   if (mode === 'bike') return <BikeIcon size={size} color={color} />;
   return <TaxiIcon size={size} color={color} />;
+}
+
+function TrafficIcon({ active = false, size = 20 }: { active?: boolean; size?: number }) {
+  const color = active ? '#1f63c7' : '#8493a8';
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round">
+      <Path d="M8 3.5h8v17H8z" />
+      <Circle cx={12} cy={7.5} r={1.7} fill="#e05a3f" stroke="none" />
+      <Circle cx={12} cy={12} r={1.7} fill="#f5a623" stroke="none" />
+      <Circle cx={12} cy={16.5} r={1.7} fill="#22a06b" stroke="none" />
+    </Svg>
+  );
 }
 
 function CloseIcon({ size = 16, color = '#20304c' }: { size?: number; color?: string }) {
@@ -2488,7 +2535,9 @@ function GuideMap({
   controlsTopOffset = 16,
   popupActionLabel = 'Открыть',
   disablePlacePopup = false,
-  lite = false,
+  preview = false,
+  showsUserLocation = false,
+  mapBottomPadding = 0,
   onMapPress
 }: {
   places?: GuidePlace[];
@@ -2504,8 +2553,12 @@ function GuideMap({
   controlsTopOffset?: number;
   popupActionLabel?: string;
   disablePlacePopup?: boolean;
-  /** Android liteMode: static-like lightweight map that renders near-instantly — for inline previews */
-  lite?: boolean;
+  /** Non-interactive styled preview: full native map, gestures off, tap = onMapPress */
+  preview?: boolean;
+  /** Native blue "my location" dot + locate button (needs granted permission) */
+  showsUserLocation?: boolean;
+  /** Keeps the Google logo/camera clear of bottom sheets */
+  mapBottomPadding?: number;
   onMapPress?: () => void;
 }) {
   const [selectedPlace, setSelectedPlace] = useState<GuidePlace | null>(null);
@@ -2576,6 +2629,37 @@ function GuideMap({
     }
   }, [regionFitKey]);
 
+  // ── Кластеризация: при 10+ точках маркеры группируются в пузыри с числом,
+  // тап по пузырю приближает камеру до распада кластера ──
+  const clusteringEnabled = placeMarkers.length >= 10 && !preview;
+  const [visibleRegion, setVisibleRegion] = useState<{
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  } | null>(null);
+  const [showsTrafficLayer, setShowsTrafficLayer] = useState(false);
+  const clusterIndex = useMemo(
+    () =>
+      clusteringEnabled
+        ? buildClusterIndex(placeMarkers.map(({ place, coordinate }) => ({
+            id: place.id,
+            latitude: coordinate.latitude,
+            longitude: coordinate.longitude
+          })))
+        : null,
+    [clusteringEnabled, placesKey]
+  );
+  const clusterNodes = useMemo(
+    () => (clusterIndex ? getClusterNodes(clusterIndex, visibleRegion ?? mapRegion) : []),
+    [clusterIndex, visibleRegion, mapRegion]
+  );
+  const placeById = useMemo(() => {
+    const map = new Map<string, { place: GuidePlace; coordinate: { latitude: number; longitude: number } }>();
+    placeMarkers.forEach((entry) => map.set(entry.place.id, entry));
+    return map;
+  }, [placesKey]);
+
   // Apple Maps' camera has no `zoom` field (only altitude) — fall back to halving/doubling
   // the altitude so the zoom buttons work on iOS too.
   const zoomCamera = (direction: 1 | -1) => {
@@ -2609,13 +2693,23 @@ function GuideMap({
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         style={styles.nativeMap}
         initialRegion={mapRegion}
-        showsCompass={!lite}
+        customMapStyle={GUIDE_MAP_STYLE}
+        showsCompass={!preview}
         toolbarEnabled={false}
-        liteMode={lite && Platform.OS === 'android'}
         loadingEnabled
         loadingIndicatorColor="#1f63c7"
-        loadingBackgroundColor="#e8f1f8"
+        loadingBackgroundColor={MAP_BG_COLOR}
+        scrollEnabled={!preview}
+        zoomEnabled={!preview}
+        rotateEnabled={!preview}
+        pitchEnabled={!preview}
+        moveOnMarkerPress={false}
+        showsUserLocation={showsUserLocation}
+        showsMyLocationButton={showsUserLocation && !preview}
+        showsTraffic={showsTrafficLayer}
+        mapPadding={mapBottomPadding ? { top: 0, right: 0, bottom: mapBottomPadding, left: 0 } : undefined}
         onPress={onMapPress}
+        onRegionChangeComplete={clusteringEnabled ? setVisibleRegion : undefined}
         onMapReady={() => {
           isMapReadyRef.current = true;
           if (pendingRegionRef.current) {
@@ -2656,25 +2750,54 @@ function GuideMap({
             </View>
           </Marker>
         ))}
-        {placeMarkers.map(({ place, coordinate }) => (
-          <Marker
-            key={`place-${place.id}`}
-            coordinate={coordinate}
-            anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges={markerVariant === 'pin' ? pinTracks : false}
-            onPress={disablePlacePopup ? undefined : () => setSelectedPlace(place)}
-          >
-            {markerVariant === 'pin' ? (
-              <View style={styles.nativeMapPinMarker}>
-                <ForkIcon size={20} />
-              </View>
-            ) : (
-              <View style={styles.nativeMapMarkerHaloLarge}>
-                <View style={styles.nativeMapMarkerPlaceDot} />
-              </View>
-            )}
-          </Marker>
-        ))}
+        {(() => {
+          const renderPlaceMarker = (entry: { place: GuidePlace; coordinate: { latitude: number; longitude: number } }) => (
+            <Marker
+              key={`place-${entry.place.id}`}
+              coordinate={entry.coordinate}
+              anchor={{ x: 0.5, y: 0.5 }}
+              tracksViewChanges={markerVariant === 'pin' ? pinTracks : false}
+              onPress={disablePlacePopup ? undefined : () => setSelectedPlace(entry.place)}
+            >
+              {markerVariant === 'pin' ? (
+                <View style={styles.nativeMapPinMarker}>
+                  <ForkIcon size={20} />
+                </View>
+              ) : (
+                <View style={styles.nativeMapMarkerHaloLarge}>
+                  <View style={styles.nativeMapMarkerPlaceDot} />
+                </View>
+              )}
+            </Marker>
+          );
+
+          if (!clusteringEnabled) return placeMarkers.map(renderPlaceMarker);
+
+          return clusterNodes.map((node) => {
+            if (node.type === 'cluster') {
+              return (
+                <Marker
+                  key={`cluster-${node.id}`}
+                  coordinate={{ latitude: node.latitude, longitude: node.longitude }}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                  tracksViewChanges={false}
+                  onPress={() => {
+                    mapViewRef.current?.animateToRegion(
+                      regionForZoom(node.latitude, node.longitude, node.expansionZoom + 0.4),
+                      320
+                    );
+                  }}
+                >
+                  <View style={styles.clusterBubble}>
+                    <Text style={styles.clusterBubbleText}>{node.count}</Text>
+                  </View>
+                </Marker>
+              );
+            }
+            const entry = placeById.get(node.id);
+            return entry ? renderPlaceMarker(entry) : null;
+          });
+        })()}
         {userPoint ? (
           <Marker coordinate={userPoint} title="Вы здесь" anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
             <View style={styles.nativeMapUserRing}>
@@ -2718,6 +2841,13 @@ function GuideMap({
               <ZoomGlyph minus />
             </TouchableOpacity>
           </View>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={[styles.mapControlButton, showsTrafficLayer && styles.mapControlButtonActive]}
+            onPress={() => setShowsTrafficLayer((value) => !value)}
+          >
+            <TrafficIcon active={showsTrafficLayer} />
+          </TouchableOpacity>
         </View>
       ) : null}
       {selectedPlace ? (
@@ -3965,7 +4095,7 @@ function DetailScreen({
             >
               <GuideMap
                 flat
-                lite
+                preview
                 places={[place]}
                 routePolyline={builtRoute?.coordinates}
                 routeIsFallback={builtRoute ? !builtRoute.roadRoute : false}
@@ -4006,6 +4136,8 @@ function DetailScreen({
               showControls
               controlsTopOffset={mobileInsets.top + 10}
               disablePlacePopup
+              showsUserLocation={Boolean(routeOrigin) && !isDemoOrigin}
+              mapBottomPadding={168}
             />
           </InlineErrorBoundary>
           <TouchableOpacity
@@ -4467,6 +4599,26 @@ const styles = StyleSheet.create({
   detailBottomCtaText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
   offlineBanner: { backgroundColor: '#b3442e', paddingVertical: 6, paddingHorizontal: 14, alignItems: 'center' },
   offlineBannerText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
+  mapWarmup: { position: 'absolute', top: -10, left: -10, width: 1, height: 1, opacity: 0 },
+  mapWarmupMap: { width: 1, height: 1 },
+  clusterBubble: {
+    minWidth: 40,
+    height: 40,
+    borderRadius: 20,
+    paddingHorizontal: 6,
+    backgroundColor: '#1f63c7',
+    borderWidth: 3,
+    borderColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0b2b57',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5
+  },
+  clusterBubbleText: { color: '#ffffff', fontSize: 14, fontWeight: '900' },
+  mapControlButtonActive: { borderWidth: 2, borderColor: '#1f63c7' },
   // ── Строки списка категории (Прототип Твой гид.dc) ──
   listRow: {
     flexDirection: 'row',
