@@ -1039,7 +1039,6 @@ function AppContent() {
 
   return (
     <View style={styles.safeArea} {...backSwipeResponder.panHandlers}>
-      <MapWarmup />
       <StatusBar translucent barStyle={route.name === 'detail' ? 'light-content' : 'dark-content'} backgroundColor="transparent" />
       {!hideTopHeader ? (
         <View style={[styles.appHeader, { paddingTop: mobileInsets.top + 8 }]}>
@@ -2283,37 +2282,6 @@ function isOpenNow(hoursRaw: unknown): boolean | null {
   return current >= start || current < end;
 }
 
-// Прогрев Google Maps SDK: первый MapView в процессе Android инициализирует
-// Play Services Maps (~1-3 сек на слабых устройствах). Держим невидимую карту
-// 1×1 px при старте — все настоящие карты после этого открываются мгновенно.
-function MapWarmup() {
-  const [isArmed, setArmed] = useState(false);
-  const [isDone, setDone] = useState(false);
-
-  useEffect(() => {
-    // не соревнуемся с первичным рендером приложения
-    const timer = setTimeout(() => setArmed(true), 600);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (Platform.OS !== 'android' || !isArmed || isDone) return null;
-
-  return (
-    <View pointerEvents="none" style={styles.mapWarmup}>
-      <MapView
-        provider={PROVIDER_GOOGLE}
-        style={styles.mapWarmupMap}
-        initialRegion={{ latitude: 16.06, longitude: 108.22, latitudeDelta: 0.1, longitudeDelta: 0.1 }}
-        liteMode={false}
-        onMapReady={() => {
-          // даём SDK дозагрузить рендерер и убираем прогревочную карту
-          setTimeout(() => setDone(true), 800);
-        }}
-      />
-    </View>
-  );
-}
-
 // ─── Иконки из дизайн-макета (Карта места) ──────────────────────────────────
 function WalkIcon({ size = 16, color = '#ffffff' }: { size?: number; color?: string }) {
   return (
@@ -2617,6 +2585,23 @@ function GuideMap({
   // animateToRegion is a silent no-op before the native map is ready (Android/PROVIDER_GOOGLE),
   // so queue the region and replay it from onMapReady instead of consuming the fit key for nothing
   const isMapReadyRef = useRef(false);
+  // Самолечение «серой карты»: если нативная поверхность не поднялась за 8с,
+  // тихо пересоздаём MapView (key bump). Вторая неудача — показываем кнопку.
+  const [mapAttempt, setMapAttempt] = useState(0);
+  const [isMapStuck, setMapStuck] = useState(false);
+  useEffect(() => {
+    isMapReadyRef.current = false;
+    const timer = setTimeout(() => {
+      if (isMapReadyRef.current) return;
+      if (mapAttempt === 0) {
+        setMapAttempt(1); // одна автоматическая попытка
+      } else {
+        setMapStuck(true);
+      }
+    }, 8000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapAttempt]);
   const pendingRegionRef = useRef<{ latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number } | null>(null);
   useEffect(() => {
     if (lastFitKeyRef.current === regionFitKey) return;
@@ -2689,6 +2674,7 @@ function GuideMap({
   return (
     <View style={[cardStyle, { height }]}>
       <MapView
+        key={`map-surface-${mapAttempt}`}
         ref={mapViewRef}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         style={styles.nativeMap}
@@ -2847,6 +2833,21 @@ function GuideMap({
             onPress={() => setShowsTrafficLayer((value) => !value)}
           >
             <TrafficIcon active={showsTrafficLayer} />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      {isMapStuck ? (
+        <View style={styles.mapStuckOverlay}>
+          <Text style={styles.mapStuckText}>Карта не загрузилась</Text>
+          <TouchableOpacity
+            activeOpacity={0.86}
+            style={styles.mapStuckButton}
+            onPress={() => {
+              setMapStuck(false);
+              setMapAttempt((value) => value + 1);
+            }}
+          >
+            <Text style={styles.mapStuckButtonText}>Перезагрузить карту</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -3162,7 +3163,16 @@ function NearbyScreen({
   return (
     <View style={styles.screenGap}>
       <ScreenHeader title="Карта" text="Наша карта с точками, которые добавлены в гид." />
-      <GuideMap places={placesWithCoordinates} onOpenPlace={openDetail} height={310} />
+      <InlineErrorBoundary
+        fallback={(
+          <View style={styles.detailMapFallback}>
+            <Text style={styles.detailMapFallbackTitle}>Карта временно недоступна</Text>
+            <Text style={styles.detailMapFallbackText}>Список мест ниже работает как обычно.</Text>
+          </View>
+        )}
+      >
+        <GuideMap places={placesWithCoordinates} onOpenPlace={openDetail} height={310} />
+      </InlineErrorBoundary>
       <AppButton label={position ? 'Обновить геолокацию' : 'Показать места рядом'} onPress={() => void askLocation()} />
       {status ? <Text style={styles.noteText}>{status}</Text> : null}
       {placesWithCoordinates.length === 0 ? <EmptyState title="Нет координат" text="У опубликованных мест пока не заполнены lat/lng." /> : null}
@@ -4599,8 +4609,16 @@ const styles = StyleSheet.create({
   detailBottomCtaText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
   offlineBanner: { backgroundColor: '#b3442e', paddingVertical: 6, paddingHorizontal: 14, alignItems: 'center' },
   offlineBannerText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
-  mapWarmup: { position: 'absolute', top: -10, left: -10, width: 1, height: 1, opacity: 0 },
-  mapWarmupMap: { width: 1, height: 1 },
+  mapStuckOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#e8f1f8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12
+  },
+  mapStuckText: { color: '#102a43', fontSize: 15, fontWeight: '800' },
+  mapStuckButton: { backgroundColor: '#1f63c7', borderRadius: 14, paddingHorizontal: 20, paddingVertical: 11 },
+  mapStuckButtonText: { color: '#ffffff', fontSize: 13.5, fontWeight: '800' },
   clusterBubble: {
     minWidth: 40,
     height: 40,
