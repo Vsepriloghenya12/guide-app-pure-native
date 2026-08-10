@@ -18,7 +18,15 @@ export type WalkingRoute = {
   steps: RouteStep[];
 };
 
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyDTDtz5ZdNanN19XgrAULyCeBSOe948qaU';
+// Comes from the EXPO_PUBLIC_GOOGLE_MAPS_API_KEY EAS environment variable at
+// bundle time — no hardcoded fallback, keys don't belong in source control.
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+if (!GOOGLE_MAPS_API_KEY) {
+  // Loud, once, in every build type: without the key every route silently
+  // degrades to a straight line — that must never be a mystery again
+  // eslint-disable-next-line no-console
+  console.warn('[routes] EXPO_PUBLIC_GOOGLE_MAPS_API_KEY is not set — road routing is disabled, only straight lines will be shown');
+}
 const REQUEST_TIMEOUT_MS = 15000;
 
 const ROUTES_API_MODE: Record<TravelMode, string> = {
@@ -88,9 +96,11 @@ function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
 }
 
 /**
- * Fetch with one retry on transient failure (network drop, timeout abort, 429, 5xx).
+ * Fetch with one retry on transient failure (network drop, 429, 5xx).
  * Without this, a single flaky request on a slow mobile network collapses the whole
  * route to a straight line — the main reason some users only ever see «(по прямой)».
+ * Timeouts are NOT retried: the abort already burned 15s, and stacking another
+ * attempt would push a bike cache-miss past a minute of spinner.
  */
 async function fetchWithRetry(url: string, init: RequestInit, retries = 1): Promise<Response> {
   let lastError: unknown;
@@ -98,13 +108,15 @@ async function fetchWithRetry(url: string, init: RequestInit, retries = 1): Prom
     try {
       const response = await fetchWithTimeout(url, init);
       if ((response.status === 429 || response.status >= 500) && attempt < retries) {
-        continue; // transient server/rate error — try once more
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        continue; // transient server/rate error — brief backoff, then one more try
       }
       return response;
     } catch (error) {
-      // network error or timeout abort
       lastError = error;
-      if (attempt >= retries) throw error;
+      const isTimeoutAbort = error instanceof Error && error.name === 'AbortError';
+      if (isTimeoutAbort || attempt >= retries) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 800));
     }
   }
   throw lastError;

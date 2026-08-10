@@ -48,8 +48,11 @@ module.exports = {
       }
     },
     plugins: [
+      'expo-font',
       'expo-location',
       'expo-notifications',
+       "expo-image",
+       "expo-secure-store",
       [
         'expo-image-picker',
         {

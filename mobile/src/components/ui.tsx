@@ -4,6 +4,7 @@ import type { GuideCategory, GuidePlace } from '../types';
 import { API_BASE_URL } from '../api/client';
 import { normalizeImageUrl } from '../utils/normalizers';
 import { categoryIcons, defaultCategoryIcon, placeVerificationBadge } from '../assets';
+import type { ThemeTokens } from '../theme/tokens';
 
 type ButtonProps = {
   label: string;
@@ -140,7 +141,7 @@ function FullscreenImageModal({ imageUrl, onClose }: { imageUrl: string; onClose
   );
 }
 
-const styles = StyleSheet.create({
+let styles: Record<string, any> = StyleSheet.create({
   flex: { flex: 1 },
   rowBetween: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   button: {
@@ -189,3 +190,39 @@ const styles = StyleSheet.create({
 });
 
 export const uiStyles = styles;
+export function rethemeUi(t: ThemeTokens) {
+  const next: Record<string, any> = {};
+  Object.keys(styles).forEach((key) => {
+    next[key] = { ...styles[key] };
+  });
+
+  next.button.backgroundColor = t.acc;
+  next.buttonText.color = '#ffffff';
+  next.ghostButton.backgroundColor = t.card;
+  next.ghostButton.borderColor = t.hair;
+  next.ghostButtonText.color = t.fg;
+  next.pill.backgroundColor = t.card;
+  next.pillText.color = t.acc;
+  next.emptyState.backgroundColor = t.card;
+  next.emptyState.borderColor = t.hair;
+  next.emptyTitle.color = t.fg;
+  next.emptyText.color = t.dim;
+  next.loading.backgroundColor = t.page;
+  next.loadingText.color = t.dim;
+  next.categoryCard.backgroundColor = t.card;
+  next.categoryCard.borderColor = t.hair;
+  next.categoryIconImage.backgroundColor = t.hair;
+  next.cardTitle.color = t.fg;
+  next.cardText.color = t.dim;
+  next.cardMeta.color = t.dim;
+  next.countText.color = t.dim;
+  next.listingCard.backgroundColor = t.card;
+  next.listingCard.borderColor = t.hair;
+  next.listingImageWrap.backgroundColor = t.hair;
+  next.listingImage.backgroundColor = t.hair;
+  next.listingImageSlide.backgroundColor = t.hair;
+  next.favoriteButton.backgroundColor = t.hair;
+  next.favoriteText.color = t.acc;
+
+  styles = next;
+}
